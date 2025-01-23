@@ -12,6 +12,7 @@ router = APIRouter(
 todo_service = TodoService()
 logger = setup_logger("todo_router", "todo_router.log")
 
+
 @router.get("/get_all")
 async def get_todos() -> List[Todo]:
     """
@@ -26,6 +27,7 @@ async def get_todos() -> List[Todo]:
             detail="Failed to get todos"
         )
 
+
 @router.get("/get/{id}")
 async def get_todo_by_id(id: int) -> Todo:
     """
@@ -38,6 +40,7 @@ async def get_todo_by_id(id: int) -> Todo:
     except Exception as e:
         logger.error(f"Error getting todo {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get todo")
+
 
 @router.post("/create")
 async def create_todo(todo: TodoCreate) -> Todo:
@@ -52,6 +55,7 @@ async def create_todo(todo: TodoCreate) -> Todo:
             status_code=500,
             detail="Failed to create todo"
         )
+
 
 @router.put("/update/{id}")
 async def update_todo(id: int, todo: TodoUpdate) -> Todo:
@@ -70,6 +74,7 @@ async def update_todo(id: int, todo: TodoUpdate) -> Todo:
             detail="Failed to update todo"
         )
 
+
 @router.delete("/delete/{id}")
 async def delete_todo(id: int) -> Dict[str, str]:
     """
@@ -87,6 +92,7 @@ async def delete_todo(id: int) -> Dict[str, str]:
             detail="Failed to delete todo"
         )
 
+
 @router.patch("/{id}/toggle-complete")
 async def toggle_todo_complete(id: int) -> Todo:
     """Toggle todo complete status"""
@@ -100,4 +106,5 @@ async def toggle_todo_complete(id: int) -> Todo:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error toggling todo {id} complete status: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to toggle todo status")
+        raise HTTPException(
+            status_code=500, detail="Failed to toggle todo status")
