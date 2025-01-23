@@ -2,9 +2,11 @@ import factory
 from datetime import datetime
 from api.models.todo import Todo, TodoCreate, TodoUpdate
 
+
 def format_datetime():
     """Helper function to format datetime consistently"""
     return datetime.now().isoformat() + 'Z'
+
 
 class TodoFactory(factory.Factory):
     class Meta:

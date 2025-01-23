@@ -4,6 +4,7 @@ from api.index import app
 from api.core.config import get_settings, Settings
 from api.services.todo_service import TodoService
 
+
 @pytest.fixture
 def test_settings():
     """Override settings for testing"""
@@ -12,10 +13,12 @@ def test_settings():
         SUPABASE_KEY="test-key"
     )
 
+
 @pytest.fixture
 def test_client():
     """Create a test client for FastAPI app"""
     return TestClient(app)
+
 
 @pytest.fixture
 def todo_service(mocker):
@@ -23,4 +26,4 @@ def todo_service(mocker):
     service = TodoService()
     # Mock Supabase client
     mocker.patch.object(service, 'supabase')
-    return service 
+    return service
