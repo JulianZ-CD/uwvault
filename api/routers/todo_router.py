@@ -26,6 +26,19 @@ async def get_todos() -> List[Todo]:
             detail="Failed to get todos"
         )
 
+@router.get("/get/{id}")
+async def get_todo_by_id(id: int) -> Todo:
+    """
+    Get a todo by id
+    """
+    try:
+        return todo_service.get_todo_by_id(id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting todo {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get todo")
+
 @router.post("/create")
 async def create_todo(todo: TodoCreate) -> Todo:
     """
