@@ -41,7 +41,23 @@ class TodoService:
             self.logger.error(f"Unexpected error while creating todo: {str(e)}")
             raise
     
-    def update_todo(self, id: int, todo: TodoUpdate) -> Optional[Todo]:
+    def get_todo_by_id(self, id: int) -> Todo:
+        try:
+            self.logger.info(f"Fetching todo with id: {id}")
+            response = self.supabase.table('todos').select("*").eq('id', id).single().execute()
+            
+            if not response.data:
+                self.logger.warning(f"Todo with id {id} not found")
+                raise ValueError("Todo not found")
+                
+            todo = Todo(**response.data)
+            self.logger.info(f"Successfully fetched todo with id: {id}")
+            return todo
+        except Exception as e:
+            self.logger.error(f"Error while fetching todo {id}: {str(e)}")
+            raise
+    
+    def update_todo(self, id: int, todo: TodoUpdate) -> Todo:
         try:
             self.logger.info(f"Updating todo with id: {id}")
             todo_data = todo.model_dump(exclude_unset=True)
@@ -53,7 +69,7 @@ class TodoService:
             response = self.supabase.table('todos').update(todo_data).eq('id', id).execute()
             if not response.data:
                 self.logger.warning(f"Todo with id {id} not found for update")
-                return None
+                raise ValueError("Todo not found")
                 
             updated_todo = Todo(**response.data[0])
             self.logger.info(f"Successfully updated todo with id: {id}")
@@ -66,14 +82,50 @@ class TodoService:
         try:
             self.logger.info(f"Deleting todo with id: {id}")
             response = self.supabase.table('todos').delete().eq('id', id).execute()
-            success = len(response.data) > 0
-            
-            if success:
-                self.logger.info(f"Successfully deleted todo with id: {id}")
-            else:
+            if not response.data:
                 self.logger.warning(f"Todo with id {id} not found for deletion")
+                raise ValueError("Todo not found")
             
-            return success
+            self.logger.info(f"Successfully deleted todo with id: {id}")
+            return True
         except Exception as e:
             self.logger.error(f"Unexpected error while deleting todo {id}: {str(e)}")
+            raise
+
+    def mark_todo_completed(self, id: int) -> Todo:
+        try:
+            self.logger.info(f"Marking todo {id} as completed")
+            response = self.supabase.table('todos').update({
+                'is_completed': True,
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', id).execute()
+            
+            if not response.data:
+                self.logger.warning(f"Todo with id {id} not found")
+                raise ValueError("Todo not found")
+                
+            updated_todo = Todo(**response.data[0])
+            self.logger.info(f"Successfully marked todo {id} as completed")
+            return updated_todo
+        except Exception as e:
+            self.logger.error(f"Error while marking todo {id} as completed: {str(e)}")
+            raise
+
+    def mark_todo_uncompleted(self, id: int) -> Todo:
+        try:
+            self.logger.info(f"Marking todo {id} as uncompleted")
+            response = self.supabase.table('todos').update({
+                'is_completed': False,
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', id).execute()
+            
+            if not response.data:
+                self.logger.warning(f"Todo with id {id} not found")
+                raise ValueError("Todo not found")
+                
+            updated_todo = Todo(**response.data[0])
+            self.logger.info(f"Successfully marked todo {id} as uncompleted")
+            return updated_todo
+        except Exception as e:
+            self.logger.error(f"Error while marking todo {id} as uncompleted: {str(e)}")
             raise
