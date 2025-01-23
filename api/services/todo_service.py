@@ -44,17 +44,23 @@ class TodoService:
     def get_todo_by_id(self, id: int) -> Todo:
         try:
             self.logger.info(f"Fetching todo with id: {id}")
-            response = self.supabase.table('todos').select("*").eq('id', id).single().execute()
+            try:
+                response = self.supabase.table('todos').select("*").eq('id', id).single().execute()
+            except Exception as supabase_error:
+                self.logger.warning(f"Supabase error for todo {id}: {str(supabase_error)}")
+                raise ValueError(f"Todo with id {id} not found")
             
-            if not response.data:
+            if not response or not response.data:
                 self.logger.warning(f"Todo with id {id} not found")
-                raise ValueError("Todo not found")
-                
+                raise ValueError(f"Todo with id {id} not found")
+            
             todo = Todo(**response.data)
             self.logger.info(f"Successfully fetched todo with id: {id}")
             return todo
+        except ValueError:
+            raise
         except Exception as e:
-            self.logger.error(f"Error while fetching todo {id}: {str(e)}")
+            self.logger.error(f"Unexpected error while fetching todo {id}: {str(e)}")
             raise
     
     def update_todo(self, id: int, todo: TodoUpdate) -> Todo:
@@ -62,14 +68,19 @@ class TodoService:
             self.logger.info(f"Updating todo with id: {id}")
             todo_data = todo.model_dump(exclude_unset=True)
             todo_data["updated_at"] = datetime.now().isoformat()
-            
+
             if todo_data.get("due_date"):
                 todo_data["due_date"] = todo_data["due_date"].isoformat()
             
-            response = self.supabase.table('todos').update(todo_data).eq('id', id).execute()
+            try:
+                response = self.supabase.table('todos').update(todo_data).eq('id', id).execute()
+            except Exception as supabase_error:
+                self.logger.warning(f"Supabase error for todo {id}: {str(supabase_error)}")
+                raise ValueError(f"Todo with id {id} not found")
+            
             if not response.data:
                 self.logger.warning(f"Todo with id {id} not found for update")
-                raise ValueError("Todo not found")
+                raise ValueError(f"Todo with id {id} not found")
                 
             updated_todo = Todo(**response.data[0])
             self.logger.info(f"Successfully updated todo with id: {id}")
@@ -81,7 +92,12 @@ class TodoService:
     def delete_todo(self, id: int) -> bool:
         try:
             self.logger.info(f"Deleting todo with id: {id}")
-            response = self.supabase.table('todos').delete().eq('id', id).execute()
+            try:
+                response = self.supabase.table('todos').delete().eq('id', id).execute()
+            except Exception as supabase_error:
+                self.logger.warning(f"Supabase error for todo {id}: {str(supabase_error)}")
+                raise ValueError(f"Todo with id {id} not found")
+            
             if not response.data:
                 self.logger.warning(f"Todo with id {id} not found for deletion")
                 raise ValueError("Todo not found")
@@ -95,10 +111,15 @@ class TodoService:
     def mark_todo_completed(self, id: int) -> Todo:
         try:
             self.logger.info(f"Marking todo {id} as completed")
-            response = self.supabase.table('todos').update({
-                'is_completed': True,
-                'updated_at': datetime.now().isoformat()
-            }).eq('id', id).execute()
+            try:
+                response = self.supabase.table('todos').update({
+                    'is_completed': True,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', id).execute()
+            except Exception as supabase_error:
+                self.logger.warning(f"Supabase error for todo {id}: {str(supabase_error)}")
+                raise ValueError(f"Todo with id {id} not found")
+            
             
             if not response.data:
                 self.logger.warning(f"Todo with id {id} not found")
@@ -114,10 +135,15 @@ class TodoService:
     def mark_todo_uncompleted(self, id: int) -> Todo:
         try:
             self.logger.info(f"Marking todo {id} as uncompleted")
-            response = self.supabase.table('todos').update({
-                'is_completed': False,
-                'updated_at': datetime.now().isoformat()
-            }).eq('id', id).execute()
+            try:
+                response = self.supabase.table('todos').update({
+                    'is_completed': False,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', id).execute()
+            except Exception as supabase_error:
+                self.logger.warning(f"Supabase error for todo {id}: {str(supabase_error)}")
+                raise ValueError(f"Todo with id {id} not found")
+            
             
             if not response.data:
                 self.logger.warning(f"Todo with id {id} not found")
