@@ -11,8 +11,12 @@ class TodoBase(BaseModel):
     due_date: Optional[datetime] = Field(None, description="Due date")
 
 # Model for creating a new todo
-class TodoCreate(TodoBase):
-    pass
+class TodoCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100, description="Todo title")
+    description: str = Field("", max_length=500, description="Todo description")
+    is_completed: bool = Field(default=False, description="Is completed")
+    priority: int = Field(default=1, ge=1, le=5, description="Priority 1-5, 5 highest")
+    due_date: Optional[datetime] = Field(None, description="Due date")
 
 # Model for updating an existing todo
 class TodoUpdate(BaseModel):
