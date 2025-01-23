@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 # Define the base model for todos
 class TodoBase(BaseModel):
@@ -28,5 +28,4 @@ class Todo(TodoBase):
     created_at: datetime = Field(default_factory=datetime.now, description="Created at")
     updated_at: datetime = Field(default_factory=datetime.now, description="Updated at")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
