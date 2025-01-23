@@ -1,6 +1,7 @@
 import pytest
 from fastapi import status
 
+
 @pytest.mark.e2e
 def test_todo_crud_flow(test_client):
     """Test complete CRUD flow for todos"""
@@ -10,11 +11,12 @@ def test_todo_crud_flow(test_client):
         "description": "Testing the complete flow",
         "priority": 3
     }
-    create_response = test_client.post("/api/py/todos/create", json=create_data)
+    create_response = test_client.post(
+        "/api/py/todos/create", json=create_data)
     assert create_response.status_code == status.HTTP_200_OK
     created_todo = create_response.json()
     todo_id = created_todo["id"]
-    
+
     # Verify all fields in created todo
     assert created_todo["title"] == create_data["title"]
     assert created_todo["description"] == create_data["description"]
@@ -51,6 +53,7 @@ def test_todo_crud_flow(test_client):
     get_deleted = test_client.get(f"/api/py/todos/get/{todo_id}")
     assert get_deleted.status_code == status.HTTP_404_NOT_FOUND
 
+
 @pytest.mark.e2e
 def test_todo_error_cases(test_client):
     """Test error cases for todo operations"""
@@ -71,4 +74,4 @@ def test_todo_error_cases(test_client):
     assert update_response.status_code == status.HTTP_404_NOT_FOUND
 
     delete_response = test_client.delete(f"/api/py/todos/delete/{invalid_id}")
-    assert delete_response.status_code == status.HTTP_404_NOT_FOUND 
+    assert delete_response.status_code == status.HTTP_404_NOT_FOUND

@@ -3,6 +3,7 @@ from fastapi import status
 from api.tests.factories import TodoCreateFactory, TodoUpdateFactory
 from datetime import datetime, timedelta
 
+
 @pytest.mark.integration
 class TestTodoRouter:
     BASE_URL = "/api/py/todos"  # Matches the prefix defined in the router
@@ -43,7 +44,8 @@ class TestTodoRouter:
     def test_get_todo_by_id(self, test_client):
         # Arrange
         todo_data = TodoCreateFactory().model_dump(mode='json')
-        create_response = test_client.post(f"{self.BASE_URL}/create", json=todo_data)
+        create_response = test_client.post(
+            f"{self.BASE_URL}/create", json=todo_data)
         todo_id = create_response.json()["id"]
 
         # Act
@@ -66,14 +68,16 @@ class TestTodoRouter:
         # Arrange
         # First create a todo
         todo_data = TodoCreateFactory().model_dump(mode='json')
-        create_response = test_client.post(f"{self.BASE_URL}/create", json=todo_data)
+        create_response = test_client.post(
+            f"{self.BASE_URL}/create", json=todo_data)
         todo_id = create_response.json()["id"]
 
         # Prepare update data
         update_data = TodoUpdateFactory().model_dump(mode='json', exclude_unset=True)
 
         # Act
-        response = test_client.put(f"{self.BASE_URL}/update/{todo_id}", json=update_data)
+        response = test_client.put(
+            f"{self.BASE_URL}/update/{todo_id}", json=update_data)
 
         # Assert
         assert response.status_code == status.HTTP_200_OK
@@ -86,7 +90,8 @@ class TestTodoRouter:
     def test_delete_todo(self, test_client):
         # Arrange
         todo_data = TodoCreateFactory().model_dump(mode='json')
-        create_response = test_client.post(f"{self.BASE_URL}/create", json=todo_data)
+        create_response = test_client.post(
+            f"{self.BASE_URL}/create", json=todo_data)
         todo_id = create_response.json()["id"]
 
         # Act
@@ -100,12 +105,15 @@ class TestTodoRouter:
 
     def test_toggle_todo_complete(self, test_client):
         # Arrange
-        todo_data = TodoCreateFactory(is_completed=False).model_dump(mode='json')
-        create_response = test_client.post(f"{self.BASE_URL}/create", json=todo_data)
+        todo_data = TodoCreateFactory(
+            is_completed=False).model_dump(mode='json')
+        create_response = test_client.post(
+            f"{self.BASE_URL}/create", json=todo_data)
         todo_id = create_response.json()["id"]
 
         # Act
-        response = test_client.patch(f"{self.BASE_URL}/{todo_id}/toggle-complete")
+        response = test_client.patch(
+            f"{self.BASE_URL}/{todo_id}/toggle-complete")
 
         # Assert
         assert response.status_code == status.HTTP_200_OK
@@ -119,7 +127,8 @@ class TestTodoRouter:
         }
 
         # Act
-        response = test_client.post(f"{self.BASE_URL}/create", json=invalid_todo_data)
+        response = test_client.post(
+            f"{self.BASE_URL}/create", json=invalid_todo_data)
 
         # Assert
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -129,7 +138,8 @@ class TestTodoRouter:
         update_data = TodoUpdateFactory().model_dump(mode='json', exclude_unset=True)
 
         # Act
-        response = test_client.put(f"{self.BASE_URL}/update/99999", json=update_data)
+        response = test_client.put(
+            f"{self.BASE_URL}/update/99999", json=update_data)
 
         # Assert
-        assert response.status_code == status.HTTP_404_NOT_FOUND 
+        assert response.status_code == status.HTTP_404_NOT_FOUND
