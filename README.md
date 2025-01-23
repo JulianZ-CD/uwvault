@@ -102,7 +102,7 @@ Also, the app/api routes are available on the same domain, so you can use NextJs
 
 On localhost, the rewrite will be made to the `127.0.0.1:8000` port, which is where the FastAPI server is running.
 
-In production, the FastAPI server is hosted as [Python serverless functions](https://vercel.com/docs/concepts/functions/serverless-functions/runtimes/python) on Vercel.
+To visit the auto-generated OpenAPI docs, go to `http://localhost:3000/api/py/docs`
 
 ## Getting Started
 
