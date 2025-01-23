@@ -46,7 +46,7 @@ class TestTodoService:
         ).single().execute.return_value.data = None
 
         # Act & Assert
-        with pytest.raises(ValueError, match="Todo not found"):
+        with pytest.raises(ValueError, match="Todo with id 999 not found"):
             todo_service.get_todo_by_id(999)
 
     def test_create_todo(self, todo_service, mocker):
@@ -98,7 +98,7 @@ class TestTodoService:
         todo_service.supabase.table().update().eq().execute.return_value.data = []
 
         # Act & Assert
-        with pytest.raises(ValueError, match="Todo not found"):
+        with pytest.raises(ValueError, match="Todo with id 999 not found"):
             todo_service.update_todo(999, update_data)
 
     def test_delete_todo(self, todo_service, mocker):
@@ -121,7 +121,7 @@ class TestTodoService:
         todo_service.supabase.table().delete().eq().execute.return_value.data = []
 
         # Act & Assert
-        with pytest.raises(ValueError, match="Todo not found"):
+        with pytest.raises(ValueError, match="Todo with id 999 not found"):
             todo_service.delete_todo(999)
 
     def test_mark_todo_completed(self, todo_service, mocker):

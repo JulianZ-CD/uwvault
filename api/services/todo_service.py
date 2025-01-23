@@ -114,7 +114,7 @@ class TodoService:
             if not response.data:
                 self.logger.warning(
                     f"Todo with id {id} not found for deletion")
-                raise ValueError("Todo not found")
+                raise ValueError(f"Todo with id {id} not found")
 
             self.logger.info(f"Successfully deleted todo with id: {id}")
             return True
@@ -138,7 +138,7 @@ class TodoService:
 
             if not response.data:
                 self.logger.warning(f"Todo with id {id} not found")
-                raise ValueError("Todo not found")
+                raise ValueError(f"Todo with id {id} not found")
 
             updated_todo = Todo(**response.data[0])
             self.logger.info(f"Successfully marked todo {id} as completed")
@@ -163,7 +163,7 @@ class TodoService:
 
             if not response.data:
                 self.logger.warning(f"Todo with id {id} not found")
-                raise ValueError("Todo not found")
+                raise ValueError(f"Todo with id {id} not found")
 
             updated_todo = Todo(**response.data[0])
             self.logger.info(f"Successfully marked todo {id} as uncompleted")
