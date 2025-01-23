@@ -47,14 +47,9 @@ async def update_todo(id: int, todo: TodoUpdate) -> Todo:
     """
     try:
         updated_todo = todo_service.update_todo(id, todo)
-        if not updated_todo:
-            raise HTTPException(
-                status_code=404,
-                detail="Todo not found"
-            )
         return updated_todo
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error updating todo {id}: {str(e)}")
         raise HTTPException(
@@ -68,17 +63,28 @@ async def delete_todo(id: int) -> Dict[str, str]:
     Delete a todo
     """
     try:
-        if not todo_service.delete_todo(id):
-            raise HTTPException(
-                status_code=404,
-                detail="Todo not found"
-            )
+        todo_service.delete_todo(id)
         return {"message": "Todo deleted successfully"}
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error deleting todo {id}: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail="Failed to delete todo"
         )
+
+@router.patch("/{id}/toggle-complete")
+async def toggle_todo_complete(id: int) -> Todo:
+    """Toggle todo complete status"""
+    try:
+        todo = todo_service.get_todo_by_id(id)
+        if todo.is_completed:
+            return todo_service.mark_todo_uncompleted(id)
+        else:
+            return todo_service.mark_todo_completed(id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error toggling todo {id} complete status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to toggle todo status")
