@@ -132,6 +132,8 @@ export default function TodoPage() {
         body: JSON.stringify({
           title: editingTodo.title,
           description: editingTodo.description,
+          priority: editingTodo.priority,
+          due_date: editingTodo.due_date,
         }),
       });
 
