@@ -11,14 +11,30 @@ export default function TodoPage() {
   const { toast } = useToast();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState<TodoCreate>({
-    title: '',
-    description: '',
+    title: "",
+    description: "",
     is_completed: false,
     priority: 1,
-    due_date: null
+    due_date: null,
   });
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const showAlert = (message: string, type: "success" | "error") => {
+    if (type === "error") {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: message,
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: message,
+        className: "border-green-500 text-green-700",
+      });
+    }
+  };
 
   const fetchTodos = async () => {
     try {
@@ -26,11 +42,7 @@ export default function TodoPage() {
       const data = await response.json();
       setTodos(data);
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch todos",
-      });
+      showAlert("Failed to fetch todos", "error");
     }
   };
 
@@ -40,11 +52,7 @@ export default function TodoPage() {
 
   const createTodo = async () => {
     if (!newTodo.title.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Title is required",
-      });
+      showAlert("Title is required", "error");
       return;
     }
 
@@ -57,24 +65,17 @@ export default function TodoPage() {
 
       if (response.ok) {
         setNewTodo({
-          title: '',
-          description: '',
+          title: "",
+          description: "",
           is_completed: false,
           priority: 1,
-          due_date: null
+          due_date: null,
         });
         fetchTodos();
-        toast({
-          title: "Success",
-          description: "Todo created successfully",
-        });
+        showAlert("Todo created successfully", "success");
       }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to create todo",
-      });
+      showAlert("Failed to create todo", "error");
     }
   };
 
@@ -86,17 +87,10 @@ export default function TodoPage() {
 
       if (response.ok) {
         fetchTodos();
-        toast({
-          title: "Success",
-          description: "Todo status updated",
-        });
+        showAlert("Todo status updated", "success");
       }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update todo status",
-      });
+      showAlert("Failed to update todo status", "error");
     }
   };
 
@@ -108,17 +102,10 @@ export default function TodoPage() {
 
       if (response.ok) {
         fetchTodos();
-        toast({
-          title: "Success",
-          description: "Todo deleted successfully",
-        });
+        showAlert("Todo deleted successfully", "success");
       }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to delete todo",
-      });
+      showAlert("Failed to delete todo", "error");
     }
   };
 
@@ -141,17 +128,10 @@ export default function TodoPage() {
         setEditingTodo(null);
         setIsDialogOpen(false);
         fetchTodos();
-        toast({
-          title: "Success",
-          description: "Todo updated successfully",
-        });
+        showAlert("Todo updated successfully", "success");
       }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update todo",
-      });
+      showAlert("Failed to update todo", "error");
     }
   };
 
@@ -185,7 +165,9 @@ export default function TodoPage() {
         onSubmit={createTodo}
       />
 
-      <div className="space-y-4">
+      <div className="my-8"></div>
+
+      <div className="space-y-2">
         {sortedTodos.map((todo) => (
           <TodoItem
             key={todo.id}
