@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useToast } from "@/app/hooks/use-toast";
+import { useState } from "react";
 import { Todo, TodoCreate } from "@/app/types/todo";
+import { useTodoOperations } from "@/app/hooks/useTodoOperations";
+
 import { TodoForm } from "./components/todo-form";
 import { TodoItem } from "./components/todo-item";
 import { EditTodoDialog } from "./components/edit-todo-dialog";
+import { sortTodos } from "./utils/todoUtils";
 
 export default function TodoPage() {
-  const { toast } = useToast();
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const { todos, isLoading, createTodo, updateTodo, toggleTodo, deleteTodo } =
+    useTodoOperations();
+
   const [newTodo, setNewTodo] = useState<TodoCreate>({
     title: "",
     description: "",
@@ -20,140 +23,33 @@ export default function TodoPage() {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const showAlert = (message: string, type: "success" | "error") => {
-    if (type === "error") {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: message,
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: message,
-        className: "border-green-500 text-green-700",
+  const handleCreateTodo = async () => {
+    const success = await createTodo(newTodo);
+    if (success) {
+      setNewTodo({
+        title: "",
+        description: "",
+        is_completed: false,
+        priority: 1,
+        due_date: null,
       });
     }
   };
 
-  const fetchTodos = async () => {
-    try {
-      const response = await fetch("/api/py/todos/get_all");
-      const data = await response.json();
-      setTodos(data);
-    } catch (error) {
-      showAlert("Failed to fetch todos", "error");
-    }
-  };
-
-  useEffect(() => {
-    fetchTodos();
-  }, []);
-
-  const createTodo = async () => {
-    if (!newTodo.title.trim()) {
-      showAlert("Title is required", "error");
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/py/todos/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTodo),
-      });
-
-      if (response.ok) {
-        setNewTodo({
-          title: "",
-          description: "",
-          is_completed: false,
-          priority: 1,
-          due_date: null,
-        });
-        fetchTodos();
-        showAlert("Todo created successfully", "success");
-      }
-    } catch (error) {
-      showAlert("Failed to create todo", "error");
-    }
-  };
-
-  const toggleTodo = async (id: number) => {
-    try {
-      const response = await fetch(`/api/py/todos/${id}/toggle-complete`, {
-        method: "PATCH",
-      });
-
-      if (response.ok) {
-        fetchTodos();
-        showAlert("Todo status updated", "success");
-      }
-    } catch (error) {
-      showAlert("Failed to update todo status", "error");
-    }
-  };
-
-  const deleteTodo = async (id: number) => {
-    try {
-      const response = await fetch(`/api/py/todos/delete/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchTodos();
-        showAlert("Todo deleted successfully", "success");
-      }
-    } catch (error) {
-      showAlert("Failed to delete todo", "error");
-    }
-  };
-
-  const updateTodo = async () => {
+  const handleUpdateTodo = async () => {
     if (!editingTodo) return;
-
-    try {
-      const response = await fetch(`/api/py/todos/update/${editingTodo.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: editingTodo.title,
-          description: editingTodo.description,
-          priority: editingTodo.priority,
-          due_date: editingTodo.due_date,
-        }),
-      });
-
-      if (response.ok) {
-        setEditingTodo(null);
-        setIsDialogOpen(false);
-        fetchTodos();
-        showAlert("Todo updated successfully", "success");
-      }
-    } catch (error) {
-      showAlert("Failed to update todo", "error");
+    const success = await updateTodo(editingTodo.id, editingTodo);
+    if (success) {
+      setEditingTodo(null);
+      setIsDialogOpen(false);
     }
   };
 
-  const sortedTodos = [...todos].sort((a, b) => {
-    // First, sort by is_completed to ensure completed tasks are at the bottom
-    if (a.is_completed !== b.is_completed) {
-      return a.is_completed ? 1 : -1; // Completed tasks are ranked lowest
-    }
-    // If both tasks have the same completion status, sort by priority
-    if (a.priority !== b.priority) {
-      return b.priority - a.priority; // Higher priority tasks come first
-    }
-    // If both tasks have the same priority, sort by due date
-    if (a.due_date && b.due_date) {
-      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime(); // Earlier due dates come first
-    }
-    // If one task has a due date and the other doesn't, the one with a due date comes first
-    if (a.due_date) return -1;
-    if (b.due_date) return 1;
-    // If all else is equal, the order doesn't matter
-    return 0;
-  });
+  const sortedTodos = sortTodos(todos);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -162,7 +58,7 @@ export default function TodoPage() {
       <TodoForm
         todo={newTodo}
         onTodoChange={setNewTodo}
-        onSubmit={createTodo}
+        onSubmit={handleCreateTodo}
       />
 
       <div className="my-8"></div>
@@ -187,7 +83,7 @@ export default function TodoPage() {
         isOpen={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onTodoChange={setEditingTodo}
-        onSave={updateTodo}
+        onSave={handleUpdateTodo}
       />
     </div>
   );
