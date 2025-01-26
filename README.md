@@ -146,6 +146,12 @@ pytest [options]
 ... -v 
 # filter by test function name
 ... -k function_name
+# check coverage
+... --cov=api
+# check coverage report
+... --cov-report=html
+# check coverage report in xml
+... --cov-report=xml
 ```
 
 Frontend:
