@@ -8,7 +8,7 @@ export function useTodoOperations() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const showAlert = (message: string, type: "success" | "error") => {
     if (type === "error") {
       toast({
@@ -32,7 +32,7 @@ export function useTodoOperations() {
     try {
       const data = await todoService.getAllTodos();
       setTodos(data);
-    } catch (error) {
+    } catch {
       showAlert("Failed to fetch todos", "error");
     } finally {
       setIsLoading(false);
@@ -52,12 +52,9 @@ export function useTodoOperations() {
         showAlert("Todo created successfully", "success");
         return true;
       }
-      showAlert("Failed to create todo", "error");
-      return false;
-    } catch (error) {
-      showAlert("Failed to create todo", "error");
-      return false;
-    }
+    } catch {}
+    showAlert("Failed to create todo", "error");
+    return false;
   };
 
   const updateTodo = async (id: number, todoData: Partial<Todo>) => {
@@ -68,12 +65,9 @@ export function useTodoOperations() {
         showAlert("Todo updated successfully", "success");
         return true;
       }
-      showAlert("Failed to update todo", "error");
-      return false;
-    } catch (error) {
-      showAlert("Failed to update todo", "error");
-      return false;
-    }
+    } catch {}
+    showAlert("Failed to update todo", "error");
+    return false;
   };
 
   const toggleTodo = async (id: number) => {
@@ -82,12 +76,11 @@ export function useTodoOperations() {
       if (response.ok) {
         await fetchTodos();
         showAlert("Todo status updated", "success");
-      } else {
-        showAlert("Failed to update todo status", "error");
+        return true;
       }
-    } catch (error) {
-      showAlert("Failed to update todo status", "error");
-    }
+    } catch {}
+    showAlert("Failed to update todo status", "error");
+    return false;
   };
 
   const deleteTodo = async (id: number) => {
@@ -96,12 +89,11 @@ export function useTodoOperations() {
       if (response.ok) {
         await fetchTodos();
         showAlert("Todo deleted successfully", "success");
-      } else {
-        showAlert("Failed to delete todo", "error");
+        return true;
       }
-    } catch (error) {
-      showAlert("Failed to delete todo", "error");
-    }
+    } catch {}
+    showAlert("Failed to delete todo", "error");
+    return false;
   };
 
   useEffect(() => {
@@ -117,4 +109,4 @@ export function useTodoOperations() {
     toggleTodo,
     deleteTodo,
   };
-} 
+}
