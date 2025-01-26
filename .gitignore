@@ -7,6 +7,10 @@
 
 # testing
 /coverage
+/htmlcov
+/pytest_cache
+/.swc
+.coverage
 
 # logs
 logs/

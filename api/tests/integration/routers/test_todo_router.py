@@ -119,6 +119,22 @@ class TestTodoRouter:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["is_completed"] is True
 
+    def test_toggle_todo_uncomplete(self, test_client):
+        # Arrange
+        todo_data = TodoCreateFactory(
+            is_completed=True).model_dump(mode='json')
+        create_response = test_client.post(
+            f"{self.BASE_URL}/create", json=todo_data)
+        todo_id = create_response.json()["id"]
+
+        # Act
+        response = test_client.patch(
+            f"{self.BASE_URL}/{todo_id}/toggle-complete")
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["is_completed"] is False
+
     def test_create_todo_validation_error(self, test_client):
         # Arrange
         invalid_todo_data = {
@@ -140,6 +156,94 @@ class TestTodoRouter:
         # Act
         response = test_client.put(
             f"{self.BASE_URL}/update/99999", json=update_data)
+
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_todos_server_error(self, test_client, mocker):
+        """Test server error when getting all todos"""
+        # Arrange
+        mocker.patch('api.routers.todo_router.todo_service.get_todos',
+                    side_effect=Exception("Database error"))
+
+        # Act
+        response = test_client.get(f"{self.BASE_URL}/get_all")
+
+        # Assert
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Failed to get todos"
+
+    def test_get_todo_by_id_server_error(self, test_client, mocker):
+        """Test server error when getting a todo by ID"""
+        # Arrange
+        mocker.patch('api.routers.todo_router.todo_service.get_todo_by_id',
+                    side_effect=Exception("Database error"))
+
+        # Act
+        response = test_client.get(f"{self.BASE_URL}/get/1")
+
+        # Assert
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Failed to get todo"
+
+    def test_create_todo_server_error(self, test_client, mocker):
+        """Test server error when creating a todo"""
+        # Arrange
+        todo_data = TodoCreateFactory().model_dump(mode='json')
+        mocker.patch('api.routers.todo_router.todo_service.create_todo',
+                    side_effect=Exception("Database error"))
+
+        # Act
+        response = test_client.post(f"{self.BASE_URL}/create", json=todo_data)
+
+        # Assert
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Failed to create todo"
+
+    def test_update_todo_server_error(self, test_client, mocker):
+        """Test server error when updating a todo"""
+        # Arrange
+        update_data = TodoUpdateFactory().model_dump(mode='json', exclude_unset=True)
+        mocker.patch('api.routers.todo_router.todo_service.update_todo',
+                    side_effect=Exception("Database error"))
+
+        # Act
+        response = test_client.put(f"{self.BASE_URL}/update/1", json=update_data)
+
+        # Assert
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Failed to update todo"
+
+    def test_delete_todo_server_error(self, test_client, mocker):
+        """Test server error when deleting a todo"""
+        # Arrange
+        mocker.patch('api.routers.todo_router.todo_service.delete_todo',
+                    side_effect=Exception("Database error"))
+
+        # Act
+        response = test_client.delete(f"{self.BASE_URL}/delete/1")
+
+        # Assert
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Failed to delete todo"
+
+    def test_toggle_todo_complete_server_error(self, test_client, mocker):
+        """Test server error when toggling todo complete status"""
+        # Arrange
+        mocker.patch('api.routers.todo_router.todo_service.get_todo_by_id',
+                    side_effect=Exception("Database error"))
+
+        # Act
+        response = test_client.patch(f"{self.BASE_URL}/1/toggle-complete")
+
+        # Assert
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Failed to toggle todo status"
+
+    def test_toggle_todo_complete_not_found(self, test_client):
+        """Test toggling complete status of non-existent todo"""
+        # Act
+        response = test_client.patch(f"{self.BASE_URL}/99999/toggle-complete")
 
         # Assert
         assert response.status_code == status.HTTP_404_NOT_FOUND
