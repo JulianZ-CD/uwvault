@@ -1,9 +1,15 @@
-/** @type {import('jest').Config} */
-const config = {
+const nextJest = require('next/jest')
+
+const createJestConfig = nextJest({
+  dir: './',
+})
+
+const customJestConfig = {
   preset: "ts-jest",
   testEnvironment: "jest-fixed-jsdom",
   moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/$1"
+    "^@/(.*)$": "<rootDir>/$1",
+    '^@/app/(.*)$': '<rootDir>/app/$1',
   },
   testEnvironmentOptions: {
     customExportConditions: [""],
@@ -21,4 +27,4 @@ const config = {
   ],
 };
 
-module.exports = config;
+module.exports = createJestConfig(customJestConfig)
