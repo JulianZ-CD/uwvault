@@ -266,5 +266,91 @@ describe("TodoPage", () => {
         expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
       });
     });
+
+    it("handles create todo network error", async () => {
+      server.use(
+        http.post("/api/py/todos/create", () => {
+          throw new Error("Network error");
+        })
+      );
+
+      const { user } = render(<TodoPage />);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Create New Todo" }));
+      await user.type(
+        screen.getByPlaceholderText(/enter todo title/i),
+        "New Todo"
+      );
+      await user.click(screen.getByRole("button", { name: /add todo/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Failed to create todo")).toBeInTheDocument();
+      });
+    });
+
+    it("handles update todo network error", async () => {
+      server.use(
+        http.put("/api/py/todos/update/:id", () => {
+          throw new Error("Network error");
+        })
+      );
+
+      const { user } = render(<TodoPage />);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+      });
+
+      await user.click(screen.getAllByLabelText("Edit todo")[0]);
+
+      const titleInput = screen.getByDisplayValue("Updated Todo");
+      await user.clear(titleInput);
+      await user.type(titleInput, "Updated Todo 2");
+
+      await user.click(screen.getByRole("button", { name: /save/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Failed to update todo")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("validation", () => {
+    it("shows error when todo title is empty", async () => {
+      const { user } = render(<TodoPage />);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Create New Todo" }));
+
+      await user.click(screen.getByRole("button", { name: /add todo/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Title is required")).toBeInTheDocument();
+      });
+    });
+
+    it("shows error when todo title contains only spaces", async () => {
+      const { user } = render(<TodoPage />);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Create New Todo" }));
+
+      await user.type(screen.getByPlaceholderText(/enter todo title/i), "   ");
+      await user.click(screen.getByRole("button", { name: /add todo/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Title is required")).toBeInTheDocument();
+      });
+    });
   });
 });
