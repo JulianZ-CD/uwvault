@@ -48,12 +48,33 @@ export const handlers = [
   }),
 
   // UPDATE todo
-  http.put('/api/py/todos/update/:id', () => {
-    return new HttpResponse(null, { status: 200 });
+  http.put('/api/py/todos/update/:id', async ({ params, request }) => {
+    const todoId = Number(params.id);
+    const todoIndex = mockTodos.findIndex(t => t.id === todoId);
+    
+    if (todoIndex === -1) {
+      return new HttpResponse(null, { status: 404 });
+    }
+
+    const updates = await request.json() as Partial<Todo>;
+    mockTodos[todoIndex] = {
+      ...mockTodos[todoIndex],
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    
+    return HttpResponse.json(mockTodos[todoIndex], { status: 200 });
   }),
 
   // DELETE todo
-  http.delete('/api/py/todos/delete/:id', () => {
+  http.delete('/api/py/todos/delete/:id', ({ params }) => {
+    const todoId = Number(params.id);
+    const todoIndex = mockTodos.findIndex(t => t.id === todoId);
+    
+    if (todoIndex !== -1) {
+      mockTodos.splice(todoIndex, 1);
+    }
+    
     return new HttpResponse(null, { status: 200 });
   }),
 
