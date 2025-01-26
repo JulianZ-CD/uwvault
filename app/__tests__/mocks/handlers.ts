@@ -33,16 +33,18 @@ export const handlers = [
   // CREATE todo
   http.post('/api/py/todos/create', async ({ request }) => {
     const newTodo = await request.json() as TodoCreate;
-    return HttpResponse.json({
+    const createdTodo = {
       ...newTodo,
       id: Date.now(),
       description: newTodo.description || "",
-      is_completed: newTodo.is_completed ?? false,
+      is_completed: false,
       priority: newTodo.priority ?? 1,
       due_date: newTodo.due_date ?? null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
-    }, { status: 201 });
+    };
+    mockTodos.push(createdTodo);
+    return HttpResponse.json(createdTodo, { status: 201 });
   }),
 
   // UPDATE todo
@@ -56,7 +58,14 @@ export const handlers = [
   }),
 
   // TOGGLE todo
-  http.patch('/api/py/todos/:id/toggle-complete', () => {
-    return new HttpResponse(null, { status: 200 });
+  http.patch('/api/py/todos/:id/toggle-complete', ({ params }) => {
+    const todoId = Number(params.id);
+    const todo = mockTodos.find(t => t.id === todoId);
+    if (!todo) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    
+    todo.is_completed = !todo.is_completed;
+    return HttpResponse.json(todo, { status: 200 });
   }),
 ]; 
