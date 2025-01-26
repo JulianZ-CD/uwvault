@@ -71,12 +71,21 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete }: TodoItemProps) {
         </div>
 
         <div className="flex space-x-2">
-          <Button variant="outline" size="icon" onClick={() => onEdit(todo)}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onEdit(todo)}
+            aria-label="Edit todo"
+          >
             <Pencil className="h-4 w-4" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="icon">
+              <Button
+                variant="destructive"
+                size="icon"
+                aria-label="Delete todo"
+              >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </AlertDialogTrigger>
