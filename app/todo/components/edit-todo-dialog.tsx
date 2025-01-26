@@ -10,6 +10,7 @@ import { Calendar } from "@/app/components/ui/calendar"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog"
@@ -60,6 +61,7 @@ export function EditTodoDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Todo</DialogTitle>
+          <DialogDescription>Edit the todo item by filling out the form below.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <Input

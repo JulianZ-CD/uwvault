@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/app/components/ui/dialog"
 import {
   Popover,
@@ -64,6 +65,9 @@ export function TodoForm({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Todo</DialogTitle>
+          <DialogDescription>
+            Create a new todo item by filling out the form below.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <Input

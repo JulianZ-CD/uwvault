@@ -7,7 +7,8 @@ export function useTodoOperations() {
   const { toast } = useToast();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [error, setError] = useState<string | null>(null);
+  
   const showAlert = (message: string, type: "success" | "error") => {
     if (type === "error") {
       toast({
@@ -15,12 +16,14 @@ export function useTodoOperations() {
         title: "Error",
         description: message,
       });
+      setError(message);
     } else {
       toast({
         title: "Success",
         description: message,
         className: "border-green-500 text-green-700",
       });
+      setError(null);
     }
   };
 
@@ -49,6 +52,7 @@ export function useTodoOperations() {
         showAlert("Todo created successfully", "success");
         return true;
       }
+      showAlert("Failed to create todo", "error");
       return false;
     } catch (error) {
       showAlert("Failed to create todo", "error");
@@ -64,6 +68,7 @@ export function useTodoOperations() {
         showAlert("Todo updated successfully", "success");
         return true;
       }
+      showAlert("Failed to update todo", "error");
       return false;
     } catch (error) {
       showAlert("Failed to update todo", "error");
@@ -77,6 +82,8 @@ export function useTodoOperations() {
       if (response.ok) {
         await fetchTodos();
         showAlert("Todo status updated", "success");
+      } else {
+        showAlert("Failed to update todo status", "error");
       }
     } catch (error) {
       showAlert("Failed to update todo status", "error");
@@ -89,6 +96,8 @@ export function useTodoOperations() {
       if (response.ok) {
         await fetchTodos();
         showAlert("Todo deleted successfully", "success");
+      } else {
+        showAlert("Failed to delete todo", "error");
       }
     } catch (error) {
       showAlert("Failed to delete todo", "error");
@@ -102,6 +111,7 @@ export function useTodoOperations() {
   return {
     todos,
     isLoading,
+    error,
     createTodo,
     updateTodo,
     toggleTodo,

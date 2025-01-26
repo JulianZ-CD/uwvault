@@ -10,7 +10,7 @@ import { EditTodoDialog } from "./components/edit-todo-dialog";
 import { sortTodos } from "./utils/todoUtils";
 
 export default function TodoPage() {
-  const { todos, isLoading, createTodo, updateTodo, toggleTodo, deleteTodo } =
+  const { todos, isLoading, error, createTodo, updateTodo, toggleTodo, deleteTodo } =
     useTodoOperations();
 
   const [newTodo, setNewTodo] = useState<TodoCreate>({
@@ -49,6 +49,10 @@ export default function TodoPage() {
 
   if (isLoading) {
     return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>;
   }
 
   return (
