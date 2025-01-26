@@ -131,6 +131,7 @@ The FastApi server will be running on [http://127.0.0.1:8000](http://127.0.0.1:8
 
 ## How to test
 
+Backend:
 ```bash
 pytest [options]
 
@@ -145,6 +146,18 @@ pytest [options]
 ... -v 
 # filter by test function name
 ... -k function_name
+```
+
+Frontend:
+```bash
+# run all tests
+npm test
+# run specific test
+npm test relative/path/to/test.tsx
+# run with watch mode
+npm run test:watch
+# run with coverage
+npm run test:coverage
 ```
 
 ## Learn More
