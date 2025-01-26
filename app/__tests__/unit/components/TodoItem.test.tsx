@@ -1,18 +1,18 @@
 import { render, screen } from "../../utils/test-utils";
 import { TodoItem } from "@/app/todo/components/todo-item";
 import { Todo } from "@/app/types/todo";
+import { sortTodos, formatDate } from "@/app/todo/utils/todoUtils";
+import { createMockTodo } from "@/app/__tests__/mocks/testData";
 
 describe("TodoItem", () => {
-  const mockTodo: Todo = {
+  const mockTodo = createMockTodo({
     id: 1,
     title: "Test Todo",
     description: "Test Description",
     is_completed: false,
     priority: 1,
     due_date: "2024-02-29",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  });
 
   const mockProps = {
     todo: mockTodo,
@@ -188,6 +188,132 @@ describe("TodoItem", () => {
 
       const checkbox = screen.getByRole("checkbox");
       expect(checkbox).toBeInTheDocument();
+    });
+  });
+
+  describe("todo sorting", () => {
+    it("sorts todos correctly based on completion, priority, and due date", () => {
+      const unsortedTodos: Todo[] = [
+        createMockTodo({
+          id: 1,
+          title: "Task 1",
+          priority: 2,
+          due_date: "2024-03-01T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 2,
+          title: "Task 2",
+          is_completed: true,
+          priority: 1,
+          due_date: null,
+        }),
+        createMockTodo({
+          id: 3,
+          title: "Task 3",
+          priority: 1,
+          due_date: "2024-02-29T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 4,
+          title: "Task 4",
+          priority: 3,
+          due_date: null,
+        }),
+      ];
+
+      const sortedTodos = sortTodos(unsortedTodos);
+
+      expect(sortedTodos).toEqual([
+        createMockTodo({
+          id: 4,
+          title: "Task 4",
+          priority: 3,
+          due_date: null,
+        }),
+        createMockTodo({
+          id: 1,
+          title: "Task 1",
+          priority: 2,
+          due_date: "2024-03-01T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 3,
+          title: "Task 3",
+          priority: 1,
+          due_date: "2024-02-29T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 2,
+          title: "Task 2",
+          is_completed: true,
+          priority: 1,
+          due_date: null,
+        }),
+      ]);
+    });
+
+    it("handles edge cases in sorting", () => {
+      const edgeCaseTodos: Todo[] = [
+        createMockTodo({
+          id: 1,
+          title: "Same Priority 1",
+          priority: 2,
+          due_date: "2024-03-01T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 2,
+          title: "Same Priority 2",
+          priority: 2,
+          due_date: "2024-02-29T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 3,
+          title: "No Due Date",
+          priority: 2,
+          due_date: null,
+        }),
+      ];
+
+      const sortedTodos = sortTodos(edgeCaseTodos);
+
+      expect(sortedTodos).toEqual([
+        createMockTodo({
+          id: 2,
+          title: "Same Priority 2",
+          priority: 2,
+          due_date: "2024-02-29T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 1,
+          title: "Same Priority 1",
+          priority: 2,
+          due_date: "2024-03-01T05:00:00Z",
+        }),
+        createMockTodo({
+          id: 3,
+          title: "No Due Date",
+          priority: 2,
+          due_date: null,
+        }),
+      ]);
+    });
+  });
+
+  describe("formatDate function", () => {
+    it("returns 'No due date' when date is null", () => {
+      expect(formatDate(null)).toBe("No due date");
+    });
+
+    it("formats dates correctly", () => {
+      const testCases = [
+        { input: "2024-03-15T05:00:00Z", expected: "3/15/2024" },
+        { input: "2024-12-31T05:00:00Z", expected: "12/31/2024" },
+        { input: "2024-01-01T05:00:00Z", expected: "1/1/2024" },
+      ];
+
+      testCases.forEach(({ input, expected }) => {
+        expect(formatDate(input)).toBe(expected);
+      });
     });
   });
 });

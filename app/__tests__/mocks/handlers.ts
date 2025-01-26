@@ -1,28 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { Todo, TodoCreate } from '@/app/types/todo';
-
-const mockTodos: Todo[] = [
-  {
-    id: 1,
-    title: 'Test Todo 1',
-    description: 'Description 1',
-    is_completed: false,
-    priority: 1,
-    due_date: '2024-03-01',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    title: 'Test Todo 2',
-    description: 'Description 2',
-    is_completed: true,
-    priority: 2,
-    due_date: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+import { mockTodos, createMockTodo } from './testData';
 
 export const handlers = [
   // GET all todos
@@ -33,16 +11,14 @@ export const handlers = [
   // CREATE todo
   http.post('/api/py/todos/create', async ({ request }) => {
     const newTodo = await request.json() as TodoCreate;
-    const createdTodo = {
-      ...newTodo,
+    const createdTodo = createMockTodo({
       id: Date.now(),
+      ...newTodo,
       description: newTodo.description || "",
       is_completed: false,
       priority: newTodo.priority ?? 1,
       due_date: newTodo.due_date ?? null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    });
     mockTodos.push(createdTodo);
     return HttpResponse.json(createdTodo, { status: 201 });
   }),
