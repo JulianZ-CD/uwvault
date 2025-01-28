@@ -73,10 +73,15 @@ async def update_password(
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    use reset token to update password
+    使用重置token更新密码
     """
     try:
-        result = await auth_service.update_user_password(request.token, request.new_password)
+        result = await auth_service.update_user_password(
+            request.recovery_token,
+            request.access_token,
+            request.refresh_token,
+            request.new_password
+        )
         return {"message": "Password updated successfully", "result": result}
     except Exception as e:
         raise HTTPException(

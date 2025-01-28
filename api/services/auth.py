@@ -97,22 +97,40 @@ class AuthService:
                 detail=str(e)
             )
 
-    async def reset_password(self, email: str) -> bool:
+    async def reset_password(self, email: str):
         """
         send password reset email
         """
         try:
-            self.logger.info(f"Sending password reset email to: {email}")
-            self.client.auth.reset_password_email(email)
-            self.logger.info(
-                f"Successfully sent password reset email to: {email}")
+            await self.client.auth.reset_password_email(email)
             return True
-
         except Exception as e:
-            self.logger.error(f"Password reset error: {str(e)}")
+            logger.error(f"Password reset error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
+                detail="Failed to send reset password email"
+            )
+
+    async def update_user_password(self, recovery_token: str, access_token: str, refresh_token: str, new_password: str):
+        """
+        更新用户密码
+        """
+        try:
+            # 只需设置会话
+            self.client.auth.set_session(access_token, refresh_token)
+
+            # 直接更新密码
+            update_response = self.client.auth.update_user({
+                "password": new_password
+            })
+
+            logger.info("Password updated successfully")
+            return update_response
+        except Exception as e:
+            logger.error(f"Password update error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to update password: {str(e)}"
             )
 
     async def verify_token(self, token: str):
