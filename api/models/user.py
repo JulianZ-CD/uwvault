@@ -16,21 +16,16 @@ class UserBase(BaseModel):
 # user create model
 
 
-class UserCreate(BaseModel):
-    email: EmailStr = Field(..., description="User email")
-    username: str = Field(..., min_length=3, max_length=50,
-                          description="Username")
+class UserCreate(UserBase):
     password: str = Field(..., min_length=8, description="User password")
 
 # user update model
 
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = Field(None, description="User email")
-    username: Optional[str] = Field(
-        None, min_length=3, max_length=50, description="Username")
-    password: Optional[str] = Field(
-        None, min_length=8, description="User password")
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = Field(None, max_length=500)
     is_active: Optional[bool] = Field(None, description="Is user active")
     is_verified: Optional[bool] = Field(None, description="Is user verified")
 
@@ -56,8 +51,12 @@ class UserLogin(BaseModel):
 # user response model (not include password)
 
 
-class UserResponse(UserBase):
-    id: int = Field(..., description="User ID")
+class UserResponse(BaseModel):
+    id: str  # Supabase uses UUID
+    email: EmailStr
+    username: str
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
