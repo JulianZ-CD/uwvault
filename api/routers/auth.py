@@ -1,7 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer
 from typing import Dict, Any
 from api.services.auth import AuthService
 from api.models.user import UserCreate, UserLogin
+
+# 添加安全方案
+security = HTTPBearer()
 
 router = APIRouter(
     prefix="/auth",
@@ -41,22 +45,14 @@ async def login(
 
 @router.post("/logout")
 async def logout(
-    request: Request,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    token: str = Depends(security)
 ):
     """
     user sign out
     use supabase session management
     """
-    # get token from request header
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        token = auth_header.split(' ')[1]
-        return await auth_service.sign_out(token)
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid token"
-    )
+    return await auth_service.sign_out(token.credentials)
 
 
 @router.post("/reset-password")
@@ -71,20 +67,13 @@ async def reset_password(
     return await auth_service.reset_password(email)
 
 
-@router.get("/user", response_model=Dict[str, Any])
+@router.get("/user")
 async def get_user(
-    request: Request,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    token: str = Depends(security)
 ):
     """
     get current user info
     use supabase session verification
     """
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
-    token = auth_header.split(' ')[1]
-    return await auth_service.verify_token(token)
+    return await auth_service.verify_token(token.credentials)
