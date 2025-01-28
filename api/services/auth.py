@@ -4,6 +4,9 @@ from supabase import create_client, Client
 from api.models.user import UserCreate, UserLogin, UserResponse
 from api.core.config import get_settings
 from api.utils.logger import setup_logger
+import logging
+
+logger = logging.getLogger("auth_service")
 
 
 class AuthService:
@@ -112,23 +115,22 @@ class AuthService:
                 detail=str(e)
             )
 
-    async def verify_token(self, access_token: str) -> Dict[str, Any]:
-        """
-        verify access token
-        return user info
-        """
+    async def verify_token(self, token: str):
         try:
-            self.logger.info("Attempting to verify token")
-            user = self.client.auth.get_user(access_token)
-            self.logger.info(
-                f"Successfully verified token for user: {user.id}")
-            return user
+            # 使用 Supabase 客户端验证 token
+            response = self.client.auth.get_user(token)  # 移除 await
+
+            # 添加日志
+            logger.info(f"User data: {response}")
+
+            # 返回用户数据
+            return response.user
 
         except Exception as e:
-            self.logger.error(f"Token verification error: {str(e)}")
+            logger.error(f"Token verification error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
+                detail=f"Invalid token: {str(e)}"
             )
 
     async def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
