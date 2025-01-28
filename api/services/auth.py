@@ -117,13 +117,13 @@ class AuthService:
 
     async def verify_token(self, token: str):
         try:
-            # 使用 Supabase 客户端验证 token
-            response = self.client.auth.get_user(token)  # 移除 await
+            # use supabase client to verify token
+            response = self.client.auth.get_user(token)
 
-            # 添加日志
+            # add log
             logger.info(f"User data: {response}")
 
-            # 返回用户数据
+            # return user data
             return response.user
 
         except Exception as e:
