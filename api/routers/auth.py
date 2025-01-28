@@ -4,7 +4,7 @@ from typing import Dict, Any
 from api.services.auth import AuthService
 from api.models.user import UserCreate, UserLogin,  PasswordResetConfirm
 
-# 添加安全方案
+
 security = HTTPBearer()
 
 router = APIRouter(
@@ -73,7 +73,7 @@ async def update_password(
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    使用重置token更新密码
+    update user password using reset token
     """
     try:
         result = await auth_service.update_user_password(

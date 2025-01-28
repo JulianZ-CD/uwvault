@@ -102,8 +102,9 @@ class AuthService:
         send password reset email
         """
         try:
-            await self.client.auth.reset_password_email(email)
-            return True
+            self.client.auth.reset_password_for_email(email)
+            logger.info(f"Password reset email sent to: {email}")
+            return {"message": "Password reset email sent successfully"}
         except Exception as e:
             logger.error(f"Password reset error: {str(e)}")
             raise HTTPException(
@@ -113,13 +114,13 @@ class AuthService:
 
     async def update_user_password(self, recovery_token: str, access_token: str, refresh_token: str, new_password: str):
         """
-        更新用户密码
+        update user password
         """
         try:
-            # 只需设置会话
+            # set session
             self.client.auth.set_session(access_token, refresh_token)
 
-            # 直接更新密码
+            # update password
             update_response = self.client.auth.update_user({
                 "password": new_password
             })
