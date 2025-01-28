@@ -7,3 +7,6 @@ factory-boy==3.3.1
 pytest-asyncio==0.25.2
 pytest-cov==6.0.0
 pytest-mock==3.14.0
+fastapi-users[sqlalchemy]
+python-jose[cryptography]
+passlib[bcrypt]
