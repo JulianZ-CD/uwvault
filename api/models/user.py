@@ -63,8 +63,8 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PasswordResetRequest(BaseModel):
-    email: EmailStr = Field(..., description="User email for password reset")
+# class PasswordResetRequest(BaseModel):
+#     email: EmailStr = Field(..., description="User email for password reset")
 
 
 class PasswordResetConfirm(BaseModel):
