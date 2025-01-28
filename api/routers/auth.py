@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from typing import Dict, Any
 from api.services.auth import AuthService
-from api.models.user import UserCreate, UserLogin
+from api.models.user import UserCreate, UserLogin,  PasswordResetConfirm
 
 # 添加安全方案
 security = HTTPBearer()
@@ -65,6 +65,24 @@ async def reset_password(
     use supabase password reset feature
     """
     return await auth_service.reset_password(email)
+
+
+@router.post("/update-password")
+async def update_password(
+    request: PasswordResetConfirm,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """
+    use reset token to update password
+    """
+    try:
+        result = await auth_service.update_user_password(request.token, request.new_password)
+        return {"message": "Password updated successfully", "result": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 @router.get("/user")
