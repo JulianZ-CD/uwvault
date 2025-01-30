@@ -90,6 +90,18 @@ async def update_password(
         )
 
 
+@router.put("/users/username")
+async def update_username(
+    new_username: str = Body(..., embed=True),
+    auth_service: AuthService = Depends(get_auth_service),
+    token: str = Depends(security)
+):
+    """
+    update current login user's username
+    """
+    return await auth_service.update_username(new_username, token.credentials)
+
+
 @router.get("/user")
 async def get_user(
     auth_service: AuthService = Depends(get_auth_service),

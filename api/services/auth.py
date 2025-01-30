@@ -32,12 +32,26 @@ class AuthService:
         try:
             self.logger.info(
                 f"Attempting to register user with email: {user_data.email}")
+
+            # check if user exists
+            users = self.admin_client.auth.admin.list_users()
+            for user in users:
+                if user.email == user_data.email:
+                    self.logger.error(
+                        f"User already exists: {user_data.email}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Email already registered"
+                    )
+
+            # if user not exists, continue register
             response = self.client.auth.sign_up({
                 "email": user_data.email,
                 "password": user_data.password,
-                "options": {
+                "options": {  # user metadata
                     "data": {
-                        "username": user_data.username
+                        "username": user_data.username,
+                        "role": "user"
                     }
                 }
             })
@@ -55,6 +69,9 @@ class AuthService:
                     detail="Registration failed"
                 )
 
+        except HTTPException as he:
+            # rethrow HTTP exception
+            raise he
         except Exception as e:
             self.logger.error(f"Registration error: {str(e)}")
             raise HTTPException(
@@ -231,6 +248,41 @@ class AuthService:
             return {"message": f"User {user_id} deleted successfully"}
         except Exception as e:
             logger.error(f"Delete user error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+
+    async def update_username(self, new_username: str, token: str):
+        """
+        update username
+        """
+        try:
+            # get current user info
+            current_user = await self.get_current_user(token)
+            user_id = current_user["id"]
+
+            # update username
+            response = self.admin_client.auth.admin.update_user_by_id(
+                user_id,
+                {
+                    "user_metadata": {
+                        "role": current_user["role"],
+                        "username": new_username
+                    }
+                }
+            )
+
+            self.logger.info(f"Username updated for user: {user_id}")
+            return {
+                "id": response.user.id,
+                "email": response.user.email,
+                "username": response.user.user_metadata.get("username"),
+                "role": response.user.user_metadata.get("role")
+            }
+
+        except Exception as e:
+            self.logger.error(f"Update username error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
