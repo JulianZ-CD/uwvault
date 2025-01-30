@@ -111,3 +111,51 @@ async def refresh_token(
     return new session info
     """
     return await auth_service.refresh_token(refresh_token)
+
+
+# add admin check dependency
+async def require_admin(
+    auth_service: AuthService = Depends(get_auth_service),
+    token: str = Depends(security)
+):
+    """check if user is admin"""
+    user = await auth_service.get_current_user(token.credentials)
+    if user["role"] != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return user
+
+
+# admin routes
+@router.get("/admin/users", dependencies=[Depends(require_admin)])
+async def list_users(
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """list all users (only admin)"""
+    return await auth_service.list_users()
+
+
+@router.put("/admin/users/{user_id}/role", dependencies=[Depends(require_admin)])
+async def set_user_role(
+    user_id: str,
+    role: str = Body(..., embed=True),
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """set user role (only admin)"""
+    if role not in ["admin", "user"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid role"
+        )
+    return await auth_service.set_user_role(user_id, role)
+
+
+@router.delete("/admin/users/{user_id}", dependencies=[Depends(require_admin)])
+async def delete_user(
+    user_id: str,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """delete user (only admin)"""
+    return await auth_service.delete_user(user_id)

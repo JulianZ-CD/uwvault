@@ -12,8 +12,16 @@ logger = logging.getLogger("auth_service")
 class AuthService:
     def __init__(self):
         settings = get_settings()
+        # normal client
         self.client: Client = create_client(
-            settings.SUPABASE_URL, settings.SUPABASE_KEY)
+            settings.SUPABASE_URL,
+            settings.SUPABASE_KEY
+        )
+        # admin client
+        self.admin_client = create_client(
+            settings.SUPABASE_URL,
+            settings.SUPABASE_SERVICE_KEY
+        )
         self.logger = setup_logger("auth_service", "auth_service.log")
 
     async def sign_up(self, user_data: UserCreate) -> Dict[str, Any]:
@@ -135,13 +143,18 @@ class AuthService:
             )
 
     async def get_current_user(self, token: str):
-        """
-        get current login user info
-        """
+        """get current login user info"""
         try:
             response = self.client.auth.get_user(token)
-            logger.info(f"User retrieved: {response.user.email}")
-            return response.user
+            user = response.user
+            logger.info(f"User retrieved: {user.email}")
+
+            return {
+                "id": user.id,
+                "email": user.email,
+                "username": user.user_metadata.get("username", ""),
+                "role": user.user_metadata.get("role", "user"),
+            }
 
         except Exception as e:
             logger.error(f"Get current user error: {str(e)}")
@@ -168,4 +181,57 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
+            )
+
+    # admin function
+    async def list_users(self):
+        """list all users (admin function)"""
+        try:
+            users = self.admin_client.auth.admin.list_users()
+            return [
+                {
+                    "id": user.id,
+                    "email": user.email,
+                    "role": user.user_metadata.get("role", "user"),
+                    "created_at": user.created_at,
+                    "email_verified": user.email_confirmed_at is not None
+                }
+                for user in users
+            ]
+        except Exception as e:
+            logger.error(f"List users error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+
+    async def set_user_role(self, user_id: str, role: str):
+        """set user role (admin function)"""
+        try:
+            response = self.admin_client.auth.admin.update_user_by_id(
+                user_id,
+                {
+                    "user_metadata": {
+                        "role": role
+                    }
+                }
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Set user role error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+
+    async def delete_user(self, user_id: str):
+        """delete user (admin function)"""
+        try:
+            self.admin_client.auth.admin.delete_user(user_id)
+            return {"message": f"User {user_id} deleted successfully"}
+        except Exception as e:
+            logger.error(f"Delete user error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
             )
