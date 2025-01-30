@@ -134,32 +134,29 @@ class AuthService:
                 detail=f"Failed to update password: {str(e)}"
             )
 
-    async def verify_token(self, token: str):
+    async def get_current_user(self, token: str):
+        """
+        get current login user info
+        """
         try:
-            # use supabase client to verify token
             response = self.client.auth.get_user(token)
-
-            # add log
-            logger.info(f"User data: {response}")
-
-            # return user data
+            logger.info(f"User retrieved: {response.user.email}")
             return response.user
 
         except Exception as e:
-            logger.error(f"Token verification error: {str(e)}")
+            logger.error(f"Get current user error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Invalid token: {str(e)}"
             )
 
     async def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
-        """
-        refresh access token
-        return new session info
-        """
+
         try:
             self.logger.info("Attempting to refresh token")
-            response = self.client.auth.refresh_session()
+
+            response = self.client.auth.refresh_session(refresh_token)
+
             self.logger.info("Successfully refreshed token")
             return {
                 "user": response.user,
@@ -172,20 +169,3 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
             )
-
-    async def get_current_user(self) -> Optional[Dict[str, Any]]:
-        """
-        get current login user info
-        """
-        try:
-            self.logger.info("Attempting to get current user")
-            session = self.client.auth.get_session()
-            if session and session.user:
-                self.logger.info(
-                    f"Successfully got current user: {session.user.id}")
-                return session.user
-            return None
-
-        except Exception as e:
-            self.logger.error(f"Get current user error: {str(e)}")
-            return None

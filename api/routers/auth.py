@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import HTTPBearer
 from typing import Dict, Any
 from api.services.auth import AuthService
@@ -96,7 +96,18 @@ async def get_user(
     token: str = Depends(security)
 ):
     """
-    get current user info
-    use supabase session verification
+    get current login user info
     """
-    return await auth_service.verify_token(token.credentials)
+    return await auth_service.get_current_user(token.credentials)
+
+
+@router.post("/refresh")
+async def refresh_token(
+    auth_service: AuthService = Depends(get_auth_service),
+    refresh_token: str = Body(..., embed=True)
+):
+    """
+    refresh access token
+    return new session info
+    """
+    return await auth_service.refresh_token(refresh_token)
