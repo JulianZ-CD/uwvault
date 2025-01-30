@@ -1,11 +1,10 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from api.routers.api_router import api_router
+from api.routers.auth_router import router as auth_router
 
 app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
 
 
-app.include_router(api_router)
+app.include_router(auth_router, prefix="/api/py")
 
 
 @app.get("/api/py/helloFastApi")

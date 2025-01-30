@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import HTTPBearer
 from typing import Dict, Any
-from api.services.auth import AuthService
+from api.services.auth_service import AuthService
 from api.models.user import UserCreate, UserLogin,  PasswordResetConfirm
 
 
