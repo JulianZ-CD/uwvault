@@ -4,7 +4,7 @@ from api.routers.api_router import api_router
 
 app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
 
-# CORS 配置
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -13,7 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册路由
+
 app.include_router(api_router)
 
 

@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "fastapi-dev": "python -c \"import sys; from subprocess import run; run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt']); run([sys.executable, '-m', 'uvicorn', 'api.index:app', '--reload'])\"",
+    "fastapi-dev": "pip3 install -r requirements.txt && python3 -m uvicorn api.index:app --reload || python -m uvicorn api.index:app --reload",
     "next-dev": "next dev",
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
     "build": "next build",
