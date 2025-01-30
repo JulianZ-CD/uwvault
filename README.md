@@ -38,7 +38,7 @@ graph TD
             C5[Recommendation Service]
         end
     end
-    
+
     %% Storage Layer with Details
     subgraph Storage
         subgraph PostgreSQL[PostgreSQL Database]
@@ -46,18 +46,18 @@ graph TD
             E2[Course Information]
             E3[Resource Metadata & Ratings]
         end
-        
+
         subgraph Search[ElasticSearch]
             F1[Document Index]
             F2[Course Search]
         end
-        
+
         subgraph CloudStorage[GCP Cloud Storage]
             G1[Course Documents]
             G2[Resource Files]
         end
     end
-    
+
     %% Infrastructure
     subgraph Infrastructure
         H[Docker]
@@ -66,7 +66,7 @@ graph TD
 
     %% Deployment Flow
     J3 -->|Deploy| Infrastructure
-    
+
     %% Service Connections
     Frontend --API Calls--> Services
     Services --Data Operations--> Storage
@@ -81,16 +81,16 @@ graph TD
 - Next.js: 15.1.6
 - React: 19.0.0
 - FastAPI: 0.115.0
-- PostgreSQL: 
-- ElasticSearch: 
+- PostgreSQL:
+- ElasticSearch:
 - GCP Cloud Storage
 - Docker
 
 ### File Structure
-```
 
 ```
 
+```
 
 ## How It Works
 
@@ -103,6 +103,33 @@ Also, the app/api routes are available on the same domain, so you can use NextJs
 On localhost, the rewrite will be made to the `127.0.0.1:8000` port, which is where the FastAPI server is running.
 
 To visit the auto-generated OpenAPI docs, go to `http://localhost:3000/api/py/docs`
+
+## Environment Variables File
+
+1.  Create an `env.dev` file.
+2.  Configure the following content in `env.dev`:
+
+```
+SUPABASE_URL="Your SUPABASE_URL"
+SUPABASE_KEY="Your SUPABASE_KEY"
+
+# Used to create admin user
+SUPABASE_SERVICE_KEY="Your SUPABASE_SERVICE_KEY"
+```
+
+3. `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard.
+4. The `env.dev` file will be loaded in `uwvault/api/core/config.py`.
+
+```py
+class Settings(BaseSettings):
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
+    SUPABASE_SERVICE_KEY: str
+
+    model_config = ConfigDict(
+        env_file=".env.dev"
+    )
+```
 
 ## Getting Started
 
@@ -132,6 +159,7 @@ The FastApi server will be running on [http://127.0.0.1:8000](http://127.0.0.1:8
 ## How to test
 
 Backend:
+
 ```bash
 pytest [options]
 
@@ -143,7 +171,7 @@ pytest [options]
 ... -m marker
 
 # verbose output
-... -v 
+... -v
 # filter by test function name
 ... -k function_name
 # check coverage
@@ -155,6 +183,7 @@ pytest [options]
 ```
 
 Frontend:
+
 ```bash
 # run all tests
 npm test
