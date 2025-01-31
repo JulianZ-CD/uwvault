@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from fastapi import HTTPException, status
 from supabase import create_client, Client
 from api.models.user import UserCreate, UserLogin
