@@ -287,3 +287,29 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
+
+    async def require_admin(self, token: str):
+        """
+        check if user is admin
+        if not, raise HTTPException
+        if yes, return user info
+        """
+        try:
+            current_user = await self.get_current_user(token)
+            if current_user["role"] != "admin":
+                self.logger.warning(
+                    f"Non-admin user attempted admin action: {current_user['email']}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin access required"
+                )
+            return current_user
+
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            self.logger.error(f"Admin verification error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=str(e)
+            )
