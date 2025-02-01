@@ -65,6 +65,25 @@ class UserLoginFactory(factory.Factory):
     password = factory.Sequence(lambda n: f'SecurePass{n}!')
 
 
+class InvalidUserCreateFactory(factory.Factory):
+    """used for testing invalid registration data, return dict instead of Pydantic model"""
+    class Meta:
+        model = dict  # use dict instead of UserCreate
+
+    email = "invalid_email"
+    password = "short"
+    username = "test_user"
+
+
+class NonExistentUserLoginFactory(factory.Factory):
+    """used for testing nonexistent user login"""
+    class Meta:
+        model = dict  # use dict instead of UserLogin
+
+    email = "nonexistent@example.com"
+    password = "wrongpassword123"
+
+
 class PasswordResetConfirmFactory(factory.Factory):
     class Meta:
         model = PasswordResetConfirm
@@ -75,11 +94,7 @@ class PasswordResetConfirmFactory(factory.Factory):
     new_password = factory.Sequence(lambda n: f'NewSecurePass{n}!')
 
 
-# Admin user factory for testing admin operations
 class AdminUserCreateFactory(UserCreateFactory):
-    class Meta:
-        model = UserCreate
-
+    """admin user factory"""
     email = factory.Sequence(lambda n: f'admin{n}@example.com')
-    username = factory.Sequence(lambda n: f'admin{n}')
-    # role is set to "admin" in the service layer
+    username = factory.Sequence(lambda n: f'admin_user{n}')
