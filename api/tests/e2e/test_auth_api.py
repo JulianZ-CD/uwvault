@@ -119,6 +119,18 @@ def test_admin_operations(test_client, admin_token):
     )
     assert role_response.status_code == status.HTTP_200_OK
 
+    # Verify the role change by getting all users
+    users_response = test_client.get(
+        "/api/py/auth/admin/users",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert users_response.status_code == status.HTTP_200_OK
+    users = users_response.json()
+    target_user = next((user for user in users if user["id"] == user_id), None)
+    assert target_user is not None
+    # check if the role is updated to admin
+    assert target_user["role"] == "admin"
+
     # 4. Delete user
     delete_response = test_client.delete(
         f"/api/py/auth/admin/users/{user_id}",
