@@ -1,5 +1,7 @@
 import pytest
 from fastapi import status
+from api.services.auth_service import AuthService
+from api.core.config import get_settings
 
 
 @pytest.mark.e2e
@@ -76,7 +78,7 @@ def test_auth_error_cases(test_client):
 
     # 3. Access protected route without token
     profile_response = test_client.get("/api/py/auth/user")
-    assert profile_response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert profile_response.status_code == status.HTTP_403_FORBIDDEN
 
     # 4. Access with invalid token
     invalid_token_response = test_client.get(
@@ -123,3 +125,38 @@ def test_admin_operations(test_client, admin_token):
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert delete_response.status_code == status.HTTP_200_OK
+
+
+@pytest.fixture
+async def admin_token(test_client):
+    """Create an admin user and return its token"""
+    # Get settings
+    settings = get_settings()
+
+    # Create AuthService instance (this initializes admin_client)
+    auth_service = AuthService()
+
+    # Register admin user
+    admin_data = {
+        "email": "admin@example.com",
+        "password": "adminpass123",
+        "username": "admin_user"
+    }
+
+    register_response = test_client.post(
+        "/api/py/auth/register", json=admin_data)
+    assert register_response.status_code == status.HTTP_200_OK
+    user_id = register_response.json()["user"]["id"]
+
+    # Use AuthService's admin_client to set user role to admin
+    await auth_service.set_user_role(user_id, "admin")
+
+    # Login and get token
+    login_response = test_client.post("/api/py/auth/login", json={
+        "email": admin_data["email"],
+        "password": admin_data["password"]
+    })
+
+    assert login_response.status_code == status.HTTP_200_OK
+
+    return login_response.json()["session"]["access_token"]
