@@ -49,7 +49,17 @@ def test_auth_flow(test_client):
     assert update_response.status_code == status.HTTP_200_OK
     assert update_response.json()["username"] == new_username
 
-    # 5. Logout
+    # 5. Verify username update in profile
+    updated_profile_response = test_client.get(
+        "/api/py/auth/user",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert updated_profile_response.status_code == status.HTTP_200_OK
+    updated_profile = updated_profile_response.json()
+    assert updated_profile["username"] == new_username
+    assert updated_profile["email"] == user_data["email"]  # 确保其他字段未变
+
+    # 6. Logout
     logout_response = test_client.post(
         "/api/py/auth/logout",
         headers={"Authorization": f"Bearer {access_token}"}
