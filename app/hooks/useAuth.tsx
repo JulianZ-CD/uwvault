@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!tokenStr) {
         setUser(null);
         setIsLoading(false);
-        return;
+        return null;
       }
 
       // 解析 token 数据
@@ -45,11 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         tokenData = JSON.parse(tokenStr);
       } catch (e) {
-        // 兼容旧格式的纯字符串 token
         tokenData = { access_token: tokenStr };
       }
 
-      // 确保 access_token 存在
       const accessToken = tokenData?.access_token;
       if (!accessToken) {
         throw new Error('Missing access token');
@@ -70,11 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const userData = await response.json();
       console.log('User data:', userData);
-      setUser(userData);
+      setUser(userData); // 保持内部状态更新
+      return userData; // 同时返回数据供外部使用
     } catch (error) {
       console.error('Error in getCurrentUser:', error);
       setUser(null);
-      localStorage.removeItem('token'); // 清除无效 token
+      return null;
     } finally {
       setIsLoading(false);
     }
