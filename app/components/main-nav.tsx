@@ -14,6 +14,7 @@ import {
 } from '@/app/components/ui/navigation-menu';
 import { ThemeToggle } from '@/app/components/theme-toggle';
 import { cn } from '@/app/lib/utils';
+import { Button } from '@/app/components/ui/button';
 
 const resources = [
   {
@@ -41,7 +42,7 @@ const resources = [
 ];
 
 export function MainNav() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   // 添加调试日志
   console.log('Navigation user state:', user);
@@ -98,8 +99,17 @@ export function MainNav() {
 
           <NavigationMenuItem>
             {user ? (
-              <div className={navigationMenuTriggerStyle()}>
-                {user.user_metadata?.username || user.email}
+              <div className="flex items-center gap-4">
+                <span className={navigationMenuTriggerStyle()}>
+                  {user.email}
+                </span>
+                <Button
+                  variant="ghost"
+                  className={navigationMenuTriggerStyle()}
+                  onClick={logout}
+                >
+                  Logout
+                </Button>
               </div>
             ) : (
               <Link href="/login" legacyBehavior passHref>

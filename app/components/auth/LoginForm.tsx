@@ -24,33 +24,29 @@ export function LoginForm() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
 
     try {
-      // 使用 rewrite 路径
       const response = await fetch('/api/py/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
-        // 不需要 credentials: 'include'，因为不是跨域请求
+        body: JSON.stringify({
+          email: formData.get('email'),
+          password: formData.get('password'),
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
+      }
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
+      // 存储完整的 session 对象
+      localStorage.setItem('token', JSON.stringify(data.session));
 
-      console.log('Login successful:', data);
-
-      // 存储用户信息和token
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
-
-      // 刷新路由以更新导航栏状态
       router.refresh();
       router.push('/');
 
@@ -60,7 +56,7 @@ export function LoginForm() {
       });
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(error.message);
+      setError(error.message || 'An error occurred during login');
     }
   };
 

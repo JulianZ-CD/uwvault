@@ -1,16 +1,18 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  role?: string;
+  // other user attributes...
+}
 
 interface AuthContextType {
-  user: any | null;
+  user: User | null;
   isLoading: boolean;
   error: string | null;
   getCurrentUser: () => Promise<void>;
@@ -23,47 +25,104 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const getCurrentUser = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      console.log('Current user:', user);
-      setUser(user);
+      const tokenStr = localStorage.getItem('token');
+      console.log('Token from storage:', tokenStr);
+
+      if (!tokenStr) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // 解析 token 数据
+      let tokenData;
+      try {
+        tokenData = JSON.parse(tokenStr);
+      } catch (e) {
+        // 兼容旧格式的纯字符串 token
+        tokenData = { access_token: tokenStr };
+      }
+
+      // 确保 access_token 存在
+      const accessToken = tokenData?.access_token;
+      if (!accessToken) {
+        throw new Error('Missing access token');
+      }
+
+      const response = await fetch('/api/py/auth/user', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`, // 使用正确的 access_token
+        },
+      });
+
+      // 保持原有错误处理逻辑...
     } catch (error) {
-      console.error('Error fetching user:', error);
-      setError('Failed to get user');
+      console.error('Error in getCurrentUser:', error);
+      setUser(null);
+      localStorage.removeItem('token'); // 清除无效 token
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 修改初始化逻辑
   useEffect(() => {
-    getCurrentUser();
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('token');
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+      try {
+        // 格式兼容处理
+        if (storedToken) {
+          let parsedToken;
+          try {
+            parsedToken = JSON.parse(storedToken);
+          } catch {
+            // 旧格式的字符串 token，转换为对象格式
+            parsedToken = { access_token: storedToken };
+            localStorage.setItem('token', JSON.stringify(parsedToken));
+          }
+        }
 
-    return () => {
-      subscription.unsubscribe();
+        await getCurrentUser();
+      } catch (error) {
+        console.error('Init auth error:', error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
+
+    initAuth();
   }, []);
 
+  // 修改 logout 方法
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
-      setUser(null);
+      const tokenStr = localStorage.getItem('token');
+      if (tokenStr) {
+        const tokenData = JSON.parse(tokenStr);
+        const accessToken = tokenData?.access_token;
+
+        if (accessToken) {
+          await fetch('/api/py/auth/logout', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+        }
+      }
     } catch (error) {
-      setError('Failed to logout');
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      setUser(null);
     }
   };
 
