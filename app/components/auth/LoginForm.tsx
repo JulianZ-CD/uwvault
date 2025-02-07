@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import {
   Card,
@@ -15,11 +14,6 @@ import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Alert, AlertDescription } from '@/app/components/ui/alert';
 import { useToast } from '@/app/hooks/use-toast';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export function LoginForm() {
   const router = useRouter();
@@ -34,24 +28,38 @@ export function LoginForm() {
     const password = formData.get('password') as string;
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // 使用 rewrite 路径
+      const response = await fetch('/api/py/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+        // 不需要 credentials: 'include'，因为不是跨域请求
       });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      // make sure data is stored correctly in localStorage
-      if (data.session) {
-        // refresh the route to update the navigation bar status
-        router.refresh();
-        router.push('/');
-        toast({
-          title: 'Login successful',
-          description: 'Welcome back!',
-        });
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
       }
+
+      console.log('Login successful:', data);
+
+      // 存储用户信息和token
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token', data.token);
+
+      // 刷新路由以更新导航栏状态
+      router.refresh();
+      router.push('/');
+
+      toast({
+        title: 'Login successful',
+        description: 'Welcome back!',
+      });
     } catch (error: any) {
+      console.error('Login error:', error);
       setError(error.message);
     }
   };
