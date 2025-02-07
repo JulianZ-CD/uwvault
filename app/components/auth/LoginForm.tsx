@@ -36,7 +36,7 @@ export function LoginForm() {
         setError(response.error);
       } else {
         toast({
-          title: 'Login successfully!',
+          title: 'Login successful',
           description: 'Welcome back!',
         });
         router.push('/');

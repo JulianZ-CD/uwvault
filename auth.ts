@@ -21,8 +21,8 @@ declare module 'next-auth' {
 
 // init supabase client
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 if (!process.env.AUTH_SECRET) {
