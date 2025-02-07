@@ -57,11 +57,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await fetch('/api/py/auth/user', {
         headers: {
-          Authorization: `Bearer ${accessToken}`, // 使用正确的 access_token
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
-      // 保持原有错误处理逻辑...
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('token');
+        }
+        throw new Error(`Failed to get user: ${response.status}`);
+      }
+
+      const userData = await response.json();
+      console.log('User data:', userData);
+      setUser(userData);
     } catch (error) {
       console.error('Error in getCurrentUser:', error);
       setUser(null);

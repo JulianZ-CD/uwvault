@@ -99,7 +99,7 @@ export function MainNav() {
             {user ? (
               <div className="flex items-center gap-4">
                 <span className={navigationMenuTriggerStyle()}>
-                  {user.email}
+                  {user.username}
                 </span>
                 <Button
                   variant="ghost"
