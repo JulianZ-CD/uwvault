@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import {
   Card,
@@ -16,35 +16,43 @@ import { Button } from '@/app/components/ui/button';
 import { Alert, AlertDescription } from '@/app/components/ui/alert';
 import { useToast } from '@/app/hooks/use-toast';
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
 
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
 
     try {
-      const response = await signIn('credentials', {
-        email: formData.get('email'),
-        password: formData.get('password'),
-        redirect: false,
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (response?.error) {
-        setError(response.error);
-      } else {
+      if (error) throw error;
+
+      // make sure data is stored correctly in localStorage
+      if (data.session) {
+        // refresh the route to update the navigation bar status
+        router.refresh();
+        router.push('/');
         toast({
           title: 'Login successful',
           description: 'Welcome back!',
         });
-        router.push('/');
-        router.refresh();
       }
-    } catch (error) {
-      setError('Login failed, please try again');
+    } catch (error: any) {
+      setError(error.message);
     }
   };
 
