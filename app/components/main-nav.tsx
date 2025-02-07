@@ -44,81 +44,93 @@ const resources = [
 export function MainNav() {
   const { user, logout } = useAuth();
 
-  console.log('Navigation user state:', user);
-
   return (
     <div className="container flex h-16 items-center">
-      <NavigationMenu className="flex-1">
-        <NavigationMenuList className="flex items-center">
-          <NavigationMenuItem>
-            <Link href="/" legacyBehavior passHref>
-              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                UWVault
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
-
-          <NavigationMenuItem>
-            <Link href="/todo" legacyBehavior passHref>
-              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                Todo
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
-
-          <NavigationMenuItem>
-            <NavigationMenuTrigger>Resources</NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                {resources.map((resource) => (
-                  <ListItem
-                    key={resource.title}
-                    title={resource.title}
-                    href={resource.href}
-                  >
-                    {resource.description}
-                  </ListItem>
-                ))}
-              </ul>
-            </NavigationMenuContent>
-          </NavigationMenuItem>
-
-          <NavigationMenuItem>
-            <Link href="/about" legacyBehavior passHref>
-              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                About Us
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
-
-          <NavigationMenuItem className="ml-auto">
-            <ThemeToggle />
-          </NavigationMenuItem>
-
-          <NavigationMenuItem>
-            {user ? (
-              <div className="flex items-center gap-4">
-                <span className={navigationMenuTriggerStyle()}>
-                  {user.username}
-                </span>
-                <Button
-                  variant="ghost"
-                  className={navigationMenuTriggerStyle()}
-                  onClick={logout}
-                >
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <Link href="/login" legacyBehavior passHref>
+      {/* 左侧导航 */}
+      <div className="flex-1">
+        <NavigationMenu>
+          <NavigationMenuList>
+            <NavigationMenuItem>
+              <Link href="/" legacyBehavior passHref>
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Login
+                  UWVault
                 </NavigationMenuLink>
               </Link>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <Link href="/todo" legacyBehavior passHref>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Todo
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <NavigationMenuTrigger>Resources</NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  {resources.map((resource) => (
+                    <ListItem
+                      key={resource.title}
+                      title={resource.title}
+                      href={resource.href}
+                    >
+                      {resource.description}
+                    </ListItem>
+                  ))}
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <Link href="/about" legacyBehavior passHref>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  About Us
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+          </NavigationMenuList>
+        </NavigationMenu>
+      </div>
+
+      {/* 右侧用户菜单 - 修改此处 */}
+      <div className="ml-auto flex items-center gap-4">
+        <ThemeToggle />
+
+        <NavigationMenu>
+          <NavigationMenuList>
+            {user ? (
+              <NavigationMenuItem>
+                <NavigationMenuTrigger>
+                  {user.username || user.email}
+                </NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <ul className="min-w-[150px] p-2">
+                    <li>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={logout}
+                      >
+                        Logout
+                      </Button>
+                    </li>
+                  </ul>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            ) : (
+              <NavigationMenuItem>
+                <Link href="/login" legacyBehavior passHref>
+                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                    Login
+                  </NavigationMenuLink>
+                </Link>
+              </NavigationMenuItem>
             )}
-          </NavigationMenuItem>
-        </NavigationMenuList>
-      </NavigationMenu>
+          </NavigationMenuList>
+        </NavigationMenu>
+      </div>
     </div>
   );
 }
