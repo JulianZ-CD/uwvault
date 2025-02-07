@@ -21,11 +21,16 @@ declare module 'next-auth' {
 
 // init supabase client
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_KEY!
 );
 
+if (!process.env.AUTH_SECRET) {
+  throw new Error('Missing AUTH_SECRET');
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  secret: process.env.AUTH_SECRET,
   providers: [
     CredentialsProvider({
       name: 'Credentials',

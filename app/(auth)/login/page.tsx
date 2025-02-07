@@ -2,8 +2,8 @@ import { LoginForm } from '@/app/components/auth/LoginForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '登录 | UWvault',
-  description: '登录到 UWvault',
+  title: 'Login | UWvault',
+  description: 'Login to UWvault',
 };
 
 export default function LoginPage() {

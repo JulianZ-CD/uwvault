@@ -13,9 +13,12 @@ import { Label } from '@/app/components/ui/label';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Alert, AlertDescription } from '@/app/components/ui/alert';
+import { useToast } from '@/app/hooks/use-toast';
 
 export function LoginForm() {
   const router = useRouter();
+  const { toast } = useToast();
+
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -32,11 +35,15 @@ export function LoginForm() {
       if (response?.error) {
         setError(response.error);
       } else {
+        toast({
+          title: 'Login successful',
+          description: 'Welcome back!',
+        });
         router.push('/');
         router.refresh();
       }
     } catch (error) {
-      setError('登录失败，请重试');
+      setError('Login failed, please try again');
     }
   };
 
@@ -44,7 +51,7 @@ export function LoginForm() {
     <div className="min-h-screen flex items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">登录</CardTitle>
+          <CardTitle className="text-2xl text-center">Login in</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -55,17 +62,17 @@ export function LoginForm() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" required />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
+              <Label htmlFor="password">Password</Label>
               <Input id="password" name="password" type="password" required />
             </div>
 
             <Button type="submit" className="w-full">
-              登录
+              Login in
             </Button>
           </form>
         </CardContent>
