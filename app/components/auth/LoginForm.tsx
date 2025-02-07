@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -51,7 +52,7 @@ export function LoginForm() {
     <div className="min-h-screen flex items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Login in</CardTitle>
+          <CardTitle className="text-2xl text-center">Login</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -72,8 +73,17 @@ export function LoginForm() {
             </div>
 
             <Button type="submit" className="w-full">
-              Login in
+              Login
             </Button>
+
+            <div className="mt-4 text-center text-sm">
+              <span className="text-muted-foreground">
+                Don't have an account?{' '}
+                <Link href="/register" className="text-primary hover:underline">
+                  Register here
+                </Link>
+              </span>
+            </div>
           </form>
         </CardContent>
       </Card>
