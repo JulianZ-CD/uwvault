@@ -44,9 +44,7 @@ const resources = [
 export function MainNav() {
   const { user, logout } = useAuth();
 
-  // 添加调试日志
   console.log('Navigation user state:', user);
-  console.log('User metadata:', user?.user_metadata);
 
   return (
     <div className="container flex h-16 items-center">
