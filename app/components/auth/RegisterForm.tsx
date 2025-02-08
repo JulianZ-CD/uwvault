@@ -66,7 +66,6 @@ export function RegisterForm() {
     }
 
     try {
-      // 构造请求数据
       const userData = {
         email,
         username,

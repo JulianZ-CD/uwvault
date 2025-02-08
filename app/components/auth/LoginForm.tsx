@@ -33,7 +33,7 @@ export function LoginForm() {
     const formData = new FormData(event.currentTarget);
 
     try {
-      // 1. 登录请求
+      // 1.Login request
       const response = await fetch('/api/py/auth/login', {
         method: 'POST',
         headers: {
@@ -50,20 +50,20 @@ export function LoginForm() {
         throw new Error(errorData.message || 'Login failed');
       }
 
-      // 2. 保存 token
+      // 2. Save token
       const data = await response.json();
       localStorage.setItem('token', JSON.stringify(data.session));
 
-      // 3. 获取用户信息
+      // 3. Get user information
       await getCurrentUser();
 
-      // 4. 提示成功
+      // 4. Prompt success
       toast({
         title: 'Login successful',
         description: 'Welcome back!',
       });
 
-      // 5. 跳转到首页
+      // 5. Redirect to home page
       router.push('/');
       router.refresh();
     } catch (error: any) {
