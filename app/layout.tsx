@@ -28,10 +28,10 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="border-b">
+            <div className="relative z-40 border-b">
               <MainNav />
             </div>
-            {children}
+            <div className="relative z-0">{children}</div>
           </ThemeProvider>
         </AuthProvider>
         <Toaster />
