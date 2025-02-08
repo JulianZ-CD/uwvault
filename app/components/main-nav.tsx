@@ -94,7 +94,7 @@ export function MainNav() {
         </NavigationMenu>
       </div>
 
-      {/* 右侧用户菜单 - 修改此处 */}
+      {/* 右侧用户菜单 */}
       <div className="ml-auto flex items-center gap-4">
         <ThemeToggle />
 
@@ -105,14 +105,58 @@ export function MainNav() {
                 <NavigationMenuTrigger>
                   {user.username || user.email}
                 </NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="min-w-[150px] p-2">
+                <NavigationMenuContent className="z-50">
+                  <ul className="min-w-[160px] p-2 space-y-2">
+                    <li>
+                      <Link href="/profile" legacyBehavior passHref>
+                        <NavigationMenuLink
+                          className={cn(
+                            'block w-full p-2 hover:bg-accent rounded-md transition-colors',
+                            'flex items-center gap-2'
+                          )}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="lucide lucide-user"
+                          >
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
+                          Profile
+                        </NavigationMenuLink>
+                      </Link>
+                    </li>
+                    <li className="h-px bg-border my-1" aria-hidden="true" />
                     <li>
                       <Button
                         variant="ghost"
-                        className="w-full justify-start"
+                        className="w-full justify-start gap-2"
                         onClick={logout}
                       >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="lucide lucide-log-out"
+                        >
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                          <polyline points="16 17 21 12 16 7" />
+                          <line x1="21" x2="9" y1="12" y2="12" />
+                        </svg>
                         Logout
                       </Button>
                     </li>
