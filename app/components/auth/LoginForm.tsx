@@ -53,6 +53,7 @@ export function LoginForm() {
       // 2. Save token
       const data = await response.json();
       localStorage.setItem('token', JSON.stringify(data.session));
+      document.cookie = `token=${data.session.access_token}; path=/`;
 
       // 3. Get user information
       await getCurrentUser();

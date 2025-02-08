@@ -14,6 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   getCurrentUser: () => Promise<void>;
+  login: (credentials: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: () => boolean;
   requireAuth: () => Promise<void>;
@@ -128,6 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('token');
+      document.cookie =
+        'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
       setUser(null);
     }
   };
@@ -150,11 +153,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const login = async (credentials: { email: string; password: string }) => {
+    try {
+      const response = await fetch('/api/py/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('token', JSON.stringify(data.session));
+      document.cookie = `token=${data.session.access_token}; path=/`;
+      await getCurrentUser();
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const value = {
     user,
     isLoading,
     error,
     getCurrentUser,
+    login,
     logout,
     isAdmin,
     requireAuth,
