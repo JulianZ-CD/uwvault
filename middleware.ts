@@ -14,36 +14,38 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(verifyUrl);
   }
 
-  // 公开路由列表
-  const publicPaths = [
-    '/login',
-    '/register',
-    '/verify',
-    '/api',
-    '/_next',
-    '/favicon.ico',
+  // 需要认证的路由列表
+  const protectedPaths = [
+    '/dashboard',
+    '/profile',
+    '/settings',
+    // 添加其他需要认证的路由
   ];
 
-  // 检查是否是公开路由
-  const isPublicPath = publicPaths.some((route) => path.startsWith(route));
+  // 检查是否是需要认证的路由
+  const isProtectedPath = protectedPaths.some((route) =>
+    path.startsWith(route)
+  );
 
-  if (isPublicPath) {
-    return NextResponse.next();
-  }
-
-  // 检查认证状态
-  const token = req.cookies.get('token');
-
-  // 未认证用户重定向到登录页面
-  if (!token && !isPublicPath) {
-    const loginUrl = new URL('/login', req.url);
-    loginUrl.searchParams.set('from', path);
-    return NextResponse.redirect(loginUrl);
+  // 只有访问受保护的路由时才检查认证状态
+  if (isProtectedPath) {
+    const token = req.cookies.get('token');
+    if (!token) {
+      const loginUrl = new URL('/login', req.url);
+      loginUrl.searchParams.set('from', path);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   return NextResponse.next();
 }
 
+// 只匹配需要认证的路由
 export const config = {
-  matcher: ['/((?!api/py|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/dashboard/:path*',
+    '/profile/:path*',
+    '/settings/:path*',
+    // 添加其他需要认证的路由模式
+  ],
 };
