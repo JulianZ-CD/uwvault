@@ -112,7 +112,7 @@ export function MainNav() {
                         <NavigationMenuLink
                           className={cn(
                             'block w-full p-2 hover:bg-accent rounded-md transition-colors',
-                            'flex items-center gap-2'
+                            'flex items-center gap-2 text-sm font-normal'
                           )}
                         >
                           <svg
@@ -138,7 +138,7 @@ export function MainNav() {
                     <li>
                       <Button
                         variant="ghost"
-                        className="w-full p-2 h-auto font-normal justify-start gap-2 hover:bg-accent"
+                        className="w-full p-2 h-auto text-sm font-normal justify-start gap-2 hover:bg-accent"
                         onClick={logout}
                       >
                         <svg
