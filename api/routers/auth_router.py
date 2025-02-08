@@ -62,7 +62,7 @@ async def logout(
 
 @router.post("/reset-password")
 async def reset_password(
-    email: str,
+    email: str = Body(..., embed=True),
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """

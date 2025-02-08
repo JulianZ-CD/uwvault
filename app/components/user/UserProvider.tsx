@@ -9,7 +9,7 @@ interface UserProfile {
 
 interface UserContextType {
   updateProfile: (data: { new_username: string }) => Promise<void>;
-  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -38,12 +38,27 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return response.json();
   };
 
-  const changePassword = async (oldPassword: string, newPassword: string) => {
-    // 实现修改密码的逻辑
+  const resetPassword = async (email: string) => {
+    const response = await fetch('/api/py/auth/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Status:', response.status);
+      console.error('Error data:', errorData);
+      throw new Error('Failed to send reset password email');
+    }
+
+    return response.json();
   };
 
   return (
-    <UserContext.Provider value={{ updateProfile, changePassword }}>
+    <UserContext.Provider value={{ updateProfile, resetPassword }}>
       {children}
     </UserContext.Provider>
   );

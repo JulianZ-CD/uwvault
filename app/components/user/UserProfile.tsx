@@ -36,7 +36,7 @@ interface UserProfileProps {
 export function UserProfile({ user }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || '');
-  const { updateProfile } = useUser();
+  const { updateProfile, resetPassword } = useUser();
   const { getCurrentUser } = useAuth();
   const { toast } = useToast();
 
@@ -53,6 +53,24 @@ export function UserProfile({ user }: UserProfileProps) {
       toast({
         title: 'Error',
         description: 'Failed to update username',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleResetPassword = async () => {
+    try {
+      console.log('Current user email:', user?.email); // 检查当前用户邮箱
+      await resetPassword(user?.email || '');
+      toast({
+        title: 'Success',
+        description: 'Password reset email has been sent to your email address',
+      });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send reset password email',
         variant: 'destructive',
       });
     }
@@ -119,7 +137,9 @@ export function UserProfile({ user }: UserProfileProps) {
 
       <div className="border-t pt-6">
         <h3 className="text-lg font-medium mb-4">Security</h3>
-        <Button variant="outline">Change Password</Button>
+        <Button variant="outline" onClick={handleResetPassword}>
+          Change Password
+        </Button>
       </div>
     </div>
   );
