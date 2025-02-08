@@ -4,15 +4,15 @@ import type { NextRequest } from 'next/server';
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
-  // 需要认证的路由列表
+  // Routes that need authentication
   const protectedPaths = ['/dashboard', '/profile', '/settings'];
 
-  // 检查是否是需要认证的路由
+  // Check if the route needs authentication
   const isProtectedPath = protectedPaths.some((route) =>
     path.startsWith(route)
   );
 
-  // 只有访问受保护的路由时才检查认证状态
+  // Only check authentication status when accessing protected routes
   if (isProtectedPath) {
     const token = req.cookies.get('token');
     if (!token) {
