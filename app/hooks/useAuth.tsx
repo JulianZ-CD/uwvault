@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!tokenStr) {
         setUser(null);
         setIsLoading(false);
-        return null;
+        return null; // 如果没有 token，静默返回
       }
 
       // 解析 token 数据
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await fetch('/api/py/auth/user', {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`, // 保持原有的 Bearer token 格式
         },
       });
 
@@ -63,13 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem('token');
         }
-        throw new Error(`Failed to get user: ${response.status}`);
+        return null; // 认证失败时静默返回
       }
 
       const userData = await response.json();
       console.log('User data:', userData);
-      setUser(userData); // 保持内部状态更新
-      return userData; // 同时返回数据供外部使用
+      setUser(userData);
+      return userData;
     } catch (error) {
       console.error('Error in getCurrentUser:', error);
       setUser(null);
