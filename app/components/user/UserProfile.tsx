@@ -64,23 +64,45 @@ export function UserProfile({ user }: UserProfileProps) {
     <div className="space-y-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Username</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    disabled={!isEditing}
-                    placeholder="Enter your username"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+          <div className="flex items-center justify-between">
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem className="flex-1 mr-4">
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      disabled={!isEditing}
+                      placeholder="Enter your username"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {isEditing ? (
+              <div className="flex gap-2 self-end mb-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditing(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">Save</Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="self-end mb-2"
+              >
+                Edit Username
+              </Button>
             )}
-          />
+          </div>
 
           <FormField
             control={form.control}
@@ -91,7 +113,7 @@ export function UserProfile({ user }: UserProfileProps) {
                 <FormControl>
                   <Input
                     {...field}
-                    disabled={true} // 邮箱始终禁用编辑
+                    disabled={true}
                     type="email"
                     placeholder="Enter your email"
                   />
@@ -100,35 +122,12 @@ export function UserProfile({ user }: UserProfileProps) {
               </FormItem>
             )}
           />
-
-          <div className="flex justify-end gap-4">
-            {isEditing ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditing(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">Save Changes</Button>
-              </>
-            ) : (
-              <Button type="button" onClick={() => setIsEditing(true)}>
-                Edit Profile
-              </Button>
-            )}
-          </div>
         </form>
       </Form>
 
       <div className="border-t pt-6">
-        <h3 className="text-lg font-medium">Security</h3>
-        <div className="mt-4">
-          <Button variant="outline" className="w-full sm:w-auto">
-            Change Password
-          </Button>
-        </div>
+        <h3 className="text-lg font-medium mb-4">Security</h3>
+        <Button variant="outline">Change Password</Button>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useState, useEffect, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const getCurrentUser = async () => {
     try {
@@ -132,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       document.cookie =
         'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
       setUser(null);
+      router.push('/');
     }
   };
 

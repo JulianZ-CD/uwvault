@@ -13,7 +13,7 @@ export default function ProfilePage() {
   const { user } = useAuth();
 
   return (
-    <div className="container max-w-2xl py-10">
+    <div className="container max-w-2xl mx-auto py-10">
       <Card>
         <CardHeader>
           <CardTitle>Profile Settings</CardTitle>

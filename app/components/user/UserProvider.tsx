@@ -2,15 +2,20 @@
 
 import { createContext, useContext, useState } from 'react';
 
+interface UserProfile {
+  username: string;
+  email: string;
+}
+
 interface UserContextType {
-  updateProfile: (data: any) => Promise<void>;
+  updateProfile: (data: UserProfile) => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const updateProfile = async (data: any) => {
+  const updateProfile = async (data: UserProfile) => {
     // 实现更新用户资料的逻辑
   };
 
