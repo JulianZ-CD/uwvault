@@ -44,16 +44,23 @@ class AuthService:
                         detail="Email already registered"
                     )
 
+            # 构建注册选项
+            signup_options = {
+                "data": {
+                    "username": user_data.username,
+                    "role": "user"
+                }
+            }
+
+            # 如果提供了重定向URL，添加到选项中
+            if user_data.redirect_url:
+                signup_options["email_redirect_to"] = user_data.redirect_url
+
             # if user not exists, continue register
             response = self.client.auth.sign_up({
                 "email": user_data.email,
                 "password": user_data.password,
-                "options": {  # user metadata
-                    "data": {
-                        "username": user_data.username,
-                        "role": "user"
-                    }
-                }
+                "options": signup_options
             })
 
             if response.user:

@@ -70,30 +70,35 @@ export function RegisterForm() {
         email,
         username,
         password,
+        redirect_url: `${window.location.origin}/verify`,
       };
 
-      console.log('Attempting to register with:', userData);
+      console.log('Sending registration data:', {
+        ...userData,
+        password: '[REDACTED]',
+      });
 
       const response = await fetch('/api/py/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          origin: window.location.origin,
         },
         body: JSON.stringify(userData),
+        credentials: 'include',
       });
 
-      const data = await response.json();
-      console.log('Registration response:', data);
-
       if (!response.ok) {
-        if (
-          response.status === 400 &&
-          data.detail === 'Email already registered'
-        ) {
-          throw new Error('This email is already registered');
-        }
-        throw new Error(data.detail || 'Registration failed');
+        const errorData = await response.json();
+        console.error('Registration error response:', errorData);
+        throw new Error(errorData.detail || 'Registration failed');
       }
+
+      const data = await response.json();
+      console.log('Registration response:', {
+        ...data,
+        session: data.session ? '[REDACTED]' : null,
+      });
 
       toast({
         title: 'Registration successful',

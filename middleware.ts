@@ -2,25 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
-  const url = req.nextUrl;
-  const path = url.pathname;
-  const hash = url.hash;
-
-  // 如果 URL 包含验证 token，直接重定向到 verify 页面
-  if (hash.includes('access_token') && hash.includes('type=signup')) {
-    console.log('Found signup token, redirecting to verify...');
-    const verifyUrl = new URL('/verify', req.url);
-    verifyUrl.hash = hash;
-    return NextResponse.redirect(verifyUrl);
-  }
+  const path = req.nextUrl.pathname;
 
   // 需要认证的路由列表
-  const protectedPaths = [
-    '/dashboard',
-    '/profile',
-    '/settings',
-    // 添加其他需要认证的路由
-  ];
+  const protectedPaths = ['/dashboard', '/profile', '/settings'];
 
   // 检查是否是需要认证的路由
   const isProtectedPath = protectedPaths.some((route) =>
@@ -40,12 +25,6 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-// 只匹配需要认证的路由
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/profile/:path*',
-    '/settings/:path*',
-    // 添加其他需要认证的路由模式
-  ],
+  matcher: ['/dashboard/:path*', '/profile/:path*', '/settings/:path*'],
 };

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from fastapi.security import HTTPBearer
 from typing import Dict, Any
 from api.services.auth_service import AuthService
@@ -22,12 +22,17 @@ async def get_auth_service():
 @router.post("/register", response_model=Dict[str, Any])
 async def register(
     user_data: UserCreate,
+    request: Request,
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
     user sign up
     return supabase session info, include access_token and refresh_token
     """
+    if not user_data.redirect_url:
+        origin = request.headers.get('origin', 'http://localhost:3000')
+        user_data.redirect_url = f"{origin}/verify"
+
     return await auth_service.sign_up(user_data)
 
 

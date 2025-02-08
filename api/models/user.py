@@ -18,6 +18,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, description="User password")
+    redirect_url: Optional[str] = Field(
+        None, description="Email verification redirect URL")
 
 # user update model
 
