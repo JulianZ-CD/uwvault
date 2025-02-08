@@ -16,6 +16,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/app/hooks/use-toast';
 import { Label } from '@/app/components/ui/label';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useUser } from '@/app/components/user/UserProvider';
 
 const profileFormSchema = z.object({
   username: z
@@ -33,33 +35,28 @@ interface UserProfileProps {
 
 export function UserProfile({ user }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [newUsername, setNewUsername] = useState(user?.username || '');
+  const { updateProfile } = useUser();
+  const { getCurrentUser } = useAuth();
   const { toast } = useToast();
 
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileFormSchema),
-    defaultValues: {
-      username: user?.username || '',
-      email: user?.email || '',
-    },
-  });
-
-  async function onSubmit(data: ProfileFormValues) {
+  const handleUpdateUsername = async () => {
     try {
-      // 这里添加更新用户信息的逻辑
-      console.log('Form submitted:', data);
+      await updateProfile({ new_username: newUsername });
+      await getCurrentUser(); // 刷新用户信息
+      setIsEditing(false);
       toast({
         title: 'Success',
-        description: 'Profile updated successfully',
+        description: 'Username updated successfully',
       });
-      setIsEditing(false);
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to update profile',
+        description: 'Failed to update username',
         variant: 'destructive',
       });
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -70,10 +67,8 @@ export function UserProfile({ user }: UserProfileProps) {
             <div className="text-sm">
               {isEditing ? (
                 <Input
-                  value={user?.username || ''}
-                  onChange={(e) => {
-                    // 处理用户名更改
-                  }}
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
                   className="max-w-[240px]"
                 />
               ) : (
@@ -86,11 +81,14 @@ export function UserProfile({ user }: UserProfileProps) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setIsEditing(false);
+                  setNewUsername(user?.username || '');
+                }}
               >
                 Cancel
               </Button>
-              <Button type="submit">Save</Button>
+              <Button onClick={handleUpdateUsername}>Save</Button>
             </div>
           ) : (
             <Button type="button" onClick={() => setIsEditing(true)}>

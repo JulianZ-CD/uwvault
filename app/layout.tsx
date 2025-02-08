@@ -4,6 +4,7 @@ import { MainNav } from '@/app/components/main-nav';
 import { ThemeProvider } from '@/app/components/theme-provider';
 import { Toaster } from '@/app/components/ui/toaster';
 import { AuthProvider } from '@/app/components/auth/AuthProvider';
+import { UserProvider } from '@/app/components/user/UserProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,17 +23,19 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <div className="relative z-40 border-b">
-              <MainNav />
-            </div>
-            <div className="relative z-0">{children}</div>
-          </ThemeProvider>
+          <UserProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <div className="relative z-40 border-b">
+                <MainNav />
+              </div>
+              <div className="relative z-0">{children}</div>
+            </ThemeProvider>
+          </UserProvider>
         </AuthProvider>
         <Toaster />
       </body>
