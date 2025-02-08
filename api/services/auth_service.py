@@ -44,7 +44,7 @@ class AuthService:
                         detail="Email already registered"
                     )
 
-            # 构建注册选项
+            # Build signup options
             signup_options = {
                 "data": {
                     "username": user_data.username,
@@ -52,7 +52,7 @@ class AuthService:
                 }
             }
 
-            # 如果提供了重定向URL，添加到选项中
+            # if redirect_url is provided, add it to options
             if user_data.redirect_url:
                 signup_options["email_redirect_to"] = user_data.redirect_url
 
