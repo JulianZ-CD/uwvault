@@ -132,17 +132,37 @@ export function LoginForm() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
-            </Button>
+            <div className="flex items-center justify-between">
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Logging in...' : 'Login'}
+              </Button>
+            </div>
 
             <div className="mt-4 text-center text-sm">
-              <span className="text-muted-foreground">
-                Don't have an account?{' '}
-                <Link href="/register" className="text-primary hover:underline">
-                  Register here
-                </Link>
-              </span>
+              <div className="space-y-2">
+                <div>
+                  <span className="text-muted-foreground">
+                    Don't have an account?{' '}
+                    <Link
+                      href="/register"
+                      className="text-primary hover:underline"
+                    >
+                      Register here
+                    </Link>
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">
+                    Forgot your password?{' '}
+                    <Link
+                      href="/forgot-password"
+                      className="text-primary hover:underline"
+                    >
+                      Reset it
+                    </Link>
+                  </span>
+                </div>
+              </div>
             </div>
           </form>
         </CardContent>
