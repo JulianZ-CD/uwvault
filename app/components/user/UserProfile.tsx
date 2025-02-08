@@ -15,6 +15,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/app/hooks/use-toast';
+import { Label } from '@/app/components/ui/label';
 
 const profileFormSchema = z.object({
   username: z
@@ -99,7 +100,7 @@ export function UserProfile({ user }: UserProfileProps) {
                 onClick={() => setIsEditing(true)}
                 className="self-end mb-2"
               >
-                Edit Username
+                Edit Profile
               </Button>
             )}
           </div>
@@ -122,6 +123,22 @@ export function UserProfile({ user }: UserProfileProps) {
               </FormItem>
             )}
           />
+
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <div className="text-sm text-muted-foreground capitalize">
+                {user?.role || 'user'}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>User ID</Label>
+              <div className="text-sm text-muted-foreground font-mono">
+                {user?.id}
+              </div>
+            </div>
+          </div>
         </form>
       </Form>
 
