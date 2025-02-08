@@ -63,84 +63,61 @@ export function UserProfile({ user }: UserProfileProps) {
 
   return (
     <div className="space-y-6">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="flex items-center justify-between">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem className="flex-1 mr-4">
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      disabled={!isEditing}
-                      placeholder="Enter your username"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Label>Username</Label>
+            <div className="text-sm">
+              {isEditing ? (
+                <Input
+                  value={user?.username || ''}
+                  onChange={(e) => {
+                    // 处理用户名更改
+                  }}
+                  className="max-w-[240px]"
+                />
+              ) : (
+                <div className="text-muted-foreground">{user?.username}</div>
               )}
-            />
-            {isEditing ? (
-              <div className="flex gap-2 self-end mb-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditing(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">Save</Button>
-              </div>
-            ) : (
+            </div>
+          </div>
+          {isEditing ? (
+            <div className="flex gap-2">
               <Button
                 type="button"
-                onClick={() => setIsEditing(true)}
-                className="self-end mb-2"
+                variant="outline"
+                onClick={() => setIsEditing(false)}
               >
-                Edit Profile
+                Cancel
               </Button>
-            )}
-          </div>
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    disabled={true}
-                    type="email"
-                    placeholder="Enter your email"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <div className="text-sm text-muted-foreground capitalize">
-                {user?.role || 'user'}
-              </div>
+              <Button type="submit">Save</Button>
             </div>
+          ) : (
+            <Button type="button" onClick={() => setIsEditing(true)}>
+              Edit Username
+            </Button>
+          )}
+        </div>
 
-            <div className="space-y-2">
-              <Label>User ID</Label>
-              <div className="text-sm text-muted-foreground font-mono">
-                {user?.id}
-              </div>
-            </div>
+        <div className="space-y-2">
+          <Label>Email</Label>
+          <div className="text-sm text-muted-foreground">{user?.email}</div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Role</Label>
+          <div className="text-sm text-muted-foreground capitalize">
+            {user?.role || 'user'}
           </div>
-        </form>
-      </Form>
+        </div>
+
+        <div className="space-y-2">
+          <Label>User ID</Label>
+          <div className="text-sm text-muted-foreground font-mono">
+            {user?.id}
+          </div>
+        </div>
+      </div>
 
       <div className="border-t pt-6">
         <h3 className="text-lg font-medium mb-4">Security</h3>
