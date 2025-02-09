@@ -9,12 +9,12 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
+} from '@/app/components/ui/card';
+import { Label } from '@/app/components/ui/label';
+import { Input } from '@/app/components/ui/input';
+import { Button } from '@/app/components/ui/button';
+import { Alert, AlertDescription } from '@/app/components/ui/alert';
+import { useToast } from '@/app/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
 
 export function NewPasswordForm() {
@@ -45,15 +45,23 @@ export function NewPasswordForm() {
     setIsLoading(true);
 
     try {
+      // 从 URL hash 中获取 tokens
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+
+      // 从 URL search params 获取 recovery token
+      const recoveryToken = searchParams.get('token');
+
       const response = await fetch('/api/py/auth/update-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          recovery_token: searchParams.get('token'),
-          access_token: searchParams.get('access_token'),
-          refresh_token: searchParams.get('refresh_token'),
+          recovery_token: recoveryToken,
+          access_token: accessToken,
+          refresh_token: refreshToken,
           new_password: newPassword,
         }),
       });
