@@ -62,14 +62,19 @@ async def logout(
 
 @router.post("/reset-password")
 async def reset_password(
+    request: Request,
     email: str = Body(..., embed=True),
+    redirect_url: str = Body(None, embed=True),
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    send reset password email
-    use supabase password reset feature
+    send reset password email with redirect URL
     """
-    return await auth_service.reset_password(email)
+    if not redirect_url:
+        origin = request.headers.get('origin', 'http://localhost:3000')
+        redirect_url = f"{origin}/new-password"
+
+    return await auth_service.reset_password(email, redirect_url)
 
 
 @router.post("/update-password")

@@ -32,6 +32,17 @@ export function ForgotPasswordForm() {
     setError(null);
 
     try {
+      const response = await fetch('/api/py/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          origin: window.location.origin,
+        },
+        body: JSON.stringify({
+          email,
+          redirect_url: `${window.location.origin}/new-password`,
+        }),
+      });
       await resetPassword(email);
       setIsSuccess(true);
       toast({

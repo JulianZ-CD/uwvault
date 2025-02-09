@@ -129,19 +129,22 @@ class AuthService:
                 detail=str(e)
             )
 
-    async def reset_password(self, email: str):
+    async def reset_password(self, email: str, redirect_url: str = None):
         """
-        send password reset email
+        Send password reset email
         """
         try:
-            self.client.auth.reset_password_for_email(email)
-            logger.info(f"Password reset email sent to: {email}")
-            return {"message": "Password reset email sent successfully"}
+            response = self.client.auth.reset_password_for_email(
+                email,
+                {
+                    'redirect_to': redirect_url
+                }
+            )
+            return response
         except Exception as e:
-            logger.error(f"Password reset error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to send reset password email"
+                detail=str(e)
             )
 
     async def update_user_password(self, recovery_token: str, access_token: str, refresh_token: str, new_password: str):
