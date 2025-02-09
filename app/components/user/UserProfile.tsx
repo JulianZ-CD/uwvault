@@ -2,32 +2,13 @@
 
 import { useState } from 'react';
 import { Button } from '@/app/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/app/components/ui/form';
+
 import { Input } from '@/app/components/ui/input';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+
 import { useToast } from '@/app/hooks/use-toast';
 import { Label } from '@/app/components/ui/label';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useUser } from '@/app/components/user/UserProvider';
-
-const profileFormSchema = z.object({
-  username: z
-    .string()
-    .min(3, { message: 'Username must be at least 3 characters' })
-    .max(20, { message: 'Username must not be longer than 20 characters' }),
-  email: z.string().email({ message: 'Invalid email address' }),
-});
-
-// type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 interface UserProfileProps {
   user: any;
