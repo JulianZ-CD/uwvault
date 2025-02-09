@@ -45,13 +45,18 @@ export function NewPasswordForm() {
     setIsLoading(true);
 
     try {
-      // 从 URL hash 中获取 tokens
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
+      // 从 URL hash 获取所有参数
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
 
-      // 从 URL search params 获取 recovery token
-      const recoveryToken = searchParams.get('token');
+      // 获取所需的 tokens 和 email
+      const accessToken = params.get('access_token');
+      const type = params.get('type');
+      const email = params.get('email') || ''; // 从 JWT 中获取 email
+
+      if (!accessToken || type !== 'recovery') {
+        throw new Error('Invalid password reset link');
+      }
 
       const response = await fetch('/api/py/auth/update-password', {
         method: 'POST',
@@ -59,9 +64,8 @@ export function NewPasswordForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          recovery_token: recoveryToken,
-          access_token: accessToken,
-          refresh_token: refreshToken,
+          email: email,
+          token: accessToken,
           new_password: newPassword,
         }),
       });

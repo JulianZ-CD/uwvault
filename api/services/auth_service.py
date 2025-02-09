@@ -147,21 +147,21 @@ class AuthService:
                 detail=str(e)
             )
 
-    async def update_user_password(self, recovery_token: str, access_token: str, refresh_token: str, new_password: str):
+    async def update_user_password(self, email: str, token: str, new_password: str):
         """
-        update user password
+        Update user password using recovery token
         """
         try:
-            # set session
-            self.client.auth.set_session(access_token, refresh_token)
-
-            # update password
-            update_response = self.client.auth.update_user({
-                "password": new_password
+            # 使用 verify_otp 方法，需要提供 email
+            response = self.client.auth.verify_otp({
+                'email': email,
+                'token': token,
+                'type': 'recovery',
+                'new_password': new_password
             })
 
             logger.info("Password updated successfully")
-            return update_response
+            return response
         except Exception as e:
             logger.error(f"Password update error: {str(e)}")
             raise HTTPException(
