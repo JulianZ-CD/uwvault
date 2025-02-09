@@ -69,10 +69,7 @@ class UserResponse(BaseModel):
 #     email: EmailStr = Field(..., description="User email for password reset")
 
 
-class PasswordResetConfirm(BaseModel):
-    recovery_token: str = Field(...,
-                                description="Password reset recovery token")
-    access_token: str = Field(..., description="Access token from email link")
-    refresh_token: str = Field(...,
-                               description="Refresh token from email link")
-    new_password: str = Field(..., min_length=8, description="New password")
+class PasswordUpdateRequest(BaseModel):
+    access_token: str
+    refresh_token: str
+    new_password: str

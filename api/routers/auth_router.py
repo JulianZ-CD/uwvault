@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from fastapi.security import HTTPBearer
 from typing import Dict, Any
 from api.services.auth_service import AuthService
-from api.models.user import UserCreate, UserLogin,  PasswordResetConfirm
-from pydantic import BaseModel
+from api.models.user import UserCreate, UserLogin, PasswordUpdateRequest
 
 
 security = HTTPBearer()
@@ -78,21 +77,16 @@ async def reset_password(
     return await auth_service.reset_password(email, redirect_url)
 
 
-class PasswordResetRequest(BaseModel):
-    token: str
-    new_password: str
-
-
-class PasswordResetConfirm(BaseModel):
-    recovery_token: str
-    access_token: str
-    refresh_token: str
-    new_password: str
+# class PasswordResetConfirm(BaseModel):
+#     recovery_token: str
+#     access_token: str
+#     refresh_token: str
+#     new_password: str
 
 
 @router.post("/update-password")
 async def update_password(
-    request: PasswordResetConfirm,
+    request: PasswordUpdateRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
@@ -100,7 +94,6 @@ async def update_password(
     """
     try:
         result = await auth_service.update_user_password(
-            request.recovery_token,
             request.access_token,
             request.refresh_token,
             request.new_password

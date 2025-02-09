@@ -147,26 +147,34 @@ class AuthService:
                 detail=str(e)
             )
 
-    async def update_user_password(self, recovery_token: str, access_token: str, refresh_token: str, new_password: str):
+    async def update_user_password(self, access_token: str, refresh_token: str, new_password: str):
         """
-        Update user password using tokens from recovery flow
+        Update user password after recovery flow verification
+        Args:
+            access_token (str): Access token from the recovery session
+            refresh_token (str): Refresh token from the recovery session
+            new_password (str): New password to set
         """
         try:
-            # 设置会话，这样可以确保用户已认证
+            self.logger.info("Attempting to update password")
+
+            # 设置会话，使用从重置流程获得的 tokens
             self.client.auth.set_session(access_token, refresh_token)
 
-            # 使用认证后的客户端更新密码
+            # 直接更新密码
             update_response = self.client.auth.update_user({
                 "password": new_password
             })
 
-            if hasattr(update_response, 'error') and update_response.error:
+            if not update_response.user:
+                self.logger.error("Password update failed: No user returned")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(update_response.error)
+                    detail="Password update failed"
                 )
 
-            logger.info("Password updated successfully")
+            self.logger.info("Password updated successfully")
+
             return {
                 "status": "success",
                 "message": "Password updated successfully",
@@ -176,7 +184,7 @@ class AuthService:
         except HTTPException as he:
             raise he
         except Exception as e:
-            logger.error(f"Password update error: {str(e)}")
+            self.logger.error(f"Password update error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
