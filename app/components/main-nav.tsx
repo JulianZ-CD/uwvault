@@ -15,6 +15,7 @@ import {
 import { ThemeToggle } from '@/app/components/theme-toggle';
 import { cn } from '@/app/lib/utils';
 import { Button } from '@/app/components/ui/button';
+import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 
 const resources = [
   {
@@ -102,7 +103,9 @@ export function MainNav() {
           <NavigationMenuList>
             {isLoading ? (
               <NavigationMenuItem>
-                <div className="h-8 w-24 bg-accent/10 animate-pulse rounded" />
+                <div className="flex items-center justify-center w-[120px] h-9">
+                  <LoadingSpinner />
+                </div>
               </NavigationMenuItem>
             ) : user ? (
               <NavigationMenuItem>
