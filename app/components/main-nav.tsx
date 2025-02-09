@@ -46,7 +46,7 @@ export function MainNav() {
 
   return (
     <div className="container flex h-16 items-center">
-      {/* 左侧导航 */}
+      {/* left side navigation */}
       <div className="flex-1">
         <NavigationMenu>
           <NavigationMenuList>
@@ -94,7 +94,7 @@ export function MainNav() {
         </NavigationMenu>
       </div>
 
-      {/* 右侧用户菜单 */}
+      {/* right side user menu */}
       <div className="ml-auto flex items-center gap-4">
         <ThemeToggle />
 

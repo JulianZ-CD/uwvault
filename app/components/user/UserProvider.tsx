@@ -2,11 +2,6 @@
 
 import { createContext, useContext, useState } from 'react';
 
-interface UserProfile {
-  username: string;
-  email: string;
-}
-
 interface UserContextType {
   updateProfile: (data: { new_username: string }) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;

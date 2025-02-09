@@ -31,9 +31,9 @@ export function ConfirmationProvider({
   const [message, setMessage] = useState('Verifying your email...');
 
   useEffect(() => {
-    // 从 URL hash 中获取参数
+    // get parameters from URL hash
     const hashParams = new URLSearchParams(
-      window.location.hash.substring(1) // 移除开头的 #
+      window.location.hash.substring(1) // remove the leading #
     );
 
     const type = hashParams.get('type');
@@ -47,10 +47,10 @@ export function ConfirmationProvider({
         description: 'Your email has been verified successfully.',
       });
 
-      // 可以选择保存 token
+      // optional: save token to localStorage
       // localStorage.setItem('access_token', accessToken);
 
-      // 3秒后自动跳转到登录页面
+      // 3 seconds later, auto redirect to login page
       setTimeout(() => router.push('/login'), 3000);
     } else {
       setStatus('error');

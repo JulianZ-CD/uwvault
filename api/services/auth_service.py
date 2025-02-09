@@ -158,10 +158,10 @@ class AuthService:
         try:
             self.logger.info("Attempting to update password")
 
-            # 设置会话，使用从重置流程获得的 tokens
+            # set session, use tokens from recovery flow
             self.client.auth.set_session(access_token, refresh_token)
 
-            # 直接更新密码
+            # update password
             update_response = self.client.auth.update_user({
                 "password": new_password
             })

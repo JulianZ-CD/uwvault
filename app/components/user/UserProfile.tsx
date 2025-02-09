@@ -27,10 +27,10 @@ const profileFormSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
 });
 
-type ProfileFormValues = z.infer<typeof profileFormSchema>;
+// type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 interface UserProfileProps {
-  user: any; // 根据你的用户类型定义
+  user: any;
 }
 
 export function UserProfile({ user }: UserProfileProps) {
@@ -43,7 +43,7 @@ export function UserProfile({ user }: UserProfileProps) {
   const handleUpdateUsername = async () => {
     try {
       await updateProfile({ new_username: newUsername });
-      await getCurrentUser(); // 刷新用户信息
+      await getCurrentUser(); // refresh user info
       setIsEditing(false);
       toast({
         title: 'Success',
@@ -60,7 +60,7 @@ export function UserProfile({ user }: UserProfileProps) {
 
   const handleResetPassword = async () => {
     try {
-      console.log('Current user email:', user?.email); // 检查当前用户邮箱
+      console.log('Current user email:', user?.email);
       await resetPassword(user?.email || '');
       toast({
         title: 'Success',

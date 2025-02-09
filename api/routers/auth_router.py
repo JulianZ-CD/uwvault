@@ -77,13 +77,6 @@ async def reset_password(
     return await auth_service.reset_password(email, redirect_url)
 
 
-# class PasswordResetConfirm(BaseModel):
-#     recovery_token: str
-#     access_token: str
-#     refresh_token: str
-#     new_password: str
-
-
 @router.post("/update-password")
 async def update_password(
     request: PasswordUpdateRequest,

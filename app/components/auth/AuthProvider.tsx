@@ -38,11 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!tokenStr) {
         setUser(null);
         setIsLoading(false);
-        return null; // 如果没有 token，静默返回
+        return null; // if no token, return null
       }
 
-      // 解析 token 数据
+      // parse token data
       let tokenData;
+
       try {
         tokenData = JSON.parse(tokenStr);
       } catch (e) {
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await fetch('/api/py/auth/user', {
         headers: {
-          Authorization: `Bearer ${accessToken}`, // 保持原有的 Bearer token 格式
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem('token');
         }
-        return null; // 认证失败时静默返回
+        return null; // if authentication failed, return null
       }
 
       const userData = await response.json();
@@ -80,19 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 修改初始化逻辑
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('token');
 
       try {
-        // 格式兼容处理
+        // format compatible processing
         if (storedToken) {
           let parsedToken;
           try {
             parsedToken = JSON.parse(storedToken);
           } catch {
-            // 旧格式的字符串 token，转换为对象格式
+            // old format string token, convert to object format
             parsedToken = { access_token: storedToken };
             localStorage.setItem('token', JSON.stringify(parsedToken));
           }
@@ -110,7 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  // 修改 logout 方法
   const logout = async () => {
     try {
       const tokenStr = localStorage.getItem('token');
