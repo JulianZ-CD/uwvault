@@ -45,16 +45,21 @@ export function NewPasswordForm() {
     setIsLoading(true);
 
     try {
-      // 从 URL hash 获取所有参数
+      // 从 URL hash 获取所有必要的令牌
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
 
-      // 获取所需的 tokens 和 email
       const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const recoveryToken = params.get('recovery_token');
       const type = params.get('type');
-      const email = params.get('email') || ''; // 从 JWT 中获取 email
 
-      if (!accessToken || type !== 'recovery') {
+      if (
+        !accessToken ||
+        !refreshToken ||
+        !recoveryToken ||
+        type !== 'recovery'
+      ) {
         throw new Error('Invalid password reset link');
       }
 
@@ -64,30 +69,34 @@ export function NewPasswordForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email,
-          token: accessToken,
+          recovery_token: recoveryToken,
+          access_token: accessToken,
+          refresh_token: refreshToken,
           new_password: newPassword,
         }),
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Failed to update password');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to update password');
       }
+
+      const data = await response.json();
 
       toast({
         title: 'Success',
-        description: 'Your password has been updated successfully',
+        description:
+          data.message || 'Your password has been updated successfully',
       });
 
       router.push('/login');
     } catch (error: any) {
       console.error('Password update error:', error);
-      setError(error.message || 'Failed to update password');
+      setError(error.message);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to update password',
+        description: error.message,
       });
     } finally {
       setIsLoading(false);

@@ -147,26 +147,39 @@ class AuthService:
                 detail=str(e)
             )
 
-    async def update_user_password(self, email: str, token: str, new_password: str):
+    async def update_user_password(self, recovery_token: str, access_token: str, refresh_token: str, new_password: str):
         """
-        Update user password using recovery token
+        Update user password using tokens from recovery flow
         """
         try:
-            # 使用 verify_otp 方法，需要提供 email
-            response = self.client.auth.verify_otp({
-                'email': email,
-                'token': token,
-                'type': 'recovery',
-                'new_password': new_password
+            # 设置会话，这样可以确保用户已认证
+            self.client.auth.set_session(access_token, refresh_token)
+
+            # 使用认证后的客户端更新密码
+            update_response = self.client.auth.update_user({
+                "password": new_password
             })
 
+            if hasattr(update_response, 'error') and update_response.error:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(update_response.error)
+                )
+
             logger.info("Password updated successfully")
-            return response
+            return {
+                "status": "success",
+                "message": "Password updated successfully",
+                "user": update_response.user
+            }
+
+        except HTTPException as he:
+            raise he
         except Exception as e:
             logger.error(f"Password update error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to update password: {str(e)}"
+                detail=str(e)
             )
 
     async def get_current_user(self, token: str):

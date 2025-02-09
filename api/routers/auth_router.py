@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer
 from typing import Dict, Any
 from api.services.auth_service import AuthService
 from api.models.user import UserCreate, UserLogin,  PasswordResetConfirm
+from pydantic import BaseModel
 
 
 security = HTTPBearer()
@@ -77,13 +78,25 @@ async def reset_password(
     return await auth_service.reset_password(email, redirect_url)
 
 
+class PasswordResetRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class PasswordResetConfirm(BaseModel):
+    recovery_token: str
+    access_token: str
+    refresh_token: str
+    new_password: str
+
+
 @router.post("/update-password")
 async def update_password(
     request: PasswordResetConfirm,
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    update user password using reset token
+    Update user password using recovery flow tokens
     """
     try:
         result = await auth_service.update_user_password(
@@ -93,6 +106,8 @@ async def update_password(
             request.new_password
         )
         return {"message": "Password updated successfully", "result": result}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
