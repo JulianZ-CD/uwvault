@@ -30,10 +30,14 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
-              <div className="relative z-40 border-b">
-                <MainNav />
+              <div className="relative flex min-h-screen flex-col">
+                <div className="relative z-40 border-b">
+                  <MainNav />
+                </div>
+                <main className="flex-1">
+                  <div className="relative z-0">{children}</div>
+                </main>
               </div>
-              <div className="relative z-0">{children}</div>
             </ThemeProvider>
           </UserProvider>
         </AuthProvider>

@@ -42,7 +42,7 @@ const resources = [
 ];
 
 export function MainNav() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
 
   return (
     <div className="container flex h-16 items-center">
@@ -100,7 +100,11 @@ export function MainNav() {
 
         <NavigationMenu>
           <NavigationMenuList>
-            {user ? (
+            {isLoading ? (
+              <NavigationMenuItem>
+                <div className="h-8 w-24 bg-accent/10 animate-pulse rounded" />
+              </NavigationMenuItem>
+            ) : user ? (
               <NavigationMenuItem>
                 <NavigationMenuTrigger>
                   {user.username || user.email}
