@@ -1,22 +1,79 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { status } = useSession();
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  loadingComponent?: React.ReactNode;
+}
+
+export function ProtectedRoute({
+  children,
+  loadingComponent,
+}: ProtectedRouteProps) {
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const checkAuth = () => {
+      try {
+        const tokenStr = localStorage.getItem('token');
+        if (!tokenStr) {
+          setIsAuthenticated(false);
+          return;
+        }
+
+        const tokenData = JSON.parse(tokenStr);
+
+        if (
+          tokenData.expires_at &&
+          new Date(tokenData.expires_at * 1000) < new Date()
+        ) {
+          localStorage.removeItem('token');
+          setIsAuthenticated(false);
+          return;
+        }
+
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setIsAuthenticated(false);
+      }
+    };
+
+    checkAuth();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token') {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated === false) {
       router.push('/login');
     }
-  }, [status, router]);
+  }, [isAuthenticated, router]);
 
-  if (status === 'loading') {
-    return <div>Loading...</div>;
+  if (isAuthenticated === null) {
+    return (
+      loadingComponent || (
+        <div className="flex items-center justify-center min-h-screen">
+          <LoadingSpinner />
+        </div>
+      )
+    );
   }
 
-  return status === 'authenticated' ? children : null;
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return <>{children}</>;
 }
