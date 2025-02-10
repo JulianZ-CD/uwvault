@@ -46,8 +46,8 @@ export function UserList() {
         throw new Error('Failed to fetch users');
       }
 
-      const data = await response.json();
-      setUsers(data.users);
+      const users = await response.json();
+      setUsers(users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -55,6 +55,7 @@ export function UserList() {
         title: 'Error',
         description: 'Failed to load users',
       });
+      setUsers([]);
     } finally {
       setIsLoading(false);
     }
@@ -98,6 +99,14 @@ export function UserList() {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64 text-muted-foreground">
+        No users found
       </div>
     );
   }
