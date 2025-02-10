@@ -67,6 +67,22 @@ export function UserList() {
     fetchUsers();
   }, []);
 
+  // Sort users by role and email
+  const sortUsers = (users: User[]) => {
+    return [...users].sort((a, b) => {
+      // Sort admin users first
+
+      if (a.role === 'admin' && b.role !== 'admin') return -1;
+      if (a.role !== 'admin' && b.role === 'admin') return 1;
+
+      // Sort by email if roles are the same
+      return a.email.localeCompare(b.email);
+    });
+  };
+
+  // 在渲染时使用排序后的用户数组
+  const sortedUsers = sortUsers(users);
+
   if (isLoading) {
     return (
       <div className="container max-w-4xl mx-auto flex justify-center items-center h-64">
@@ -110,7 +126,7 @@ export function UserList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {sortedUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>{user.username || '-'}</TableCell>
