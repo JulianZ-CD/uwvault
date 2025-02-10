@@ -4,9 +4,6 @@ from supabase import create_client, Client
 from api.models.user import UserCreate, UserLogin
 from api.core.config import get_settings
 from api.utils.logger import setup_logger
-import logging
-
-logger = logging.getLogger("auth_service")
 
 
 class AuthService:
