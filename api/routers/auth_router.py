@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer
 from typing import Dict, Any
 from api.services.auth_service import AuthService
 from api.models.user import UserCreate, UserLogin, PasswordUpdateRequest
-
+from api.core.config import get_settings
 
 security = HTTPBearer()
 
@@ -29,9 +29,10 @@ async def register(
     user sign up
     return supabase session info, include access_token and refresh_token
     """
+    settings = get_settings()
     if not user_data.redirect_url:
-        origin = request.headers.get('origin', 'http://localhost:3000')
-        user_data.redirect_url = f"{origin}/verify"
+        origin = request.headers.get('origin', settings.DEFAULT_ORIGIN)
+        user_data.redirect_url = f"{origin}{settings.VERIFY_EMAIL_URL}"
 
     return await auth_service.sign_up(user_data)
 
@@ -70,9 +71,10 @@ async def reset_password(
     """
     send reset password email with redirect URL
     """
+    settings = get_settings()
     if not redirect_url:
-        origin = request.headers.get('origin', 'http://localhost:3000')
-        redirect_url = f"{origin}/new-password"
+        origin = request.headers.get('origin', settings.DEFAULT_ORIGIN)
+        redirect_url = f"{origin}{settings.RESET_PASSWORD_URL}"
 
     return await auth_service.reset_password(email, redirect_url)
 
