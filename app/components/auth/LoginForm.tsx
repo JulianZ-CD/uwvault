@@ -13,7 +13,6 @@ import {
 import { Label } from '@/app/components/ui/label';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
-import { Alert, AlertDescription } from '@/app/components/ui/alert';
 import { useToast } from '@/app/hooks/use-toast';
 import { useAuth } from '@/app/hooks/useAuth';
 
@@ -21,19 +20,16 @@ export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const { getCurrentUser } = useAuth();
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
-    setError(null);
 
     const formData = new FormData(event.currentTarget);
 
     try {
-      // 1.Login request
       const response = await fetch('/api/py/auth/login', {
         method: 'POST',
         headers: {
@@ -45,31 +41,24 @@ export function LoginForm() {
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
+        throw new Error(data.message || 'Login failed');
       }
 
-      // 2. Save token
-      const data = await response.json();
       localStorage.setItem('token', JSON.stringify(data.session));
       document.cookie = `token=${data.session.access_token}; path=/`;
-
-      // 3. Get user information
       await getCurrentUser();
 
-      // 4. Prompt success
       toast({
         title: 'Login successful',
         description: 'Welcome back!',
       });
 
-      // 5. Redirect to home page
       router.push('/');
       router.refresh();
     } catch (error: any) {
-      console.error('Login error:', error);
-      setError(error.message || 'An error occurred during login');
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -88,12 +77,6 @@ export function LoginForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -132,36 +115,32 @@ export function LoginForm() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Logging in...' : 'Login'}
-              </Button>
-            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Logging in...' : 'Login'}
+            </Button>
 
-            <div className="mt-4 text-center text-sm">
-              <div className="space-y-2">
-                <div>
-                  <span className="text-muted-foreground">
-                    Don't have an account?{' '}
-                    <Link
-                      href="/register"
-                      className="text-primary hover:underline"
-                    >
-                      Register here
-                    </Link>
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    Forgot your password?{' '}
-                    <Link
-                      href="/forgot-password"
-                      className="text-primary hover:underline"
-                    >
-                      Reset it
-                    </Link>
-                  </span>
-                </div>
+            <div className="mt-4 text-center text-sm space-y-2">
+              <div>
+                <span className="text-muted-foreground">
+                  Don't have an account?{' '}
+                  <Link
+                    href="/register"
+                    className="text-primary hover:underline"
+                  >
+                    Register here
+                  </Link>
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">
+                  Forgot your password?{' '}
+                  <Link
+                    href="/forgot-password"
+                    className="text-primary hover:underline"
+                  >
+                    Reset it
+                  </Link>
+                </span>
               </div>
             </div>
           </form>

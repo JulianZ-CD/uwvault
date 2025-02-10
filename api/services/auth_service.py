@@ -192,7 +192,7 @@ class AuthService:
         try:
             response = self.client.auth.get_user(token)
             user = response.user
-            logger.info(f"User retrieved: {user.email}")
+            self.logger.info(f"User retrieved: {user.email}")
 
             return {
                 "id": user.id,
@@ -202,7 +202,7 @@ class AuthService:
             }
 
         except Exception as e:
-            logger.error(f"Get current user error: {str(e)}")
+            self.logger.error(f"Get current user error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Invalid token: {str(e)}"
@@ -243,7 +243,7 @@ class AuthService:
                 for user in users
             ]
         except Exception as e:
-            logger.error(f"List users error: {str(e)}")
+            self.logger.error(f"List users error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
@@ -262,7 +262,7 @@ class AuthService:
             )
             return response
         except Exception as e:
-            logger.error(f"Set user role error: {str(e)}")
+            self.logger.error(f"Set user role error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
@@ -274,7 +274,7 @@ class AuthService:
             self.admin_client.auth.admin.delete_user(user_id)
             return {"message": f"User {user_id} deleted successfully"}
         except Exception as e:
-            logger.error(f"Delete user error: {str(e)}")
+            self.logger.error(f"Delete user error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
