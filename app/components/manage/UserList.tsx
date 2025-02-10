@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/app/components/ui/card';
+import {
   Table,
   TableBody,
   TableCell,
@@ -9,9 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/app/components/ui/table';
-import { Button } from '@/app/components/ui/button';
 import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 import { useToast } from '@/app/hooks/use-toast';
+import { UserActions } from './UserActions';
 
 interface User {
   id: string;
@@ -24,10 +31,6 @@ export function UserList() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -60,39 +63,9 @@ export function UserList() {
     }
   };
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    try {
-      const tokenStr = localStorage.getItem('token');
-      if (!tokenStr) return;
-
-      const tokenData = JSON.parse(tokenStr);
-      const response = await fetch(`/api/py/auth/admin/users/${userId}/role`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokenData.access_token}`,
-        },
-        body: JSON.stringify({ role: newRole }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update user role');
-      }
-
-      await fetchUsers(); // 刷新用户列表
-      toast({
-        title: 'Success',
-        description: 'User role updated successfully',
-      });
-    } catch (error) {
-      console.error('Error updating user role:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update user role',
-      });
-    }
-  };
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   if (isLoading) {
     return (
@@ -104,47 +77,58 @@ export function UserList() {
 
   if (users.length === 0) {
     return (
-      <div className="flex justify-center items-center h-64 text-muted-foreground">
-        No users found
-      </div>
+      <Card>
+        <CardContent className="flex justify-center items-center h-64 text-muted-foreground">
+          No users found
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Email</TableHead>
-            <TableHead>Username</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>{user.username || '-'}</TableCell>
-              <TableCell>{user.role}</TableCell>
-              <TableCell>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    handleRoleChange(
-                      user.id,
-                      user.role === 'admin' ? 'user' : 'admin'
-                    )
-                  }
-                >
-                  Make {user.role === 'admin' ? 'User' : 'Admin'}
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>User Management</CardTitle>
+        <CardDescription>
+          Manage user roles and accounts in your system
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[300px]">Email</TableHead>
+                <TableHead className="w-[200px]">Username</TableHead>
+                <TableHead className="w-[100px]">Role</TableHead>
+                <TableHead className="w-[200px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.email}</TableCell>
+                  <TableCell>{user.username || '-'}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                        user.role === 'admin'
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {user.role}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <UserActions user={user} onActionComplete={fetchUsers} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
