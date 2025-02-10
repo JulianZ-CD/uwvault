@@ -16,9 +16,8 @@ import { useToast } from '@/app/hooks/use-toast';
 interface User {
   id: string;
   email: string;
-  username?: string;
+  username: string;
   role: string;
-  created_at: string;
 }
 
 export function UserList() {
@@ -119,7 +118,6 @@ export function UserList() {
             <TableHead>Email</TableHead>
             <TableHead>Username</TableHead>
             <TableHead>Role</TableHead>
-            <TableHead>Created At</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -129,9 +127,6 @@ export function UserList() {
               <TableCell>{user.email}</TableCell>
               <TableCell>{user.username || '-'}</TableCell>
               <TableCell>{user.role}</TableCell>
-              <TableCell>
-                {new Date(user.created_at).toLocaleDateString()}
-              </TableCell>
               <TableCell>
                 <Button
                   variant="outline"
