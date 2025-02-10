@@ -240,9 +240,8 @@ class AuthService:
                 {
                     "id": user.id,
                     "email": user.email,
+                    "username": user.user_metadata.get("username", ""),
                     "role": user.user_metadata.get("role", "user"),
-                    "created_at": user.created_at,
-                    "email_verified": user.email_confirmed_at is not None
                 }
                 for user in users
             ]
