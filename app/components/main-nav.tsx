@@ -113,13 +113,14 @@ export function MainNav() {
                   {user.username || user.email}
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="z-50">
-                  <ul className="min-w-[160px] p-2 space-y-2">
+                  <ul className="min-w-[200px] p-2 space-y-1">
                     <li>
                       <Link href="/profile" legacyBehavior passHref>
                         <NavigationMenuLink
                           className={cn(
-                            'block w-full p-2 hover:bg-accent rounded-md transition-colors',
-                            'flex items-center gap-2 text-sm font-normal'
+                            'flex w-full items-center gap-2 px-3 py-2 text-sm',
+                            'rounded-md hover:bg-accent transition-colors',
+                            'focus:bg-accent focus:outline-none'
                           )}
                         >
                           <svg
@@ -146,8 +147,9 @@ export function MainNav() {
                         <Link href="/manage-users" legacyBehavior passHref>
                           <NavigationMenuLink
                             className={cn(
-                              'block w-full p-2 hover:bg-accent rounded-md transition-colors',
-                              'flex items-center gap-2 text-sm font-normal'
+                              'flex w-full items-center gap-2 px-3 py-2 text-sm',
+                              'rounded-md hover:bg-accent transition-colors',
+                              'focus:bg-accent focus:outline-none'
                             )}
                           >
                             <svg
@@ -172,12 +174,15 @@ export function MainNav() {
                         </Link>
                       </li>
                     )}
-                    <li className="h-px bg-border my-1" aria-hidden="true" />
+                    <li className="h-px bg-border my-1" />
                     <li>
-                      <Button
-                        variant="ghost"
-                        className="w-full p-2 h-auto text-sm font-normal justify-start gap-2 hover:bg-accent"
+                      <button
                         onClick={logout}
+                        className={cn(
+                          'flex w-full items-center gap-2 px-3 py-2 text-sm',
+                          'rounded-md hover:bg-accent transition-colors',
+                          'focus:bg-accent focus:outline-none'
+                        )}
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -196,7 +201,7 @@ export function MainNav() {
                           <line x1="21" x2="9" y1="12" y2="12" />
                         </svg>
                         <span>Logout</span>
-                      </Button>
+                      </button>
                     </li>
                   </ul>
                 </NavigationMenuContent>
