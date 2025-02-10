@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +17,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/app/components/ui/alert-dialog';
 import { useUserActions } from './useUserActions';
 
@@ -29,6 +31,7 @@ interface UserActionsProps {
 
 export function UserActions({ user, onActionComplete }: UserActionsProps) {
   const { setUserRole, deleteUser } = useUserActions();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleRoleChange = async (newRole: string) => {
     const success = await setUserRole(user.id, newRole);
@@ -40,6 +43,7 @@ export function UserActions({ user, onActionComplete }: UserActionsProps) {
   const handleDelete = async () => {
     const success = await deleteUser(user.id);
     if (success) {
+      setIsDeleteDialogOpen(false);
       onActionComplete();
     }
   };
@@ -63,33 +67,40 @@ export function UserActions({ user, onActionComplete }: UserActionsProps) {
               Make User
             </DropdownMenuItem>
           )}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem className="text-destructive">
-                Delete User
-              </DropdownMenuItem>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the
-                  user account and remove their data from our servers.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            Delete User
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              user account and remove their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
