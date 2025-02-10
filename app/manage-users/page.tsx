@@ -18,8 +18,7 @@ export default function ManageUsersPage() {
 
   return (
     <ProtectedRoute>
-      <div className="container py-8">
-        <h1 className="text-3xl font-bold mb-8">Manage Users</h1>
+      <div className="py-8">
         <UserList />
       </div>
     </ProtectedRoute>

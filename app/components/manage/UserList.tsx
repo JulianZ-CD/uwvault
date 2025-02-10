@@ -69,7 +69,7 @@ export function UserList() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="container max-w-4xl mx-auto flex justify-center items-center h-64">
         <LoadingSpinner />
       </div>
     );
@@ -77,58 +77,69 @@ export function UserList() {
 
   if (users.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex justify-center items-center h-64 text-muted-foreground">
-          No users found
-        </CardContent>
-      </Card>
+      <div className="container max-w-4xl mx-auto">
+        <Card>
+          <CardContent className="flex justify-center items-center h-64 text-muted-foreground">
+            No users found
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>User Management</CardTitle>
-        <CardDescription>
-          Manage user roles and accounts in your system
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px]">Email</TableHead>
-                <TableHead className="w-[200px]">Username</TableHead>
-                <TableHead className="w-[100px]">Role</TableHead>
-                <TableHead className="w-[200px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.email}</TableCell>
-                  <TableCell>{user.username || '-'}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                        user.role === 'admin'
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {user.role}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <UserActions user={user} onActionComplete={fetchUsers} />
-                  </TableCell>
+    <div className="container max-w-4xl mx-auto">
+      <Card>
+        <CardHeader className="text-center">
+          <CardTitle>User Management</CardTitle>
+          <CardDescription>
+            Manage user roles and accounts in your system
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[300px]">Email</TableHead>
+                  <TableHead className="w-[200px]">Username</TableHead>
+                  <TableHead className="w-[100px]">Role</TableHead>
+                  <TableHead className="w-[120px]">
+                    <div className="text-center">Actions</div>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.email}</TableCell>
+                    <TableCell>{user.username || '-'}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                          user.role === 'admin'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {user.role}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-center">
+                        <UserActions
+                          user={user}
+                          onActionComplete={fetchUsers}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
