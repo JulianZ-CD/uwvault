@@ -8,7 +8,7 @@ from api.core.config import get_settings
 security = HTTPBearer()
 
 router = APIRouter(
-    prefix="/auth",
+    prefix="/api/py/auth",
     tags=["auth"]
 )
 
