@@ -13,13 +13,11 @@ import {
 import { Label } from '@/app/components/ui/label';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
-import { Alert, AlertDescription } from '@/app/components/ui/alert';
 import { useToast } from '@/app/hooks/use-toast';
 
 export function RegisterForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -32,7 +30,6 @@ export function RegisterForm() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
@@ -40,27 +37,46 @@ export function RegisterForm() {
     const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
+    // 验证用户名长度
     if (username.length < 3) {
-      setError('Username must be at least 3 characters');
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'Username must be at least 3 characters',
+      });
       setIsLoading(false);
       return;
     }
 
     if (username.length > 50) {
-      setError('Username must be less than 50 characters');
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'Username must be less than 50 characters',
+      });
       setIsLoading(false);
       return;
     }
 
+    // verify password match
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'Passwords do not match',
+      });
       setIsLoading(false);
       return;
     }
 
+    // 验证密码强度
     const passwordError = validatePassword(password);
     if (passwordError) {
-      setError(passwordError);
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: passwordError,
+      });
       setIsLoading(false);
       return;
     }
@@ -72,11 +88,6 @@ export function RegisterForm() {
         password,
         redirect_url: `${window.location.origin}/verify`,
       };
-
-      console.log('Sending registration data:', {
-        ...userData,
-        password: '[REDACTED]',
-      });
 
       const response = await fetch('/api/py/auth/register', {
         method: 'POST',
@@ -90,15 +101,8 @@ export function RegisterForm() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Registration error response:', errorData);
         throw new Error(errorData.detail || 'Registration failed');
       }
-
-      const data = await response.json();
-      console.log('Registration response:', {
-        ...data,
-        session: data.session ? '[REDACTED]' : null,
-      });
 
       toast({
         title: 'Registration successful',
@@ -107,12 +111,10 @@ export function RegisterForm() {
 
       router.push('/login');
     } catch (error: any) {
-      console.error('Registration error:', error);
-      setError(error.message || 'An unexpected error occurred');
       toast({
         variant: 'destructive',
         title: 'Registration Error',
-        description: error.message,
+        description: error.message || 'An unexpected error occurred',
       });
     } finally {
       setIsLoading(false);
@@ -127,12 +129,6 @@ export function RegisterForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
