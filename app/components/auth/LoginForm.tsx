@@ -44,7 +44,13 @@ export function LoginForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+        toast({
+          variant: 'destructive',
+          title: 'Sign in failed',
+          description:
+            "Please check your email and password, or create a new account if you haven't registered.",
+        });
+        return;
       }
 
       localStorage.setItem('token', JSON.stringify(data.session));
@@ -52,8 +58,8 @@ export function LoginForm() {
       await getCurrentUser();
 
       toast({
-        title: 'Login successful',
-        description: 'Welcome back!',
+        title: 'Welcome back!',
+        description: 'Successfully signed in to your account.',
       });
 
       router.push('/');
@@ -61,8 +67,8 @@ export function LoginForm() {
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Login failed',
+        title: 'Sign in failed',
+        description: 'Unable to sign in. Please try again later.',
       });
     } finally {
       setIsLoading(false);
