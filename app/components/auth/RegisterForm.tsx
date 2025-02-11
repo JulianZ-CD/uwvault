@@ -37,7 +37,7 @@ export function RegisterForm() {
     const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
-    // 验证用户名长度
+    // verify username length
     if (username.length < 3) {
       toast({
         variant: 'destructive',
@@ -69,7 +69,7 @@ export function RegisterForm() {
       return;
     }
 
-    // 验证密码强度
+    // verify password strength
     const passwordError = validatePassword(password);
     if (passwordError) {
       toast({
