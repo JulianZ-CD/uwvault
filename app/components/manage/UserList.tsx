@@ -30,8 +30,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/app/components/ui/pagination';
-import { Button } from '@/app/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface User {
   id: string;
@@ -208,22 +206,20 @@ export function UserList() {
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
+                  <PaginationPrevious
                     onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
+                    className={
+                      currentPage === 1 ? 'pointer-events-none opacity-50' : ''
+                    }
+                  />
                 </PaginationItem>
 
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                   (page) => (
                     <PaginationItem key={page}>
                       <PaginationLink
-                        isActive={currentPage === page}
                         onClick={() => handlePageChange(page)}
+                        isActive={currentPage === page}
                       >
                         {page}
                       </PaginationLink>
@@ -232,14 +228,14 @@ export function UserList() {
                 )}
 
                 <PaginationItem>
-                  <Button
-                    variant="outline"
-                    size="icon"
+                  <PaginationNext
                     onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                    className={
+                      currentPage === totalPages
+                        ? 'pointer-events-none opacity-50'
+                        : ''
+                    }
+                  />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
