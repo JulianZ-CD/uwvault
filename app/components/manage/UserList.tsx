@@ -20,6 +20,8 @@ import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 import { useToast } from '@/app/hooks/use-toast';
 import { UserActions } from './UserActions';
 import { useAuth } from '@/app/hooks/useAuth';
+import { Input } from '@/app/components/ui/input';
+import { Search } from 'lucide-react';
 
 interface User {
   id: string;
@@ -30,6 +32,7 @@ interface User {
 
 export function UserList() {
   const [users, setUsers] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -84,6 +87,15 @@ export function UserList() {
 
   const sortedUsers = sortUsers(users);
 
+  // search filter function
+  const filteredUsers = sortedUsers.filter((user) => {
+    const search = searchTerm.toLowerCase();
+    return (
+      user.email.toLowerCase().includes(search) ||
+      (user.username?.toLowerCase() || '').includes(search)
+    );
+  });
+
   if (isLoading) {
     return (
       <div className="container max-w-4xl mx-auto flex justify-center items-center h-64">
@@ -112,6 +124,16 @@ export function UserList() {
           <CardDescription>
             Manage user roles and accounts in your system
           </CardDescription>
+          {/* search box */}
+          <div className="mt-4 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by email or username..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -127,7 +149,7 @@ export function UserList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedUsers.map((user) => (
+                {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>{user.username || '-'}</TableCell>
