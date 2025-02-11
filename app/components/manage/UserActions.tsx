@@ -24,14 +24,39 @@ interface UserActionsProps {
   user: {
     id: string;
     email: string;
-    role: string;
+    role?: string;
+    username?: string;
   };
+  currentUser: {
+    id: string;
+    email: string;
+    role?: string;
+  } | null;
   onActionComplete: () => void;
 }
 
-export function UserActions({ user, onActionComplete }: UserActionsProps) {
+export function UserActions({
+  user,
+  currentUser,
+  onActionComplete,
+}: UserActionsProps) {
   const { setUserRole, deleteUser } = useUserActions();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const isSelfAction = currentUser?.id === user.id;
+
+  if (isSelfAction) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        title="Cannot modify your own account"
+      >
+        Actions
+      </Button>
+    );
+  }
 
   const handleRoleChange = async (newRole: string) => {
     const success = await setUserRole(user.id, newRole);

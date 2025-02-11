@@ -1,10 +1,21 @@
 import { useToast } from '@/app/hooks/use-toast';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export const useUserActions = () => {
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
 
   const setUserRole = async (userId: string, newRole: string) => {
     try {
+      if (currentUser?.id === userId) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Cannot modify your own role',
+        });
+        return false;
+      }
+
       const tokenStr = localStorage.getItem('token');
       if (!tokenStr) return false;
 
@@ -40,6 +51,15 @@ export const useUserActions = () => {
 
   const deleteUser = async (userId: string) => {
     try {
+      if (currentUser?.id === userId) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Cannot delete your own account',
+        });
+        return false;
+      }
+
       const tokenStr = localStorage.getItem('token');
       if (!tokenStr) return false;
 

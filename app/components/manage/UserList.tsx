@@ -19,6 +19,7 @@ import {
 import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 import { useToast } from '@/app/hooks/use-toast';
 import { UserActions } from './UserActions';
+import { useAuth } from '@/app/hooks/useAuth';
 
 interface User {
   id: string;
@@ -31,6 +32,7 @@ export function UserList() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
 
   const fetchUsers = async () => {
     try {
@@ -80,7 +82,6 @@ export function UserList() {
     });
   };
 
-  // 在渲染时使用排序后的用户数组
   const sortedUsers = sortUsers(users);
 
   if (isLoading) {
@@ -145,6 +146,7 @@ export function UserList() {
                       <div className="flex justify-center">
                         <UserActions
                           user={user}
+                          currentUser={currentUser}
                           onActionComplete={fetchUsers}
                         />
                       </div>
