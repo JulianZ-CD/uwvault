@@ -22,6 +22,16 @@ import { UserActions } from './UserActions';
 import { useAuth } from '@/app/hooks/useAuth';
 import { Input } from '@/app/components/ui/input';
 import { Search } from 'lucide-react';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/app/components/ui/pagination';
+import { Button } from '@/app/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface User {
   id: string;
@@ -34,6 +44,8 @@ export function UserList() {
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // 每页显示的用户数量
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
 
@@ -96,6 +108,18 @@ export function UserList() {
     );
   });
 
+  // pagination calculation
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // page change handler
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   if (isLoading) {
     return (
       <div className="container max-w-4xl mx-auto flex justify-center items-center h-64">
@@ -149,7 +173,7 @@ export function UserList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
+                {paginatedUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>{user.username || '-'}</TableCell>
@@ -177,6 +201,48 @@ export function UserList() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* pagination component */}
+          <div className="mt-4 flex justify-center">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </PaginationItem>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        isActive={currentPage === page}
+                        onClick={() => handlePageChange(page)}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+
+                <PaginationItem>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         </CardContent>
       </Card>
