@@ -115,6 +115,10 @@ SUPABASE_KEY="Your SUPABASE_KEY"
 
 # Used to create admin user
 SUPABASE_SERVICE_KEY="Your SUPABASE_SERVICE_KEY"
+
+VERIFY_EMAIL_URL="/verify"
+RESET_PASSWORD_URL="/new-password"
+DEFAULT_ORIGIN= "Your Default Origin"
 ```
 
 3. `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard.
@@ -125,6 +129,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_KEY: str
     SUPABASE_SERVICE_KEY: str
+
+    # Auth URLs
+    VERIFY_EMAIL_URL: str
+    RESET_PASSWORD_URL: str
+    DEFAULT_ORIGIN: str
 
     model_config = ConfigDict(
         env_file=".env.dev"
