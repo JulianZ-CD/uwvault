@@ -42,6 +42,7 @@ export function UserActions({
 }: UserActionsProps) {
   const { setUserRole, deleteUser } = useUserActions();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const isSelfAction = currentUser?.id === user.id;
 
@@ -69,42 +70,46 @@ export function UserActions({
     const success = await deleteUser(user.id);
     if (success) {
       setIsDeleteDialogOpen(false);
+      setIsDropdownOpen(false);
       onActionComplete();
     }
   };
 
   return (
     <div className="flex items-center gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
-            Actions
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[160px]">
-          {user.role !== 'admin' && (
-            <DropdownMenuItem onClick={() => handleRoleChange('admin')}>
-              Make Admin
-            </DropdownMenuItem>
-          )}
-          {user.role !== 'user' && (
-            <DropdownMenuItem onClick={() => handleRoleChange('user')}>
-              Make User
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem
-            className="text-destructive"
-            onClick={() => setIsDeleteDialogOpen(true)}
-          >
-            Delete User
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
       >
+        <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Actions
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[160px]">
+            {user.role !== 'admin' && (
+              <DropdownMenuItem onClick={() => handleRoleChange('admin')}>
+                Make Admin
+              </DropdownMenuItem>
+            )}
+            {user.role !== 'user' && (
+              <DropdownMenuItem onClick={() => handleRoleChange('user')}>
+                Make User
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => {
+                setIsDeleteDialogOpen(true);
+                setIsDropdownOpen(false);
+              }}
+            >
+              Delete User
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -114,9 +119,7 @@ export function UserActions({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
