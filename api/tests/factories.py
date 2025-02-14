@@ -1,7 +1,8 @@
 import factory
+import uuid
 from datetime import datetime
 from api.models.todo import Todo, TodoCreate, TodoUpdate
-from api.models.user import UserCreate, UserLogin, PasswordResetConfirm
+from api.models.user import UserCreate, UserLogin, UserUpdate, PasswordUpdateRequest
 
 
 def format_datetime():
@@ -52,49 +53,60 @@ class UserCreateFactory(factory.Factory):
     class Meta:
         model = UserCreate
 
-    email = factory.Sequence(lambda n: f'test{n}@example.com')
-    password = factory.Sequence(lambda n: f'SecurePass{n}!')
+    # 简化邮箱格式，使用更短的随机字符串
+    email = factory.Sequence(lambda n: f'test{n}@qq.com')
+    password = "SecurePass123!"  # 使用固定的有效密码
+    # 简化用户名格式
     username = factory.Sequence(lambda n: f'testuser{n}')
+    is_active = True
+    is_superuser = False
+    is_verified = False
+    redirect_url = "https://example.com/verify"
 
 
 class UserLoginFactory(factory.Factory):
     class Meta:
         model = UserLogin
 
-    email = factory.Sequence(lambda n: f'test{n}@example.com')
-    password = factory.Sequence(lambda n: f'SecurePass{n}!')
+    email = factory.Sequence(lambda n: f'test{n}@qq.com')
+    password = "SecurePass123!"
 
 
 class InvalidUserCreateFactory(factory.Factory):
-    """used for testing invalid registration data, return dict instead of Pydantic model"""
     class Meta:
-        model = dict  # use dict instead of UserCreate
+        model = UserCreate  # 使用 UserCreate 模型
 
-    email = "invalid_email"
-    password = "short"
-    username = "test_user"
+    email = "invalid-email"  # 无效的邮箱格式
+    password = "short"  # 无效的密码
+    username = "a"  # 无效的用户名
+    is_active = True
+    is_superuser = False
+    is_verified = False
+    redirect_url = "https://example.com/verify"
 
 
 class NonExistentUserLoginFactory(factory.Factory):
-    """used for testing nonexistent user login"""
     class Meta:
-        model = dict  # use dict instead of UserLogin
+        model = UserLogin
 
-    email = "nonexistent@example.com"
-    password = "wrongpassword123"
+    email = factory.Sequence(lambda n: f'nonexistent{n}@example.com')
+    password = "WrongPass123!"
 
 
-class PasswordResetConfirmFactory(factory.Factory):
+class PasswordUpdateRequestFactory(factory.Factory):
     class Meta:
-        model = PasswordResetConfirm
+        model = PasswordUpdateRequest
 
-    recovery_token = factory.Sequence(lambda n: f'recovery_token_{n}')
-    access_token = factory.Sequence(lambda n: f'access_token_{n}')
-    refresh_token = factory.Sequence(lambda n: f'refresh_token_{n}')
-    new_password = factory.Sequence(lambda n: f'NewSecurePass{n}!')
+    access_token = factory.Sequence(lambda n: f'token{n}')
+    refresh_token = factory.Sequence(lambda n: f'refresh{n}')
+    new_password = "NewSecurePass123!"
 
 
 class AdminUserCreateFactory(UserCreateFactory):
-    """admin user factory"""
-    email = factory.Sequence(lambda n: f'admin{n}@example.com')
-    username = factory.Sequence(lambda n: f'admin_user{n}')
+    class Meta:
+        model = UserCreate
+
+    email = factory.Sequence(lambda n: f'admin{n}@qq.com')
+    username = factory.Sequence(lambda n: f'admin{n}')
+    is_superuser = True
+    is_verified = True

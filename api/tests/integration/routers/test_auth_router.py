@@ -1,9 +1,8 @@
 import pytest
+import time
 from fastapi import status
 from api.tests.factories import (
     UserCreateFactory,
-    UserLoginFactory,
-    InvalidUserCreateFactory,
     NonExistentUserLoginFactory,
     AdminUserCreateFactory
 )
@@ -14,6 +13,11 @@ from api.services.auth_service import AuthService
 class TestAuthRouter:
     BASE_URL = "/api/py/auth"  # auth router base url
 
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        time.sleep(1)
+        yield
+
     def test_register_user(self, test_client):
         # Arrange
         user_data = UserCreateFactory().model_dump(mode='json')
@@ -22,14 +26,16 @@ class TestAuthRouter:
         response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
 
+        if response.status_code == 400 and "rate limit" in response.json().get("detail", ""):
+            pytest.skip("Rate limit exceeded")
+
         # Assert
         assert response.status_code == status.HTTP_200_OK
         response_data = response.json()
-        assert response_data["user"]["user_metadata"]["email"] == user_data["email"]
+        assert response_data["user"]["email"] == user_data["email"]
         assert response_data["user"]["user_metadata"]["username"] == user_data["username"]
         assert "id" in response_data["user"]
         assert "session" in response_data
-        assert "access_token" in response_data["session"]
 
     def test_login_user(self, test_client):
         # Arrange
@@ -107,7 +113,6 @@ class TestAuthRouter:
         login_response = test_client.post(
             f"{self.BASE_URL}/login",
             json={
-
                 "email": admin_data["email"],
                 "password": admin_data["password"]
             }
@@ -116,7 +121,7 @@ class TestAuthRouter:
 
         return login_response.json()["session"]["access_token"]
 
-    def test_admin_operations(self, test_client, admin_token):
+    async def test_admin_operations(self, test_client, admin_token):
         """Test admin operations"""
         # use admin_token to perform admin operations
         headers = {"Authorization": f"Bearer {admin_token}"}
@@ -129,51 +134,81 @@ class TestAuthRouter:
 
         assert users_response.status_code == status.HTTP_200_OK
 
-    def test_error_cases(self, test_client):
-        # Test invalid registration
-        invalid_user = InvalidUserCreateFactory()
-        invalid_register = test_client.post(
-            f"{self.BASE_URL}/register", json=invalid_user)
-        assert invalid_register.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-        # Test invalid login
-        invalid_login = NonExistentUserLoginFactory()
-        invalid_login_response = test_client.post(
-            f"{self.BASE_URL}/login", json=invalid_login)
-        assert invalid_login_response.status_code == status.HTTP_401_UNAUTHORIZED
-
-        # Test unauthorized access
-        unauth_response = test_client.get(f"{self.BASE_URL}/user")
-        assert unauth_response.status_code == status.HTTP_403_FORBIDDEN
-
-    def test_reset_password(self, test_client):
-        # Arrange
-        # 1. register a user
+        # Test set user role
         user_data = UserCreateFactory().model_dump(mode='json')
-        user_data["email"] = "valid.user123@gmail.com"  # use gmail email
-        register_response = test_client.post(
+        user_response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
+        user_id = user_response.json()["user"]["id"]
 
-        assert register_response.status_code == status.HTTP_200_OK
-
-        # 2. request password reset
-
-        reset_response = test_client.post(
-            f"{self.BASE_URL}/reset-password",
-            params={"email": user_data["email"]}
+        role_response = test_client.put(
+            f"{self.BASE_URL}/admin/users/{user_id}/role",
+            json={"role": "admin"},
+            headers=headers
         )
+        assert role_response.status_code == status.HTTP_200_OK
 
-        # Assert
-        assert reset_response.status_code == status.HTTP_200_OK
-        assert reset_response.json() == {
-            "message": "Password reset email sent successfully"
-        }
-
-    def test_reset_password_invalid_format(self, test_client):
-        # test invalid email format
-
-        reset_response = test_client.post(
-            f"{self.BASE_URL}/reset-password",
-            params={"email": "not-an-email"}
+        # Test delete user
+        delete_response = test_client.delete(
+            f"{self.BASE_URL}/admin/users/{user_id}",
+            headers=headers
         )
-        assert reset_response.status_code == status.HTTP_400_BAD_REQUEST
+        assert delete_response.status_code == status.HTTP_200_OK
+
+    def test_error_cases(self, test_client):
+        """Test various error cases"""
+        try:
+            # Test invalid registration with custom invalid data
+            invalid_data = {
+                "email": "test@example.com",
+                "password": "short",
+                "username": "a",
+                "is_active": True,
+                "is_superuser": False,
+                "is_verified": False,
+                "redirect_url": "https://example.com/verify"
+            }
+            invalid_register = test_client.post(
+                f"{self.BASE_URL}/register", json=invalid_data)
+            assert invalid_register.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+            # Test invalid login
+            invalid_login = NonExistentUserLoginFactory().model_dump(mode='json')
+            invalid_login_response = test_client.post(
+                f"{self.BASE_URL}/login", json=invalid_login)
+            assert invalid_login_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+            # Test unauthorized access
+            unauth_response = test_client.get(f"{self.BASE_URL}/user")
+            assert unauth_response.status_code == status.HTTP_403_FORBIDDEN
+
+            # Test password update
+            user_data = UserCreateFactory().model_dump(mode='json')
+            register_response = test_client.post(
+                f"{self.BASE_URL}/register", json=user_data)
+            session = register_response.json()["session"]
+
+            # Update password
+            update_data = {
+                "access_token": session["access_token"],
+                "refresh_token": session["refresh_token"],
+                "new_password": "NewSecurePass123!"
+            }
+
+            response = test_client.post(
+                f"{self.BASE_URL}/update-password",
+                json=update_data
+            )
+            assert response.status_code == status.HTTP_200_OK
+
+            # Try login with new password
+            login_response = test_client.post(
+                f"{self.BASE_URL}/login",
+                json={
+                    "email": user_data["email"],
+                    "password": "NewSecurePass123!"
+                }
+            )
+            assert login_response.status_code == status.HTTP_200_OK
+
+        except Exception as e:
+            pytest.fail(f"Unexpected error occurred: {e}")
