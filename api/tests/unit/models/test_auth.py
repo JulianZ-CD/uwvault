@@ -1,5 +1,5 @@
 import pytest
-from api.models.user import UserCreate, UserLogin, PasswordResetConfirm, UserUpdate
+from api.models.user import UserCreate, UserLogin, UserUpdate, PasswordUpdateRequest
 
 
 @pytest.mark.unit
@@ -12,7 +12,8 @@ class TestUserCreate:
             "username": "testuser",
             "is_active": True,
             "is_superuser": False,
-            "is_verified": False
+            "is_verified": False,
+            "redirect_url": "https://example.com/verify"
         }
         user = UserCreate(**user_data)
         assert user.email == user_data["email"]
@@ -21,6 +22,7 @@ class TestUserCreate:
         assert user.is_active == user_data["is_active"]
         assert user.is_superuser == user_data["is_superuser"]
         assert user.is_verified == user_data["is_verified"]
+        assert user.redirect_url == user_data["redirect_url"]
 
     @pytest.mark.parametrize("invalid_data", [
         {"email": "", "password": "SecurePass123!",
@@ -93,47 +95,34 @@ class TestUserUpdate:
 
 
 @pytest.mark.unit
-class TestPasswordResetConfirm:
-    def test_password_reset_confirm_success(self):
-        """Test successful PasswordResetConfirm model creation"""
-        reset_data = {
-            "recovery_token": "valid-token",
+class TestPasswordUpdateRequest:
+    def test_password_update_request_success(self):
+        """Test successful PasswordUpdateRequest model creation"""
+        update_data = {
             "access_token": "valid-access-token",
             "refresh_token": "valid-refresh-token",
             "new_password": "NewSecurePass123!"
         }
-        reset_confirm = PasswordResetConfirm(**reset_data)
-        assert reset_confirm.recovery_token == reset_data["recovery_token"]
-        assert reset_confirm.access_token == reset_data["access_token"]
-        assert reset_confirm.refresh_token == reset_data["refresh_token"]
-        assert reset_confirm.new_password == reset_data["new_password"]
+        password_update = PasswordUpdateRequest(**update_data)
+        assert password_update.access_token == update_data["access_token"]
+        assert password_update.refresh_token == update_data["refresh_token"]
+        assert password_update.new_password == update_data["new_password"]
 
     @pytest.mark.parametrize("invalid_data", [
-        # missing required fields
         {
-            "access_token": "valid-token",
-            "refresh_token": "valid-token",
-            "new_password": "NewSecurePass123!"
-
-        },  # Missing recovery_token
-        {
-            "recovery_token": "valid-token",
             "refresh_token": "valid-token",
             "new_password": "NewSecurePass123!"
         },  # Missing access_token
         {
-            "recovery_token": "valid-token",
             "access_token": "valid-token",
             "new_password": "NewSecurePass123!"
         },  # Missing refresh_token
         {
-            "recovery_token": "valid-token",
             "access_token": "valid-token",
             "refresh_token": "valid-token",
-            "new_password": "short"
-        },  # Password too short
+        },  # Missing new_password
     ])
-    def test_password_reset_confirm_validation_errors(self, invalid_data):
-        """Test PasswordResetConfirm validation constraints"""
+    def test_password_update_request_validation_errors(self, invalid_data):
+        """Test PasswordUpdateRequest validation constraints"""
         with pytest.raises(ValueError):
-            PasswordResetConfirm(**invalid_data)
+            PasswordUpdateRequest(**invalid_data)
