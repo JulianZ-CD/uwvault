@@ -1,5 +1,5 @@
 import factory
-import uuid
+
 from datetime import datetime
 from api.models.todo import Todo, TodoCreate, TodoUpdate
 from api.models.user import UserCreate, UserLogin, UserUpdate, PasswordUpdateRequest
@@ -53,10 +53,9 @@ class UserCreateFactory(factory.Factory):
     class Meta:
         model = UserCreate
 
-    # 简化邮箱格式，使用更短的随机字符串
     email = factory.Sequence(lambda n: f'test{n}@qq.com')
-    password = "SecurePass123!"  # 使用固定的有效密码
-    # 简化用户名格式
+    password = "SecurePass123!"
+
     username = factory.Sequence(lambda n: f'testuser{n}')
     is_active = True
     is_superuser = False
@@ -74,11 +73,11 @@ class UserLoginFactory(factory.Factory):
 
 class InvalidUserCreateFactory(factory.Factory):
     class Meta:
-        model = UserCreate  # 使用 UserCreate 模型
+        model = UserCreate
 
-    email = "invalid-email"  # 无效的邮箱格式
-    password = "short"  # 无效的密码
-    username = "a"  # 无效的用户名
+    email = "invalid-email"
+    password = "short"  #
+    username = "a"
     is_active = True
     is_superuser = False
     is_verified = False
