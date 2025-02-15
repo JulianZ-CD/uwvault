@@ -20,8 +20,6 @@ import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 import { useToast } from '@/app/hooks/use-toast';
 import { UserActions } from './UserActions';
 import { useAuth } from '@/app/hooks/useAuth';
-import { Input } from '@/app/components/ui/input';
-import { Search } from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -30,6 +28,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/app/components/ui/pagination';
+import { SearchBar } from '@/app/components/ui/search-bar';
+import { useSearch } from '@/app/hooks/useSearch';
 
 interface User {
   id: string;
@@ -40,12 +40,31 @@ interface User {
 
 export function UserList() {
   const [users, setUsers] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // 每页显示的用户数量
+  const itemsPerPage = 10;
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+
+  const sortUsers = (users: User[]) => {
+    return [...users].sort((a, b) => {
+      // Sort admin users first
+      if (a.role === 'admin' && b.role !== 'admin') return -1;
+      if (a.role !== 'admin' && b.role === 'admin') return 1;
+
+      // Sort by email if roles are the same
+      return a.email.localeCompare(b.email);
+    });
+  };
+
+  const {
+    searchTerm,
+    handleSearch,
+    filteredItems: filteredUsers,
+  } = useSearch({
+    items: sortUsers(users),
+    searchFields: ['email', 'username'],
+  });
 
   const fetchUsers = async () => {
     try {
@@ -81,30 +100,6 @@ export function UserList() {
   useEffect(() => {
     fetchUsers();
   }, []);
-
-  // Sort users by role and email
-  const sortUsers = (users: User[]) => {
-    return [...users].sort((a, b) => {
-      // Sort admin users first
-
-      if (a.role === 'admin' && b.role !== 'admin') return -1;
-      if (a.role !== 'admin' && b.role === 'admin') return 1;
-
-      // Sort by email if roles are the same
-      return a.email.localeCompare(b.email);
-    });
-  };
-
-  const sortedUsers = sortUsers(users);
-
-  // search filter function
-  const filteredUsers = sortedUsers.filter((user) => {
-    const search = searchTerm.toLowerCase();
-    return (
-      user.email.toLowerCase().includes(search) ||
-      (user.username?.toLowerCase() || '').includes(search)
-    );
-  });
 
   // pagination calculation
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -146,16 +141,12 @@ export function UserList() {
           <CardDescription>
             Manage user roles and accounts in your system
           </CardDescription>
-          {/* search box */}
-          <div className="mt-4 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by email or username..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchBar
+            value={searchTerm}
+            onChange={handleSearch}
+            placeholder="Search by email or username..."
+            className="mt-4"
+          />
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
