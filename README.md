@@ -123,15 +123,6 @@ DEFAULT_ORIGIN= "Your Default Origin"
 
 3. `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard.
 
-4. Create an `env.local` file.
-
-5. Configure the following content in `env.local`:
-
-```
-NEXT_PUBLIC_VERIFY_URL=/verify
-NEXT_PUBLIC_RESET_PASSWORD_URL=/new-password
-```
-
 ## Getting Started
 
 First, create and activate a virtual environment:
