@@ -122,22 +122,14 @@ DEFAULT_ORIGIN= "Your Default Origin"
 ```
 
 3. `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard.
-4. The `env.dev` file will be loaded in `uwvault/api/core/config.py`.
 
-```py
-class Settings(BaseSettings):
-    SUPABASE_URL: str
-    SUPABASE_KEY: str
-    SUPABASE_SERVICE_KEY: str
+4. Create an `env.local` file.
 
-    # Auth URLs
-    VERIFY_EMAIL_URL: str
-    RESET_PASSWORD_URL: str
-    DEFAULT_ORIGIN: str
+5. Configure the following content in `env.local`:
 
-    model_config = ConfigDict(
-        env_file=".env.dev"
-    )
+```
+NEXT_PUBLIC_VERIFY_URL=/verify
+NEXT_PUBLIC_RESET_PASSWORD_URL=/new-password
 ```
 
 ## Getting Started
