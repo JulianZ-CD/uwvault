@@ -19,21 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 import { useUserActions } from './useUserActions';
-
-interface UserActionsProps {
-  user: {
-    id: string;
-    email: string;
-    role?: string;
-    username?: string;
-  };
-  currentUser: {
-    id: string;
-    email: string;
-    role?: string;
-  } | null;
-  onActionComplete: () => void;
-}
+import { UserActionsProps } from '@/app/types/user';
 
 export function UserActions({
   user,

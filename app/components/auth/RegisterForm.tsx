@@ -14,21 +14,7 @@ import { Label } from '@/app/components/ui/label';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { useToast } from '@/app/hooks/use-toast';
-
-// declare custom event type
-interface UserRegisteredEventDetail {
-  id: string;
-  email: string;
-  username: string;
-  role: string;
-}
-
-// declare custom event type
-declare global {
-  interface WindowEventMap {
-    userRegistered: CustomEvent<UserRegisteredEventDetail>;
-  }
-}
+import { UserRegisteredEventDetail } from '@/app/types/user';
 
 export function RegisterForm() {
   const router = useRouter();

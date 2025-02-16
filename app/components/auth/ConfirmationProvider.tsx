@@ -3,11 +3,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/app/hooks/use-toast';
-
-interface ConfirmationContextType {
-  status: 'loading' | 'success' | 'error';
-  message: string;
-}
+import { ConfirmationContextType } from '@/app/types/user';
 
 const ConfirmationContext = createContext<ConfirmationContextType>({
   status: 'loading',

@@ -14,7 +14,6 @@ import {
 } from '@/app/components/ui/navigation-menu';
 import { ThemeToggle } from '@/app/components/theme-toggle';
 import { cn } from '@/app/lib/utils';
-import { Button } from '@/app/components/ui/button';
 import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 
 const resources = [

@@ -4,11 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 import { useAuth } from '@/app/hooks/useAuth';
-
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  loadingComponent?: React.ReactNode;
-}
+import { ProtectedRouteProps } from '@/app/types/user';
 
 export function ProtectedRoute({
   children,

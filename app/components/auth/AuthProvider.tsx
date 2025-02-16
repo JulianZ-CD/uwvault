@@ -2,25 +2,7 @@
 
 import { createContext, useState, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface User {
-  id: string;
-  email: string;
-  username: string;
-  role?: string;
-}
-
-interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  error: string | null;
-  getCurrentUser: () => Promise<void>;
-  login: (credentials: { email: string; password: string }) => Promise<void>;
-  logout: () => Promise<void>;
-  isAdmin: () => boolean;
-  requireAuth: () => Promise<void>;
-  requireAdmin: () => Promise<void>;
-}
+import { User, AuthContextType } from '@/app/types/user';
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 

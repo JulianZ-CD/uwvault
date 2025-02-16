@@ -30,13 +30,7 @@ import {
 } from '@/app/components/ui/pagination';
 import { SearchBar } from '@/app/components/ui/search-bar';
 import { useSearch } from '@/app/hooks/useSearch';
-
-interface User {
-  id: string;
-  email: string;
-  username: string;
-  role: string;
-}
+import { User } from '@/app/types/user';
 
 export function UserList() {
   const [users, setUsers] = useState<User[]>([]);
