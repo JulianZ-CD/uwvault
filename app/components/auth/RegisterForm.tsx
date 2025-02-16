@@ -87,7 +87,6 @@ export function RegisterForm() {
         email,
         username,
         password,
-        redirect_url: `${window.location.origin}${process.env.NEXT_PUBLIC_VERIFY_URL}`,
       };
 
       const response = await fetch('/api/py/auth/register', {
