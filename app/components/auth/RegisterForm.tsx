@@ -15,6 +15,21 @@ import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { useToast } from '@/app/hooks/use-toast';
 
+// declare custom event type
+interface UserRegisteredEventDetail {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+}
+
+// declare custom event type
+declare global {
+  interface WindowEventMap {
+    userRegistered: CustomEvent<UserRegisteredEventDetail>;
+  }
+}
+
 export function RegisterForm() {
   const router = useRouter();
   const { toast } = useToast();
@@ -103,6 +118,24 @@ export function RegisterForm() {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Registration failed');
       }
+
+      const responseData = await response.json();
+      const userInfo = responseData.user;
+
+      // custom event
+      const eventDetail: UserRegisteredEventDetail = {
+        id: userInfo.id,
+        email: userInfo.email,
+        username: userInfo.user_metadata.username,
+        role: userInfo.role,
+      };
+
+      const customEvent = new CustomEvent('userRegistered', {
+        detail: eventDetail,
+        bubbles: true,
+      });
+
+      window.dispatchEvent(customEvent);
 
       toast({
         title: 'Registration successful',
