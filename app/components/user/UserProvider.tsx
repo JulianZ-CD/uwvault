@@ -1,11 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState } from 'react';
-
-interface UserContextType {
-  updateProfile: (data: { new_username: string }) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-}
+import { createContext, useContext } from 'react';
+import { UserContextType } from '@/app/types/user';
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 

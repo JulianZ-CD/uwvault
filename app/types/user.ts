@@ -61,3 +61,14 @@ export interface UserActionsProps {
   } | null;
   onActionComplete: () => void;
 }
+
+// declare user profile type
+export interface UserProfileProps {
+  user: any;
+}
+
+// declare user context type
+export interface UserContextType {
+  updateProfile: (data: { new_username: string }) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+}

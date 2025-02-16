@@ -9,10 +9,7 @@ import { useToast } from '@/app/hooks/use-toast';
 import { Label } from '@/app/components/ui/label';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useUser } from '@/app/components/user/UserProvider';
-
-interface UserProfileProps {
-  user: any;
-}
+import { UserProfileProps } from '@/app/types/user';
 
 export function UserProfile({ user }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
