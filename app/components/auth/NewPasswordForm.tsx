@@ -29,76 +29,73 @@ export function NewPasswordForm() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
+    setIsLoading(true);
 
+    const hash = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+
+    if (!accessToken || !refreshToken) {
+      setIsLoading(false);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description:
+          'Invalid or expired password reset link. Please request a new password reset email.',
+      });
+      return;
+    }
+
+    // verify password
     if (newPassword !== confirmPassword) {
-      setError("Passwords don't match");
+      setIsLoading(false);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: "Passwords don't match",
+      });
       return;
     }
 
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // get access token and refresh token from URL hash
-      const hash = window.location.hash.substring(1);
-      const hashParams = new URLSearchParams(hash);
-
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-
-      // verify all necessary tokens exist
-
-      if (!accessToken || !refreshToken) {
-        throw new Error(
-          'Invalid or expired password reset link. Please request a new password reset email.'
-        );
-      }
-
-      // call backend API to update password
-      const response = await fetch('/api/py/auth/update-password', {
-        method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          new_password: newPassword,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to update password');
-      }
-
-      const data = await response.json();
-
-      toast({
-        title: 'Success',
-        description:
-          data.message || 'Your password has been updated successfully',
-      });
-
-      router.push('/login');
-    } catch (error: any) {
-      console.error('Password update error:', error);
-      const errorMessage =
-        error.message || 'An error occurred while updating password';
-      setError(errorMessage);
+      setIsLoading(false);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: errorMessage,
+        description: 'Password must be at least 8 characters long',
       });
-    } finally {
-      setIsLoading(false);
+      return;
+    }
+
+    // call API
+    const response = await fetch('/api/py/auth/update-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        new_password: newPassword,
+      }),
+    });
+
+    const data = await response.json();
+    setIsLoading(false);
+
+    if (response.ok) {
+      toast({
+        title: 'Success',
+        description: 'Password updated successfully',
+      });
+      router.push('/login');
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: data.detail || 'Failed to update password',
+      });
     }
   };
 
