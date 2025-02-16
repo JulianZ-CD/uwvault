@@ -53,14 +53,9 @@ class UserCreateFactory(factory.Factory):
     class Meta:
         model = UserCreate
 
-    email = factory.Sequence(lambda n: f'test{n}@qq.com')
-    password = "SecurePass123!"
-
-    username = factory.Sequence(lambda n: f'testuser{n}')
-    is_active = True
-    is_superuser = False
-    is_verified = False
-    redirect_url = "https://example.com/verify"
+    email = factory.Sequence(lambda n: f'user{n}@example.com')
+    username = factory.Sequence(lambda n: f'user{n}')
+    password = "Test123456!"
 
 
 class UserLoginFactory(factory.Factory):
@@ -102,10 +97,4 @@ class PasswordUpdateRequestFactory(factory.Factory):
 
 
 class AdminUserCreateFactory(UserCreateFactory):
-    class Meta:
-        model = UserCreate
-
-    email = factory.Sequence(lambda n: f'admin{n}@qq.com')
-    username = factory.Sequence(lambda n: f'admin{n}')
-    is_superuser = True
-    is_verified = True
+    email = factory.Sequence(lambda n: f'admin{n}@example.com')
