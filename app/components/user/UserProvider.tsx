@@ -35,7 +35,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({
+        email,
+        redirect_url: `${window.location.origin}${process.env.NEXT_PUBLIC_RESET_PASSWORD_URL}`,
+      }),
     });
 
     if (!response.ok) {
