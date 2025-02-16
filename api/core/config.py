@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     DEFAULT_ORIGIN: str
 
     model_config = ConfigDict(
-        env_file=".env.dev"
+        env_file=".env.dev",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_ignore_empty=True
     )
 
 
