@@ -84,28 +84,31 @@ describe('AuthProvider', () => {
 
   describe('authentication actions', () => {
     it('handles login successfully', async () => {
-      let authContext: any; // 添加类型声明
+      // Mock fetch response
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockAuthResponses.validLogin),
+      });
 
-      function TestHookComponent() {
-        authContext = useAuth();
+      let authHook: any;
+      const TestComponent = () => {
+        authHook = useAuth();
         return null;
-      }
+      };
 
       await act(async () => {
         render(
           <AuthProvider>
-            <TestHookComponent />
-            <TestAuthComponent />
+            <TestComponent />
           </AuthProvider>
         );
       });
 
-      // 确保 authContext 已定义
-      expect(authContext).toBeDefined();
-
-      await authContext.login({
-        email: 'test@example.com',
-        password: 'password123',
+      await act(async () => {
+        await authHook.login({
+          email: 'test@example.com',
+          password: 'password123',
+        });
       });
 
       expect(
@@ -114,32 +117,66 @@ describe('AuthProvider', () => {
     });
 
     it('handles logout successfully', async () => {
-      // 设置初始登录状态
       localStorage.setItem(
         'token',
         JSON.stringify({ access_token: 'valid_token' })
       );
 
+      // Mock fetch for getCurrentUser
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockUserData.regularUser),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+        });
+
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestAuthComponent />
+          </AuthProvider>
+        );
+      });
+
+      const logoutButton = await screen.findByRole('button', {
+        name: /logout/i,
+      });
+      await act(async () => {
+        await logoutButton.click();
+      });
+
+      expect(localStorage.getItem('token')).toBeNull();
+    });
+
+    it('handles login failure', async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+      });
+
       let authHook: any;
       const TestComponent = () => {
         authHook = useAuth();
-        return authHook.user ? (
-          <button onClick={authHook.logout}>Logout</button>
-        ) : null;
+        return null;
       };
 
       await act(async () => {
-        const { user } = render(
+        render(
           <AuthProvider>
             <TestComponent />
           </AuthProvider>
         );
-
-        const logoutButton = screen.getByRole('button', { name: /logout/i });
-        await user.click(logoutButton);
       });
 
-      expect(localStorage.getItem('token')).toBeNull();
+      await expect(
+        authHook.login({
+          email: 'test@example.com',
+          password: 'wrong',
+        })
+      ).rejects.toThrow('Login failed');
     });
   });
 
@@ -184,23 +221,6 @@ describe('AuthProvider', () => {
   });
 
   describe('error handling', () => {
-    it('handles login failure', async () => {
-      global.fetch = jest.fn().mockImplementationOnce(() =>
-        Promise.resolve({
-          ok: false,
-          status: 401,
-        })
-      );
-
-      const auth = useAuth();
-      await expect(
-        auth.login({
-          email: 'test@example.com',
-          password: 'wrong',
-        })
-      ).rejects.toThrow('Login failed');
-    });
-
     it('handles invalid tokens', async () => {
       localStorage.setItem('token', 'invalid_token');
 
