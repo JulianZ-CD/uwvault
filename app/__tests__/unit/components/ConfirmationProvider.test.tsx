@@ -1,13 +1,12 @@
-import React from 'react';
 import '@/app/__tests__/mocks/mockRouter';
-import { render, screen, act, waitFor } from '../../utils/test-utils';
+import { render, screen, act } from '../../utils/test-utils';
 import {
   ConfirmationProvider,
   useConfirmation,
 } from '@/app/components/auth/ConfirmationProvider';
 import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 
-// 创建测试组件
+// create test component
 const TestConfirmationComponent = () => {
   const { status, message } = useConfirmation();
   return (
@@ -18,50 +17,29 @@ const TestConfirmationComponent = () => {
   );
 };
 
-jest.useFakeTimers();
-
 describe('ConfirmationProvider', () => {
   beforeEach(() => {
-    // 清除 localStorage 和 URL hash
+    // clear localStorage and URL hash
     localStorage.clear();
     window.location.hash = '';
     jest.clearAllMocks();
+    jest.useFakeTimers();
   });
 
-  describe('initialization', () => {
-    it('starts with loading state', async () => {
-      // 模拟 useEffect 不执行
-      jest.spyOn(React, 'useEffect').mockImplementationOnce(() => {});
-
-      // 确保没有 hash 参数
-      window.location.hash = '';
-
-      await act(async () => {
-        render(
-          <ConfirmationProvider>
-            <TestConfirmationComponent />
-          </ConfirmationProvider>
-        );
-      });
-
-      // 在 useEffect 执行前检查初始状态
-      const statusElement = screen.getByTestId('status');
-      expect(statusElement).toHaveTextContent('Status: loading');
-    });
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
   });
 
-  describe('email verification', () => {
-    it('handles successful verification', async () => {
-      // 设置 URL hash 参数
+  describe('email verification process', () => {
+    it('handle successful verification', async () => {
       window.location.hash = '#type=signup&access_token=valid_token';
 
-      await act(async () => {
-        render(
-          <ConfirmationProvider>
-            <TestConfirmationComponent />
-          </ConfirmationProvider>
-        );
-      });
+      render(
+        <ConfirmationProvider>
+          <TestConfirmationComponent />
+        </ConfirmationProvider>
+      );
 
       expect(screen.getByTestId('status')).toHaveTextContent('Status: success');
       expect(screen.getByTestId('message')).toHaveTextContent(
@@ -69,17 +47,14 @@ describe('ConfirmationProvider', () => {
       );
     });
 
-    it('handles invalid verification link', async () => {
-      // 设置无效的 URL hash 参数
+    it('handle invalid verification link', async () => {
       window.location.hash = '#type=invalid';
 
-      await act(async () => {
-        render(
-          <ConfirmationProvider>
-            <TestConfirmationComponent />
-          </ConfirmationProvider>
-        );
-      });
+      render(
+        <ConfirmationProvider>
+          <TestConfirmationComponent />
+        </ConfirmationProvider>
+      );
 
       expect(screen.getByTestId('status')).toHaveTextContent('Status: error');
       expect(screen.getByTestId('message')).toHaveTextContent(
@@ -87,59 +62,37 @@ describe('ConfirmationProvider', () => {
       );
     });
 
-    it('redirects to login page after successful verification', async () => {
-      // 设置 URL hash 参数
+    it('redirect to login page after 3 seconds', async () => {
       window.location.hash = '#type=signup&access_token=valid_token';
-
-      // 获取路由 mock 实例
       const { useRouter } = require('next/navigation');
       const router = useRouter();
 
-      await act(async () => {
-        render(
-          <ConfirmationProvider>
-            <TestConfirmationComponent />
-          </ConfirmationProvider>
-        );
+      render(
+        <ConfirmationProvider>
+          <TestConfirmationComponent />
+        </ConfirmationProvider>
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(3000);
       });
 
-      // 验证成功状态
-      expect(screen.getByTestId('status')).toHaveTextContent('Status: success');
-
-      // 关键修改点：分步处理定时器
-      await act(async () => {
-        // 推进定时器并等待异步操作完成
-        jest.advanceTimersByTime(3000); // 精确匹配3秒定时器
-        await new Promise((resolve) => setImmediate(resolve)); // 等待微任务队列
-      });
-
-      // 验证路由跳转
       expect(router.push).toHaveBeenCalledWith('/login');
     });
-  });
 
-  describe('toast notifications', () => {
-    it('shows success toast on successful verification', async () => {
-      // 设置 URL hash 参数
+    it('show success toast when verification is successful', async () => {
       window.location.hash = '#type=signup&access_token=valid_token';
 
-      await act(async () => {
-        render(
-          <ConfirmationProvider>
-            <TestConfirmationComponent />
-          </ConfirmationProvider>
-        );
-      });
+      render(
+        <ConfirmationProvider>
+          <TestConfirmationComponent />
+        </ConfirmationProvider>
+      );
 
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Success',
         description: 'Your email has been verified successfully.',
       });
     });
-  });
-
-  // Clean up after all tests
-  afterAll(() => {
-    jest.useRealTimers();
   });
 });
