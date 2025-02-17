@@ -1,5 +1,5 @@
 import '@/app/__tests__/mocks/mockRouter';
-import { render, screen, act } from '../../utils/test-utils';
+import { render, screen, act, waitFor } from '../../utils/test-utils'; // 引入 waitFor
 import { AuthProvider } from '@/app/components/auth/AuthProvider';
 import { useAuth } from '@/app/hooks/useAuth';
 import {
@@ -76,9 +76,11 @@ describe('AuthProvider', () => {
         );
       });
 
-      expect(
-        screen.getByText(`Logged in as ${mockUser.email}`)
-      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getByText(`Logged in as ${mockUser.email}`)
+        ).toBeInTheDocument();
+      });
     });
   });
 
@@ -121,7 +123,9 @@ describe('AuthProvider', () => {
       });
 
       // 验证登录成功
-      expect(localStorage.getItem('token')).toBeTruthy();
+      await waitFor(() => {
+        expect(localStorage.getItem('token')).toBeTruthy();
+      });
     });
 
     it('handles logout successfully', async () => {
@@ -156,7 +160,9 @@ describe('AuthProvider', () => {
         await logoutButton.click();
       });
 
-      expect(localStorage.getItem('token')).toBeNull();
+      await waitFor(() => {
+        expect(localStorage.getItem('token')).toBeNull();
+      });
     });
 
     it('handles login failure', async () => {
@@ -248,16 +254,13 @@ describe('AuthProvider', () => {
             <TestAuthComponent />
           </AuthProvider>
         );
-
-        // 等待异步操作完成
-        await new Promise((resolve) => setTimeout(resolve, 100));
       });
 
-      // 等待组件更新
-      await screen.findByText('Not logged in');
-
-      // 验证 token 是否被清除
-      expect(localStorage.getItem('token')).toBeNull();
+      // 使用 waitFor 确保异步操作完成
+      await waitFor(() => {
+        expect(screen.getByText('Not logged in')).toBeInTheDocument();
+        expect(localStorage.getItem('token')).toBeNull();
+      });
     });
   });
 });
