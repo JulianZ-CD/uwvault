@@ -41,9 +41,16 @@ describe('ForgotPasswordForm', () => {
 
   it('处理表单提交失败的情况', async () => {
     const errorMessage = 'Invalid email address';
-    (useUser().resetPassword as jest.Mock).mockRejectedValue(
-      new Error(errorMessage)
-    );
+    const resetPasswordMock = jest
+      .fn()
+      .mockRejectedValue(new Error(errorMessage));
+
+    jest.mock('@/app/components/user/UserProvider', () => ({
+      useUser: () => ({
+        resetPassword: resetPasswordMock,
+      }),
+    }));
+
     renderWithQuery(<ForgotPasswordForm />);
 
     // 获取表单元素
@@ -54,13 +61,16 @@ describe('ForgotPasswordForm', () => {
     await userEvent.type(emailInput, 'invalid-email');
     await userEvent.click(submitButton);
 
-    // 验证错误提示
+    // 等待 resetPassword 被调用
     await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        variant: 'destructive',
-        title: 'Error',
-        description: errorMessage,
-      });
+      expect(resetPasswordMock).toHaveBeenCalledWith('invalid-email');
+    });
+
+    // 然后验证 toast 调用
+    expect(mockToast).toHaveBeenCalledWith({
+      variant: 'destructive',
+      title: 'Error',
+      description: errorMessage,
     });
   });
 
