@@ -88,12 +88,12 @@ describe('ConfirmationProvider', () => {
     });
 
     it('redirects to login page after successful verification', async () => {
-      // Import router and spy on push method
-      const { useRouter } = require('next/navigation');
-      const router = useRouter();
-
       // 设置 URL hash 参数
       window.location.hash = '#type=signup&access_token=valid_token';
+
+      // 获取路由 mock 实例
+      const { useRouter } = require('next/navigation');
+      const router = useRouter();
 
       await act(async () => {
         render(
@@ -103,21 +103,18 @@ describe('ConfirmationProvider', () => {
         );
       });
 
-      // First verify we have success status
+      // 验证成功状态
       expect(screen.getByTestId('status')).toHaveTextContent('Status: success');
 
-      // Advance fake timers - try a very long time to ensure any scheduled callbacks run
+      // 关键修改点：分步处理定时器
       await act(async () => {
-        jest.advanceTimersByTime(10000); // 10 seconds
+        // 推进定时器并等待异步操作完成
+        jest.advanceTimersByTime(3000); // 精确匹配3秒定时器
+        await new Promise((resolve) => setImmediate(resolve)); // 等待微任务队列
       });
 
-      // Now verify the router was called
-      await waitFor(
-        () => {
-          expect(router.push).toHaveBeenCalledWith('/login');
-        },
-        { timeout: 5000 }
-      );
+      // 验证路由跳转
+      expect(router.push).toHaveBeenCalledWith('/login');
     });
   });
 
