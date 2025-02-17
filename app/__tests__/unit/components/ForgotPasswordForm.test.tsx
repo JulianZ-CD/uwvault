@@ -6,10 +6,13 @@ import { useUser } from '@/app/components/user/UserProvider';
 import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 import { screen, waitFor } from '@testing-library/react';
 
-// Mock useUser 钩子
+// 创建一个持久的 mock 函数
+const mockResetPassword = jest.fn();
+
+// Mock useUser hook
 jest.mock('@/app/components/user/UserProvider', () => ({
   useUser: () => ({
-    resetPassword: jest.fn(),
+    resetPassword: mockResetPassword,
   }),
 }));
 
@@ -41,36 +44,48 @@ describe('ForgotPasswordForm', () => {
 
   it('处理表单提交失败的情况', async () => {
     const errorMessage = 'Invalid email address';
-    const resetPasswordMock = jest
-      .fn()
-      .mockRejectedValue(new Error(errorMessage));
-
-    jest.mock('@/app/components/user/UserProvider', () => ({
-      useUser: () => ({
-        resetPassword: resetPasswordMock,
-      }),
-    }));
+    mockResetPassword.mockRejectedValueOnce(new Error(errorMessage));
 
     renderWithQuery(<ForgotPasswordForm />);
 
-    // 获取表单元素
-    const emailInput = screen.getByLabelText(/email/i);
-    const submitButton = screen.getByText(/send reset link/i);
+    // 验证初始状态
+    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
+    const submitButton = screen.getByText(
+      /send reset link/i
+    ) as HTMLButtonElement;
+    expect(emailInput).toBeInTheDocument();
+    expect(submitButton).toBeInTheDocument();
+    expect(submitButton.disabled).toBe(false);
 
-    // 填写并提交表单
+    // 输入邮箱
     await userEvent.type(emailInput, 'invalid-email');
+    expect(emailInput.value).toBe('invalid-email');
+
+    // 直接触发表单提交事件
+    const form = emailInput.closest('form');
+    expect(form).toBeInTheDocument();
+
+    // 使用原生的表单提交事件
     await userEvent.click(submitButton);
+    form?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true })
+    );
 
     // 等待 resetPassword 被调用
-    await waitFor(() => {
-      expect(resetPasswordMock).toHaveBeenCalledWith('invalid-email');
-    });
+    await waitFor(
+      () => {
+        expect(mockResetPassword).toHaveBeenCalledWith('invalid-email');
+      },
+      { timeout: 1000 }
+    );
 
-    // 然后验证 toast 调用
-    expect(mockToast).toHaveBeenCalledWith({
-      variant: 'destructive',
-      title: 'Error',
-      description: errorMessage,
+    // 验证错误状态
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        variant: 'destructive',
+        title: 'Error',
+        description: errorMessage,
+      });
     });
   });
 
