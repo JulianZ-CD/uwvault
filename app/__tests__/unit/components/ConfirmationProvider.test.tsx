@@ -1,6 +1,6 @@
 import React from 'react';
 import '@/app/__tests__/mocks/mockRouter';
-import { render, screen, act } from '../../utils/test-utils';
+import { render, screen, act, waitFor } from '../../utils/test-utils';
 import {
   ConfirmationProvider,
   useConfirmation,
@@ -17,6 +17,8 @@ const TestConfirmationComponent = () => {
     </div>
   );
 };
+
+jest.useFakeTimers();
 
 describe('ConfirmationProvider', () => {
   beforeEach(() => {
@@ -86,11 +88,12 @@ describe('ConfirmationProvider', () => {
     });
 
     it('redirects to login page after successful verification', async () => {
-      // 设置 URL hash 参数
-      window.location.hash = '#type=signup&access_token=valid_token';
-
+      // Import router and spy on push method
       const { useRouter } = require('next/navigation');
       const router = useRouter();
+
+      // 设置 URL hash 参数
+      window.location.hash = '#type=signup&access_token=valid_token';
 
       await act(async () => {
         render(
@@ -100,18 +103,21 @@ describe('ConfirmationProvider', () => {
         );
       });
 
-      // 运行所有定时器并等待异步操作完成
+      // First verify we have success status
+      expect(screen.getByTestId('status')).toHaveTextContent('Status: success');
+
+      // Advance fake timers - try a very long time to ensure any scheduled callbacks run
       await act(async () => {
-        jest.useFakeTimers();
-        jest.runAllTimers();
-        jest.useRealTimers();
+        jest.advanceTimersByTime(10000); // 10 seconds
       });
 
-      // 等待可能的微任务执行完成
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      // 验证是否调用了路由跳转
-      expect(router.push).toHaveBeenCalledWith('/login');
+      // Now verify the router was called
+      await waitFor(
+        () => {
+          expect(router.push).toHaveBeenCalledWith('/login');
+        },
+        { timeout: 5000 }
+      );
     });
   });
 
@@ -133,5 +139,10 @@ describe('ConfirmationProvider', () => {
         description: 'Your email has been verified successfully.',
       });
     });
+  });
+
+  // Clean up after all tests
+  afterAll(() => {
+    jest.useRealTimers();
   });
 });
