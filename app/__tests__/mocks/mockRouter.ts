@@ -5,6 +5,8 @@ export const mockRouter = {
   // 添加其他需要的方法
 };
 
+export const mockToast = jest.fn();
+
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
@@ -16,4 +18,10 @@ jest.mock('next/navigation', () => ({
   }),
   usePathname: () => '',
   useSearchParams: () => new URLSearchParams(),
+}));
+
+jest.mock('@/app/hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: mockToast,
+  }),
 }));

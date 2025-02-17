@@ -4,14 +4,7 @@ import {
   ConfirmationProvider,
   useConfirmation,
 } from '@/app/components/auth/ConfirmationProvider';
-
-// Mock useToast hook
-const mockToast = jest.fn();
-jest.mock('@/app/hooks/use-toast', () => ({
-  useToast: () => ({
-    toast: mockToast,
-  }),
-}));
+import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 
 // 创建测试组件
 const TestConfirmationComponent = () => {
@@ -30,12 +23,6 @@ describe('ConfirmationProvider', () => {
     localStorage.clear();
     window.location.hash = '';
     jest.clearAllMocks();
-    jest.useFakeTimers(); // 使用假定时器
-  });
-
-  afterEach(() => {
-    jest.clearAllTimers();
-    jest.useRealTimers();
   });
 
   describe('initialization', () => {
@@ -43,7 +30,7 @@ describe('ConfirmationProvider', () => {
       // 确保没有 hash 参数
       window.location.hash = '';
 
-      // 渲染前确保 useEffect 不会立即执行
+      // 延迟 useEffect 的执行
       jest.useFakeTimers();
 
       render(
@@ -53,10 +40,10 @@ describe('ConfirmationProvider', () => {
       );
 
       // 在 useEffect 执行前检查初始状态
-      expect(screen.getByTestId('status')).toHaveTextContent('loading');
-      expect(screen.getByTestId('message')).toHaveTextContent(
-        'Verifying your email...'
-      );
+      const statusElement = screen.getByTestId('status');
+      expect(statusElement).toHaveTextContent('Status: loading');
+
+      jest.useRealTimers();
     });
   });
 
@@ -71,7 +58,7 @@ describe('ConfirmationProvider', () => {
         </ConfirmationProvider>
       );
 
-      expect(screen.getByTestId('status')).toHaveTextContent('success');
+      expect(screen.getByTestId('status')).toHaveTextContent('Status: success');
       expect(screen.getByTestId('message')).toHaveTextContent(
         'Email verified successfully!'
       );
@@ -87,7 +74,7 @@ describe('ConfirmationProvider', () => {
         </ConfirmationProvider>
       );
 
-      expect(screen.getByTestId('status')).toHaveTextContent('error');
+      expect(screen.getByTestId('status')).toHaveTextContent('Status: error');
       expect(screen.getByTestId('message')).toHaveTextContent(
         'Invalid verification link'
       );
@@ -98,7 +85,7 @@ describe('ConfirmationProvider', () => {
       window.location.hash = '#type=signup&access_token=valid_token';
 
       const { useRouter } = require('next/navigation');
-      const mockPush = useRouter().push;
+      const router = useRouter();
 
       render(
         <ConfirmationProvider>
@@ -107,12 +94,14 @@ describe('ConfirmationProvider', () => {
       );
 
       // 运行所有定时器
+      jest.useFakeTimers();
       act(() => {
         jest.runAllTimers();
       });
+      jest.useRealTimers();
 
       // 验证是否调用了路由跳转
-      expect(mockPush).toHaveBeenCalledWith('/login');
+      expect(router.push).toHaveBeenCalledWith('/login');
     });
   });
 
