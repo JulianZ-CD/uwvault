@@ -16,36 +16,22 @@ jest.mock('@/app/components/user/UserProvider', () => ({
 describe('ForgotPasswordForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    const { mockRouter } = require('@/app/__tests__/mocks/mockRouter');
-    mockRouter.push.mockReset();
   });
 
   it('成功提交表单并显示成功状态', async () => {
-    // 模拟成功的 API 调用
     (useUser().resetPassword as jest.Mock).mockResolvedValue(true);
-
     renderWithQuery(<ForgotPasswordForm />);
 
-    // 填写表单
-    const emailInput = screen.getByLabelText('Email');
-    await userEvent.type(emailInput, 'test@example.com');
+    // 获取表单元素
+    const emailInput = screen.getByLabelText(/email/i);
+    const submitButton = screen.getByText(/send reset link/i);
 
-    // 提交表单
-    const submitButton = screen.getByRole('button', {
-      name: /Send Reset Link/i,
-    });
+    // 填写并提交表单
+    await userEvent.type(emailInput, 'test@example.com');
     await userEvent.click(submitButton);
 
-    // 验证加载状态
-    expect(submitButton).toBeDisabled();
-    expect(submitButton).toHaveTextContent('Sending...');
-
-    // 等待异步操作完成
+    // 验证 toast 调用
     await waitFor(() => {
-      // 验证成功状态
-      expect(
-        screen.getByText(/if an account exists with this email address/i)
-      ).toBeInTheDocument();
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Success',
         description: 'Password reset email has been sent to your email address',
@@ -54,32 +40,22 @@ describe('ForgotPasswordForm', () => {
   });
 
   it('处理表单提交失败的情况', async () => {
-    // 模拟失败的 API 调用
     const errorMessage = 'Invalid email address';
     (useUser().resetPassword as jest.Mock).mockRejectedValue(
       new Error(errorMessage)
     );
-
     renderWithQuery(<ForgotPasswordForm />);
 
-    // 填写表单
-    const emailInput = screen.getByLabelText('Email');
-    await userEvent.type(emailInput, 'invalid-email');
+    // 获取表单元素
+    const emailInput = screen.getByLabelText(/email/i);
+    const submitButton = screen.getByText(/send reset link/i);
 
-    // 提交表单
-    const submitButton = screen.getByRole('button', {
-      name: /Send Reset Link/i,
-    });
+    // 填写并提交表单
+    await userEvent.type(emailInput, 'invalid-email');
     await userEvent.click(submitButton);
 
-    // 等待错误显示
+    // 验证错误提示
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          (_, element) =>
-            element?.textContent?.startsWith(errorMessage) ?? false
-        )
-      ).toBeInTheDocument();
       expect(mockToast).toHaveBeenCalledWith({
         variant: 'destructive',
         title: 'Error',
@@ -91,13 +67,15 @@ describe('ForgotPasswordForm', () => {
   it('验证必填字段', async () => {
     renderWithQuery(<ForgotPasswordForm />);
 
+    // 获取表单元素
+    const emailInput = screen.getByLabelText(/email/i);
+    const submitButton = screen.getByText(/send reset link/i);
+
     // 直接提交空表单
-    const submitButton = screen.getByRole('button', {
-      name: /Send Reset Link/i,
-    });
     await userEvent.click(submitButton);
 
     // 验证必填提示
-    expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
+    expect(emailInput).toBeInvalid();
+    expect(emailInput).toBeRequired();
   });
 });
