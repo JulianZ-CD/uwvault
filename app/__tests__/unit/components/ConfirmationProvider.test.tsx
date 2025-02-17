@@ -1,3 +1,4 @@
+import React from 'react';
 import '@/app/__tests__/mocks/mockRouter';
 import { render, screen, act } from '../../utils/test-utils';
 import {
@@ -26,37 +27,39 @@ describe('ConfirmationProvider', () => {
   });
 
   describe('initialization', () => {
-    it('starts with loading state', () => {
+    it('starts with loading state', async () => {
+      // 模拟 useEffect 不执行
+      jest.spyOn(React, 'useEffect').mockImplementationOnce(() => {});
+
       // 确保没有 hash 参数
       window.location.hash = '';
 
-      // 延迟 useEffect 的执行
-      jest.useFakeTimers();
-
-      render(
-        <ConfirmationProvider>
-          <TestConfirmationComponent />
-        </ConfirmationProvider>
-      );
+      await act(async () => {
+        render(
+          <ConfirmationProvider>
+            <TestConfirmationComponent />
+          </ConfirmationProvider>
+        );
+      });
 
       // 在 useEffect 执行前检查初始状态
       const statusElement = screen.getByTestId('status');
       expect(statusElement).toHaveTextContent('Status: loading');
-
-      jest.useRealTimers();
     });
   });
 
   describe('email verification', () => {
-    it('handles successful verification', () => {
+    it('handles successful verification', async () => {
       // 设置 URL hash 参数
       window.location.hash = '#type=signup&access_token=valid_token';
 
-      render(
-        <ConfirmationProvider>
-          <TestConfirmationComponent />
-        </ConfirmationProvider>
-      );
+      await act(async () => {
+        render(
+          <ConfirmationProvider>
+            <TestConfirmationComponent />
+          </ConfirmationProvider>
+        );
+      });
 
       expect(screen.getByTestId('status')).toHaveTextContent('Status: success');
       expect(screen.getByTestId('message')).toHaveTextContent(
@@ -64,15 +67,17 @@ describe('ConfirmationProvider', () => {
       );
     });
 
-    it('handles invalid verification link', () => {
+    it('handles invalid verification link', async () => {
       // 设置无效的 URL hash 参数
       window.location.hash = '#type=invalid';
 
-      render(
-        <ConfirmationProvider>
-          <TestConfirmationComponent />
-        </ConfirmationProvider>
-      );
+      await act(async () => {
+        render(
+          <ConfirmationProvider>
+            <TestConfirmationComponent />
+          </ConfirmationProvider>
+        );
+      });
 
       expect(screen.getByTestId('status')).toHaveTextContent('Status: error');
       expect(screen.getByTestId('message')).toHaveTextContent(
@@ -80,25 +85,30 @@ describe('ConfirmationProvider', () => {
       );
     });
 
-    it('redirects to login page after successful verification', () => {
+    it('redirects to login page after successful verification', async () => {
       // 设置 URL hash 参数
       window.location.hash = '#type=signup&access_token=valid_token';
 
       const { useRouter } = require('next/navigation');
       const router = useRouter();
 
-      render(
-        <ConfirmationProvider>
-          <TestConfirmationComponent />
-        </ConfirmationProvider>
-      );
-
-      // 运行所有定时器
-      jest.useFakeTimers();
-      act(() => {
-        jest.runAllTimers();
+      await act(async () => {
+        render(
+          <ConfirmationProvider>
+            <TestConfirmationComponent />
+          </ConfirmationProvider>
+        );
       });
-      jest.useRealTimers();
+
+      // 运行所有定时器并等待异步操作完成
+      await act(async () => {
+        jest.useFakeTimers();
+        jest.runAllTimers();
+        jest.useRealTimers();
+      });
+
+      // 等待可能的微任务执行完成
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       // 验证是否调用了路由跳转
       expect(router.push).toHaveBeenCalledWith('/login');
@@ -106,15 +116,17 @@ describe('ConfirmationProvider', () => {
   });
 
   describe('toast notifications', () => {
-    it('shows success toast on successful verification', () => {
+    it('shows success toast on successful verification', async () => {
       // 设置 URL hash 参数
       window.location.hash = '#type=signup&access_token=valid_token';
 
-      render(
-        <ConfirmationProvider>
-          <TestConfirmationComponent />
-        </ConfirmationProvider>
-      );
+      await act(async () => {
+        render(
+          <ConfirmationProvider>
+            <TestConfirmationComponent />
+          </ConfirmationProvider>
+        );
+      });
 
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Success',
