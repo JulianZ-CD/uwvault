@@ -1,5 +1,5 @@
 import '@/app/__tests__/mocks/mockRouter';
-import { render, screen, act, waitFor } from '../../utils/test-utils'; // 引入 waitFor
+import { render, screen, act, waitFor } from '../../utils/test-utils';
 import { AuthProvider } from '@/app/components/auth/AuthProvider';
 import { useAuth } from '@/app/hooks/useAuth';
 import {
@@ -8,7 +8,7 @@ import {
   mockAuthResponses,
 } from '@/app/__tests__/mocks/authTestData';
 
-// 创建一个包装组件来测试 hooks
+// create a wrapper component to test hooks
 const TestAuthComponent = () => {
   const auth = useAuth();
   return (
@@ -34,25 +34,28 @@ describe('AuthProvider', () => {
   });
 
   beforeEach(() => {
-    // 清除 localStorage
+    // clear localStorage
     localStorage.clear();
-    // 清除所有 mock
+    // clear all mocks
     jest.clearAllMocks();
   });
 
   describe('initialization', () => {
-    it('starts with no user when no token exists', () => {
-      render(
-        <AuthProvider>
-          <TestAuthComponent />
-        </AuthProvider>
-      );
+    it('starts with no user when no token exists', async () => {
+      // use act to wrap the rendering process
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestAuthComponent />
+          </AuthProvider>
+        );
+      });
 
       expect(screen.getByText('Not logged in')).toBeInTheDocument();
     });
 
     it('loads user from valid token', async () => {
-      // 设置有效的 token
+      // set a valid token
       localStorage.setItem(
         'token',
         JSON.stringify({
@@ -68,6 +71,7 @@ describe('AuthProvider', () => {
         })
       );
 
+      // use act to wrap the whole async operation
       await act(async () => {
         render(
           <AuthProvider>
@@ -76,11 +80,10 @@ describe('AuthProvider', () => {
         );
       });
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(`Logged in as ${mockUser.email}`)
-        ).toBeInTheDocument();
-      });
+      // since act has been used, the result can be checked directly here
+      expect(
+        screen.getByText(`Logged in as ${mockUser.email}`)
+      ).toBeInTheDocument();
     });
   });
 
@@ -112,9 +115,10 @@ describe('AuthProvider', () => {
         );
       });
 
-      // 确保 authHook 已定义
+      // ensure the authHook is defined
       expect(authHook).toBeDefined();
 
+      // use act to wrap the login operation
       await act(async () => {
         await authHook.login({
           email: 'test@example.com',
@@ -122,10 +126,8 @@ describe('AuthProvider', () => {
         });
       });
 
-      // 验证登录成功
-      await waitFor(() => {
-        expect(localStorage.getItem('token')).toBeTruthy();
-      });
+      // verify the login is successful
+      expect(localStorage.getItem('token')).toBeTruthy();
     });
 
     it('handles logout successfully', async () => {
@@ -156,13 +158,13 @@ describe('AuthProvider', () => {
       const logoutButton = await screen.findByRole('button', {
         name: /logout/i,
       });
+
+      // use act to wrap the click operation
       await act(async () => {
-        await logoutButton.click();
+        logoutButton.click();
       });
 
-      await waitFor(() => {
-        expect(localStorage.getItem('token')).toBeNull();
-      });
+      expect(localStorage.getItem('token')).toBeNull();
     });
 
     it('handles login failure', async () => {
@@ -185,12 +187,15 @@ describe('AuthProvider', () => {
         );
       });
 
-      await expect(
-        authHook.login({
-          email: 'test@example.com',
-          password: 'wrong',
-        })
-      ).rejects.toThrow('Login failed');
+      // 使用 act 包装登录失败的操作
+      await act(async () => {
+        await expect(
+          authHook.login({
+            email: 'test@example.com',
+            password: 'wrong',
+          })
+        ).rejects.toThrow('Login failed');
+      });
     });
   });
 
@@ -222,15 +227,20 @@ describe('AuthProvider', () => {
         return null;
       }
 
-      render(
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      );
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        );
+      });
 
-      await expect(authHook.requireAuth()).rejects.toThrow(
-        'Authentication required'
-      );
+      // use act to wrap the requireAuth operation
+      await act(async () => {
+        await expect(authHook.requireAuth()).rejects.toThrow(
+          'Authentication required'
+        );
+      });
     });
   });
 
@@ -244,10 +254,11 @@ describe('AuthProvider', () => {
 
       // Mock fetch to simulate invalid token error
       global.fetch = jest.fn().mockImplementation(() => {
-        localStorage.removeItem('token'); // 确保在错误发生时清除 token
+        localStorage.removeItem('token'); // make sure to clear the token when the error occurs
         throw new Error('Invalid token');
       });
 
+      // use act to wrap the whole async operation
       await act(async () => {
         render(
           <AuthProvider>
@@ -256,11 +267,8 @@ describe('AuthProvider', () => {
         );
       });
 
-      // 使用 waitFor 确保异步操作完成
-      await waitFor(() => {
-        expect(screen.getByText('Not logged in')).toBeInTheDocument();
-        expect(localStorage.getItem('token')).toBeNull();
-      });
+      expect(screen.getByText('Not logged in')).toBeInTheDocument();
+      expect(localStorage.getItem('token')).toBeNull();
     });
   });
 });
