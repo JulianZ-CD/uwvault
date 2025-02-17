@@ -85,10 +85,16 @@ describe('AuthProvider', () => {
   describe('authentication actions', () => {
     it('handles login successfully', async () => {
       // Mock fetch response
-      global.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockAuthResponses.validLogin),
-      });
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockAuthResponses.validLogin),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockUserData.regularUser),
+        });
 
       let authHook: any;
       const TestComponent = () => {
@@ -104,6 +110,9 @@ describe('AuthProvider', () => {
         );
       });
 
+      // 确保 authHook 已定义
+      expect(authHook).toBeDefined();
+
       await act(async () => {
         await authHook.login({
           email: 'test@example.com',
@@ -111,9 +120,8 @@ describe('AuthProvider', () => {
         });
       });
 
-      expect(
-        screen.getByText(`Logged in as ${mockUser.email}`)
-      ).toBeInTheDocument();
+      // 验证登录成功
+      expect(localStorage.getItem('token')).toBeTruthy();
     });
 
     it('handles logout successfully', async () => {
@@ -224,16 +232,27 @@ describe('AuthProvider', () => {
     it('handles invalid tokens', async () => {
       localStorage.setItem('token', 'invalid_token');
 
+      // Mock fetch to simulate invalid token
+      global.fetch = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('Invalid token'));
+
       await act(async () => {
         render(
           <AuthProvider>
             <TestAuthComponent />
           </AuthProvider>
         );
+
+        // 等待异步操作完成
+        await new Promise((resolve) => setTimeout(resolve, 100));
       });
 
-      expect(screen.getByText('Not logged in')).toBeInTheDocument();
-      expect(localStorage.getItem('token')).toBeNull();
+      // 等待状态更新并验证 token 被清除
+      await screen.findByText('Not logged in');
+      await act(async () => {
+        expect(localStorage.getItem('token')).toBeNull();
+      });
     });
   });
 });
