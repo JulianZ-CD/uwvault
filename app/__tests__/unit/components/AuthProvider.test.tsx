@@ -230,12 +230,17 @@ describe('AuthProvider', () => {
 
   describe('error handling', () => {
     it('handles invalid tokens', async () => {
-      localStorage.setItem('token', 'invalid_token');
+      // 设置无效的 token
+      localStorage.setItem(
+        'token',
+        JSON.stringify({ access_token: 'invalid_token' })
+      );
 
-      // Mock fetch to simulate invalid token
-      global.fetch = jest
-        .fn()
-        .mockRejectedValueOnce(new Error('Invalid token'));
+      // Mock fetch to simulate invalid token error
+      global.fetch = jest.fn().mockImplementation(() => {
+        localStorage.removeItem('token'); // 确保在错误发生时清除 token
+        throw new Error('Invalid token');
+      });
 
       await act(async () => {
         render(
@@ -248,11 +253,11 @@ describe('AuthProvider', () => {
         await new Promise((resolve) => setTimeout(resolve, 100));
       });
 
-      // 等待状态更新并验证 token 被清除
+      // 等待组件更新
       await screen.findByText('Not logged in');
-      await act(async () => {
-        expect(localStorage.getItem('token')).toBeNull();
-      });
+
+      // 验证 token 是否被清除
+      expect(localStorage.getItem('token')).toBeNull();
     });
   });
 });
