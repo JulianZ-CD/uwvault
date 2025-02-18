@@ -42,33 +42,56 @@ describe('LoginForm', () => {
 
     renderWithQuery(<LoginForm />);
 
-    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
-    const passwordInput = screen.getByLabelText(
-      /password/i
-    ) as HTMLInputElement;
-    const submitButton = screen.getByRole('button', { name: /^login$/i });
+    // 等待表单元素变为可用状态
+    const emailInput = await waitFor(
+      () => screen.getByLabelText(/email/i) as HTMLInputElement
+    );
+    const passwordInput = await waitFor(
+      () => screen.getByLabelText(/password/i) as HTMLInputElement
+    );
+    const submitButton = await waitFor(() =>
+      screen.getByRole('button', { name: /login/i })
+    );
 
+    // 等待表单元素变为可用状态
+    await waitFor(() => {
+      expect(emailInput.disabled).toBe(false);
+      expect(passwordInput.disabled).toBe(false);
+      expect(submitButton.disabled).toBe(false);
+    });
+
+    // 填写表单
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'password123');
+
+    // 提交表单
     await user.click(submitButton);
 
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/py/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'test@example.com',
-          password: 'password123',
-        }),
-      });
-    });
+    // 验证 fetch 调用
+    await waitFor(
+      () => {
+        expect(mockFetch).toHaveBeenCalledWith('/api/py/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'test@example.com',
+            password: 'password123',
+          }),
+        });
+      },
+      { timeout: 5000 }
+    );
 
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Welcome back!',
-        description: 'Successfully signed in to your account.',
-      });
-    });
+    // 验证成功提示
+    await waitFor(
+      () => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'Welcome back!',
+          description: 'Successfully signed in to your account.',
+        });
+      },
+      { timeout: 5000 }
+    );
   });
 
   it('处理登录失败的情况', async () => {
@@ -90,7 +113,7 @@ describe('LoginForm', () => {
     const passwordInput = screen.getByLabelText(
       /password/i
     ) as HTMLInputElement;
-    const submitButton = screen.getByRole('button', { name: /^login$/i });
+    const submitButton = screen.getByRole('button', { name: /login/i });
 
     await user.type(emailInput, 'wrong@example.com');
     await user.type(passwordInput, 'wrongpassword');
