@@ -2,17 +2,13 @@ import '@/app/__tests__/mocks/mockRouter';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
 import userEvent from '@testing-library/user-event';
 import { LoginForm } from '@/app/components/auth/LoginForm';
-import { useAuth } from '@/app/hooks/useAuth';
 import { mockToast, mockRouter } from '@/app/__tests__/mocks/mockRouter';
 import { screen, waitFor } from '@testing-library/react';
 
-// Mock fetch with proper Response type
+// Mock fetch
 const mockFetch = jest.fn(() =>
   Promise.resolve(
-    new Response(JSON.stringify({ session: { access_token: 'fake-token' } }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    new Response(JSON.stringify({ session: { access_token: 'fake-token' } }))
   )
 );
 global.fetch = mockFetch as jest.Mock;
