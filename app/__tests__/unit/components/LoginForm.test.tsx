@@ -5,14 +5,6 @@ import { LoginForm } from '@/app/components/auth/LoginForm';
 import { mockToast, mockRouter } from '@/app/__tests__/mocks/mockRouter';
 import { screen, waitFor } from '@testing-library/react';
 
-// Mock fetch
-const mockFetch = jest.fn(() =>
-  Promise.resolve(
-    new Response(JSON.stringify({ session: { access_token: 'fake-token' } }))
-  )
-);
-global.fetch = mockFetch as jest.Mock;
-
 // Mock getCurrentUser
 const mockGetCurrentUser = jest.fn();
 jest.mock('@/app/hooks/useAuth', () => ({
@@ -24,16 +16,30 @@ jest.mock('@/app/hooks/useAuth', () => ({
 describe('LoginForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // 设置更详细的 console.error，但不输出 DOM
-    const originalError = console.error;
-    console.error = (...args) => {
-      if (!args[0].includes('Warning: An update to')) {
-        originalError(...args);
-      }
+
+    // simulate FormData
+    const mockFormData = {
+      get: jest.fn((key) => {
+        const values = {
+          email: 'test@example.com',
+          password: 'password123',
+        };
+        return values[key as keyof typeof values] || null;
+      }),
     };
+    // @ts-ignore
+    global.FormData = jest.fn(() => mockFormData);
   });
 
-  it('成功登录并重定向到首页', async () => {
+  it('success login and redirect to home', async () => {
+    // simulate fetch
+    jest.spyOn(global, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ session: { access_token: 'fake-token' } }),
+      } as Response)
+    );
     const user = userEvent.setup();
     renderWithQuery(<LoginForm />);
 
@@ -45,10 +51,12 @@ describe('LoginForm', () => {
 
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'password123');
+
+    // use userEvent to simulate form submission
     await user.click(submitButton);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/py/auth/login', {
+      expect(fetch).toHaveBeenCalledWith('/api/py/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -64,12 +72,17 @@ describe('LoginForm', () => {
         description: 'Successfully signed in to your account.',
       });
     });
+    // restore fetch original implementation
+    (global.fetch as jest.Mock).mockRestore();
   });
 
-  it('处理登录失败的情况', async () => {
-    // Mock 失败响应
-    mockFetch.mockImplementationOnce(() =>
-      Promise.reject(new Error('Invalid credentials'))
+  it('handle login failed', async () => {
+    // Mock failed response
+    jest.spyOn(global, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: false, // simulate failed response
+        json: () => Promise.resolve({ message: 'Invalid credentials' }),
+      } as Response)
     );
 
     const user = userEvent.setup();
@@ -83,6 +96,8 @@ describe('LoginForm', () => {
 
     await user.type(emailInput, 'wrong@example.com');
     await user.type(passwordInput, 'wrongpassword');
+
+    // use userEvent to simulate form submission
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -93,19 +108,18 @@ describe('LoginForm', () => {
           "Please check your email and password, or create a new account if you haven't registered.",
       });
     });
+    // restore fetch original implementation
+    (global.fetch as jest.Mock).mockRestore();
   });
 
-  it('测试密码显示切换功能', async () => {
+  it('test password display toggle', async () => {
     const user = userEvent.setup();
-
     renderWithQuery(<LoginForm />);
 
     const passwordInput = screen.getByLabelText(
       /password/i
     ) as HTMLInputElement;
-    const toggleButton = screen.getByRole('button', {
-      name: '', // 按钮没有文本，只有图标
-    });
+    const toggleButton = screen.getByRole('button', { name: '' });
 
     expect(passwordInput.type).toBe('password');
 
