@@ -1,8 +1,9 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
 import { UserList } from '@/app/components/manage/UserList';
 import { mockToast } from '@/app/__tests__/mocks/mockRouter';
+import { act } from 'react';
 
 // Mock useAuth hook
 jest.mock('@/app/hooks/useAuth', () => ({
@@ -19,7 +20,7 @@ jest.mock('@/app/hooks/useAuth', () => ({
 describe('UserList', () => {
   const mockUsers = Array.from({ length: 15 }, (_, i) => ({
     id: `user-${i + 1}`,
-    email: `user${i + 1}@example.com`,
+    email: `user${String(i + 1).padStart(2, '0')}@example.com`,
     username: `user${i + 1}`,
     role: i === 0 ? 'admin' : 'user',
     created_at: '2024-01-01',
@@ -43,16 +44,15 @@ describe('UserList', () => {
 
     renderWithQuery(<UserList />);
 
-    // 等待用户列表加载并显示
-    await waitFor(() => {
-      const firstPageUsers = mockUsers.slice(0, 10);
-      firstPageUsers.forEach((user) => {
-        expect(screen.getByText(user.email)).toBeInTheDocument();
-        expect(screen.getByText(user.username || '-')).toBeInTheDocument();
-        expect(
-          screen.getByText(user.role, { exact: false })
-        ).toBeInTheDocument();
-      });
+    const table = await screen.findByRole('table');
+    const rows = within(table).getAllByRole('row');
+    const dataRows = rows.slice(1);
+    const firstPageUsers = mockUsers.slice(0, 10);
+
+    firstPageUsers.forEach((user, index) => {
+      const cells = within(dataRows[index]).getAllByRole('cell');
+      expect(cells[0]).toHaveTextContent(user.email);
+      expect(cells[1]).toHaveTextContent(user.username);
     });
   });
 
@@ -80,18 +80,17 @@ describe('UserList', () => {
       JSON.stringify({ access_token: 'fake-token' })
     );
 
-    global.fetch = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('Failed to fetch'));
+    const error = new Error('Failed to fetch');
+    global.fetch = jest.fn().mockRejectedValueOnce(error);
 
-    renderWithQuery(<UserList />);
+    await act(async () => {
+      renderWithQuery(<UserList />);
+    });
 
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load users',
-      });
+    expect(mockToast).toHaveBeenCalledWith({
+      variant: 'destructive',
+      title: 'Error',
+      description: 'Failed to load users',
     });
   });
 
@@ -101,20 +100,40 @@ describe('UserList', () => {
       JSON.stringify({ access_token: 'fake-token' })
     );
 
+    const mockUsers = [
+      {
+        id: '1',
+        email: 'user1@example.com',
+        username: 'user1',
+        role: 'admin',
+        created_at: '2024-01-01',
+      },
+      {
+        id: '2',
+        email: 'user2@example.com',
+        username: 'user2',
+        role: 'user',
+        created_at: '2024-01-01',
+      },
+    ];
+
     global.fetch = jest.fn().mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(mockUsers),
     } as any);
 
     const user = userEvent.setup();
-    renderWithQuery(<UserList />);
-
-    // 等待用户列表加载
-    await waitFor(() => {
-      expect(screen.getByText('user1@example.com')).toBeInTheDocument();
+    await act(async () => {
+      renderWithQuery(<UserList />);
     });
 
-    // 输入搜索关键词
+    // 等待表格加载
+    const table = await screen.findByRole('table');
+
+    // 验证初始数据
+    expect(screen.getByText('user1@example.com')).toBeInTheDocument();
+
+    // 执行搜索
     const searchInput = screen.getByPlaceholderText(/search/i);
     await user.type(searchInput, 'user1');
 
@@ -131,31 +150,41 @@ describe('UserList', () => {
       JSON.stringify({ access_token: 'fake-token' })
     );
 
+    const mockUsers = Array.from({ length: 15 }, (_, i) => ({
+      id: `user-${i + 1}`,
+      email: `user${String(i + 1).padStart(2, '0')}@example.com`,
+      username: `user${i + 1}`,
+      role: i === 0 ? 'admin' : 'user',
+      created_at: '2024-01-01',
+    }));
+
     global.fetch = jest.fn().mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(mockUsers),
     } as any);
 
     const user = userEvent.setup();
-    renderWithQuery(<UserList />);
-
-    // 等待用户列表加载
-    await waitFor(() => {
-      expect(screen.getByText('user1@example.com')).toBeInTheDocument();
+    await act(async () => {
+      renderWithQuery(<UserList />);
     });
 
-    // 验证第一页数据
-    expect(screen.getByText('user1@example.com')).toBeInTheDocument();
-    expect(screen.queryByText('user11@example.com')).not.toBeInTheDocument();
+    // 等待表格加载
+    const table = await screen.findByRole('table');
 
-    // 点击下一页
-    const nextButton = screen.getByRole('button', { name: /next/i });
+    // 验证第一页数据
+    const firstPageEmails = mockUsers.slice(0, 10).map((u) => u.email);
+    for (const email of firstPageEmails) {
+      expect(screen.getByText(email)).toBeInTheDocument();
+    }
+
+    // 点击下一页按钮
+    const nextButton = screen.getByLabelText('Next');
     await user.click(nextButton);
 
     // 验证第二页数据
     await waitFor(() => {
-      expect(screen.queryByText('user1@example.com')).not.toBeInTheDocument();
-      expect(screen.getByText('user11@example.com')).toBeInTheDocument();
+      expect(screen.queryByText(firstPageEmails[0])).not.toBeInTheDocument();
+      expect(screen.getByText(mockUsers[10].email)).toBeInTheDocument();
     });
   });
 
