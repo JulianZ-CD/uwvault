@@ -45,15 +45,12 @@ describe('LoginForm', () => {
     const passwordInput = screen.getByLabelText(
       /password/i
     ) as HTMLInputElement;
-    const form = screen.getByRole('form');
+    const submitButton = screen.getByRole('button', { name: /login/i });
 
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'password123');
+    await user.click(submitButton);
 
-    // 使用 form.submit() 而不是点击按钮
-    await user.click(screen.getByRole('button', { name: /login/i }));
-
-    // 验证 fetch 调用
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/py/auth/login', {
         method: 'POST',
@@ -65,7 +62,6 @@ describe('LoginForm', () => {
       });
     });
 
-    // 验证成功提示
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Welcome back!',
@@ -75,13 +71,9 @@ describe('LoginForm', () => {
   });
 
   it('处理登录失败的情况', async () => {
+    // Mock 失败响应
     mockFetch.mockImplementationOnce(() =>
-      Promise.resolve(
-        new Response(JSON.stringify({ message: 'Invalid credentials' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      )
+      Promise.reject(new Error('Invalid credentials'))
     );
 
     const user = userEvent.setup();
@@ -91,10 +83,11 @@ describe('LoginForm', () => {
     const passwordInput = screen.getByLabelText(
       /password/i
     ) as HTMLInputElement;
+    const submitButton = screen.getByRole('button', { name: /login/i });
 
     await user.type(emailInput, 'wrong@example.com');
     await user.type(passwordInput, 'wrongpassword');
-    await user.click(screen.getByRole('button', { name: /login/i }));
+    await user.click(submitButton);
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
