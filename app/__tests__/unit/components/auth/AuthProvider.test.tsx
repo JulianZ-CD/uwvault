@@ -1,5 +1,5 @@
 import '@/app/__tests__/mocks/mockRouter';
-import { render, screen, act, waitFor } from '../../utils/test-utils';
+import { render, screen, act, waitFor } from '@/app/__tests__/utils/test-utils';
 import { AuthProvider } from '@/app/components/auth/AuthProvider';
 import { useAuth } from '@/app/hooks/useAuth';
 import {

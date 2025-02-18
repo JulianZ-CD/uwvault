@@ -1,5 +1,5 @@
 import '@/app/__tests__/mocks/mockRouter';
-import { render, screen, act } from '../../utils/test-utils';
+import { render, screen, act } from '@/app/__tests__/utils/test-utils';
 import {
   ConfirmationProvider,
   useConfirmation,
