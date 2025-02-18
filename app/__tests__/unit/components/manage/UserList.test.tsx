@@ -30,7 +30,7 @@ describe('UserList', () => {
     localStorage.clear();
   });
 
-  it('成功加载并显示用户列表', async () => {
+  it('load successfully and show user list', async () => {
     localStorage.setItem(
       'token',
       JSON.stringify({ access_token: 'fake-token' })
@@ -55,7 +55,7 @@ describe('UserList', () => {
     });
   });
 
-  it('显示空状态当没有用户数据', async () => {
+  it('show empty state when there is no user data', async () => {
     localStorage.setItem(
       'token',
       JSON.stringify({ access_token: 'fake-token' })
@@ -73,7 +73,7 @@ describe('UserList', () => {
     });
   });
 
-  it('搜索功能正常工作', async () => {
+  it('search successfully', async () => {
     localStorage.setItem(
       'token',
       JSON.stringify({ access_token: 'fake-token' })
@@ -106,24 +106,24 @@ describe('UserList', () => {
       renderWithQuery(<UserList />);
     });
 
-    // 等待表格加载
+    // wait for table loading
     const table = await screen.findByRole('table');
 
-    // 验证初始数据
+    // verify initial data
     expect(screen.getByText('user1@example.com')).toBeInTheDocument();
 
-    // 执行搜索
+    // execute search
     const searchInput = screen.getByPlaceholderText(/search/i);
     await user.type(searchInput, 'user1');
 
-    // 验证搜索结果
+    // verify search result
     await waitFor(() => {
       expect(screen.getByText('user1@example.com')).toBeInTheDocument();
       expect(screen.queryByText('user2@example.com')).not.toBeInTheDocument();
     });
   });
 
-  it('分页功能正常工作', async () => {
+  it('pagination works successfully', async () => {
     localStorage.setItem(
       'token',
       JSON.stringify({ access_token: 'fake-token' })
@@ -137,29 +137,29 @@ describe('UserList', () => {
     const user = userEvent.setup();
     renderWithQuery(<UserList />);
 
-    // 等待表格加载
+    // wait for table loading
     const table = await screen.findByRole('table');
 
-    // 验证第一页数据
+    // verify first page data
     const firstPageEmails = mockUsers.slice(0, 10).map((u) => u.email);
     for (const email of firstPageEmails) {
       expect(screen.getByText(email)).toBeInTheDocument();
     }
 
-    // 使用更准确的选择器找到下一页按钮
+    // use more accurate selector to find next page button
     const nextButton = screen.getByLabelText('Go to next page');
     await user.click(nextButton);
 
-    // 验证页面切换后的数据
+    // verify data after page switch
     await waitFor(() => {
-      // 验证第一页的第一个用户不在页面上
+      // verify first page data
       expect(screen.queryByText(firstPageEmails[0])).not.toBeInTheDocument();
-      // 验证第二页的第一个用户在页面上
+      // verify second page data
       expect(screen.getByText(mockUsers[10].email)).toBeInTheDocument();
     });
   });
 
-  it('用户列表按角色和邮箱排序', async () => {
+  it('sort users by role and email', async () => {
     localStorage.setItem(
       'token',
       JSON.stringify({ access_token: 'fake-token' })
@@ -200,7 +200,7 @@ describe('UserList', () => {
     });
   });
 
-  it('没有token时不加载用户列表', async () => {
+  it('do not load user list when there is no token', async () => {
     global.fetch = jest.fn();
     renderWithQuery(<UserList />);
 
