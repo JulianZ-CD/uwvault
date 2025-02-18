@@ -2,7 +2,6 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
 import { UserActions } from '@/app/components/manage/UserActions';
-import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 
 // Mock useUserActions hook
 const mockSetUserRole = jest.fn();
@@ -38,8 +37,8 @@ describe('UserActions', () => {
     jest.clearAllMocks();
   });
 
-  it('禁用当前用户的操作按钮', () => {
-    // 当前用户试图操作自己的账户
+  it('disable current user actions', () => {
+    // current user try to operate own account
     renderWithQuery(
       <UserActions
         user={{ ...mockUser, id: mockCurrentUser.id }}
@@ -56,7 +55,7 @@ describe('UserActions', () => {
     );
   });
 
-  it('成功将用户角色修改为管理员', async () => {
+  it('success change user role to admin', async () => {
     mockSetUserRole.mockResolvedValueOnce(true);
     const user = userEvent.setup();
 
@@ -79,7 +78,7 @@ describe('UserActions', () => {
     expect(mockOnActionComplete).toHaveBeenCalled();
   });
 
-  it('成功将管理员角色修改为普通用户', async () => {
+  it('success change admin role to user', async () => {
     mockSetUserRole.mockResolvedValueOnce(true);
     const user = userEvent.setup();
 
@@ -91,18 +90,18 @@ describe('UserActions', () => {
       />
     );
 
-    // 打开下拉菜单
+    // open dropdown menu
     await user.click(screen.getByRole('button', { name: /actions/i }));
 
-    // 点击 "Make User" 选项
+    // click "Make User" option
     await user.click(screen.getByText(/make user/i));
 
-    // 验证调用
+    // validate call
     expect(mockSetUserRole).toHaveBeenCalledWith(mockUser.id, 'user');
     expect(mockOnActionComplete).toHaveBeenCalled();
   });
 
-  it('成功删除用户', async () => {
+  it('success delete user', async () => {
     mockDeleteUser.mockResolvedValueOnce(true);
     const user = userEvent.setup();
 
@@ -114,26 +113,26 @@ describe('UserActions', () => {
       />
     );
 
-    // 打开下拉菜单
+    // open dropdown menu
     await user.click(screen.getByRole('button', { name: /actions/i }));
 
-    // 点击 "Delete User" 选项
+    // click "Delete User" option
     await user.click(screen.getByText(/delete user/i));
 
-    // 确认删除对话框应该显示
+    // confirm delete dialog should show
     expect(
       screen.getByText(/this action cannot be undone/i)
     ).toBeInTheDocument();
 
-    // 点击确认删除按钮
+    // click confirm delete button
     await user.click(screen.getByRole('button', { name: /delete/i }));
 
-    // 验证调用
+    // validate call
     expect(mockDeleteUser).toHaveBeenCalledWith(mockUser.id);
     expect(mockOnActionComplete).toHaveBeenCalled();
   });
 
-  it('取消删除用户操作', async () => {
+  it('cancel delete user operation', async () => {
     const user = userEvent.setup();
 
     renderWithQuery(
@@ -144,21 +143,21 @@ describe('UserActions', () => {
       />
     );
 
-    // 打开下拉菜单
+    // open dropdown menu
     await user.click(screen.getByRole('button', { name: /actions/i }));
 
-    // 点击 "Delete User" 选项
+    // click "Delete User" option
     await user.click(screen.getByText(/delete user/i));
 
-    // 点击取消按钮
+    // click cancel button
     await user.click(screen.getByRole('button', { name: /cancel/i }));
 
-    // 验证 deleteUser 没有被调用
+    // validate deleteUser not called
     expect(mockDeleteUser).not.toHaveBeenCalled();
     expect(mockOnActionComplete).not.toHaveBeenCalled();
   });
 
-  it('角色修改失败时不调用 onActionComplete', async () => {
+  it('role change failed not call onActionComplete', async () => {
     mockSetUserRole.mockResolvedValueOnce(false);
     const user = userEvent.setup();
 
@@ -170,18 +169,18 @@ describe('UserActions', () => {
       />
     );
 
-    // 打开下拉菜单
+    // open dropdown menu
     await user.click(screen.getByRole('button', { name: /actions/i }));
 
-    // 点击 "Make Admin" 选项
+    // click "Make Admin" option
     await user.click(screen.getByText(/make admin/i));
 
-    // 验证调用
+    // validate call
     expect(mockSetUserRole).toHaveBeenCalledWith(mockUser.id, 'admin');
     expect(mockOnActionComplete).not.toHaveBeenCalled();
   });
 
-  it('删除用户失败时不调用 onActionComplete', async () => {
+  it('delete user failed not call onActionComplete', async () => {
     mockDeleteUser.mockResolvedValueOnce(false);
     const user = userEvent.setup();
 
@@ -193,21 +192,21 @@ describe('UserActions', () => {
       />
     );
 
-    // 打开下拉菜单
+    // open dropdown menu
     await user.click(screen.getByRole('button', { name: /actions/i }));
 
-    // 点击 "Delete User" 选项
+    // click "Delete User" option
     await user.click(screen.getByText(/delete user/i));
 
-    // 点击确认删除按钮
+    // click confirm delete button
     await user.click(screen.getByRole('button', { name: /delete/i }));
 
-    // 验证调用
+    // validate call
     expect(mockDeleteUser).toHaveBeenCalledWith(mockUser.id);
     expect(mockOnActionComplete).not.toHaveBeenCalled();
   });
 
-  it('下拉菜单显示正确的选项', async () => {
+  it('dropdown menu show correct options', async () => {
     const user = userEvent.setup();
 
     renderWithQuery(
@@ -218,10 +217,10 @@ describe('UserActions', () => {
       />
     );
 
-    // 打开下拉菜单
+    // open dropdown menu
     await user.click(screen.getByRole('button', { name: /actions/i }));
 
-    // 验证菜单选项
+    // validate menu options
     expect(screen.getByText(/make admin/i)).toBeInTheDocument();
     expect(screen.queryByText(/make user/i)).not.toBeInTheDocument();
     expect(screen.getByText(/delete user/i)).toBeInTheDocument();
