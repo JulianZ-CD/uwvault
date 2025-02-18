@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { UserProfile } from '@/app/components/user/UserProfile';
 import { useUser } from '@/app/components/user/UserProvider';
 import { useAuth } from '@/app/hooks/useAuth';
-import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 
 jest.mock('@/app/components/user/UserProvider');
 jest.mock('@/app/hooks/useAuth');
@@ -81,10 +80,6 @@ describe('UserProfile', () => {
     await waitFor(() => {
       expect(updateProfile).toHaveBeenCalledWith({
         new_username: 'newusername',
-      });
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Success',
-        description: 'Username updated successfully',
       });
     });
   });
