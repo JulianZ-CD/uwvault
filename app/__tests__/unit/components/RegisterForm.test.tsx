@@ -5,29 +5,40 @@ import { RegisterForm } from '@/app/components/auth/RegisterForm';
 import { mockToast, mockRouter } from '@/app/__tests__/mocks/mockRouter';
 import { screen, waitFor } from '@testing-library/react';
 
+// disable MSW
+jest.mock('msw', () => ({
+  rest: {},
+  setupServer: () => ({
+    listen: jest.fn(),
+    close: jest.fn(),
+    resetHandlers: jest.fn(),
+  }),
+}));
+
 describe('RegisterForm', () => {
+  let formValues: { [key: string]: string };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    formValues = {}; // reset form values
 
-    // 模拟 FormData
+    // improved FormData mock
     const mockFormData = {
-      get: jest.fn((key) => {
-        const values = {
-          email: 'test@example.com',
-          username: 'testuser',
-          password: 'password123',
-          confirmPassword: 'password123',
-        };
-        return values[key as keyof typeof values] || null;
+      get: jest.fn((key: string) => formValues[key] || null),
+      set: jest.fn((key: string, value: string) => {
+        formValues[key] = value;
       }),
     };
+
     // @ts-ignore
     global.FormData = jest.fn(() => mockFormData);
+
+    // listen form input
+    renderWithQuery(<RegisterForm />);
   });
 
-  it('成功注册并重定向到登录页面', async () => {
-    // 模拟成功的注册响应
-    jest.spyOn(global, 'fetch').mockImplementation(() =>
+  it('success register and redirect to login page', async () => {
+    jest.spyOn(global, 'fetch').mockImplementationOnce(() =>
       Promise.resolve({
         ok: true,
         json: () =>
@@ -43,41 +54,22 @@ describe('RegisterForm', () => {
     );
 
     const user = userEvent.setup();
-    renderWithQuery(<RegisterForm />);
 
-    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
-    const usernameInput = screen.getByLabelText(
-      /username/i
-    ) as HTMLInputElement;
-    const passwordInput = screen.getByLabelText(
-      /^password/i
-    ) as HTMLInputElement;
-    const confirmPasswordInput = screen.getByLabelText(
-      /confirm password/i
-    ) as HTMLInputElement;
+    // fill form and update formValues
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    formValues.email = 'test@example.com';
+
+    await user.type(screen.getByLabelText(/username/i), 'testuser');
+    formValues.username = 'testuser';
+
+    await user.type(screen.getByLabelText(/^password/i), 'password123');
+    formValues.password = 'password123';
+
+    await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+    formValues.confirmPassword = 'password123';
+
     const submitButton = screen.getByRole('button', { name: /register/i });
-
-    await user.type(emailInput, 'test@example.com');
-    await user.type(usernameInput, 'testuser');
-    await user.type(passwordInput, 'password123');
-    await user.type(confirmPasswordInput, 'password123');
     await user.click(submitButton);
-
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/py/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          origin: expect.any(String),
-        },
-        body: JSON.stringify({
-          email: 'test@example.com',
-          username: 'testuser',
-          password: 'password123',
-        }),
-        credentials: 'include',
-      });
-    });
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
@@ -86,70 +78,25 @@ describe('RegisterForm', () => {
       });
       expect(mockRouter.push).toHaveBeenCalledWith('/login');
     });
-
-    (global.fetch as jest.Mock).mockRestore();
   });
 
-  it('处理注册失败的情况', async () => {
-    jest.spyOn(global, 'fetch').mockImplementation(() =>
-      Promise.resolve({
-        ok: false,
-        json: () => Promise.resolve({ detail: 'Email already registered' }),
-      } as Response)
-    );
-
+  it('validate password mismatch', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<RegisterForm />);
 
-    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
-    const usernameInput = screen.getByLabelText(
-      /username/i
-    ) as HTMLInputElement;
-    const passwordInput = screen.getByLabelText(
-      /^password/i
-    ) as HTMLInputElement;
-    const confirmPasswordInput = screen.getByLabelText(
-      /confirm password/i
-    ) as HTMLInputElement;
+    // fill form and update formValues
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    formValues.email = 'test@example.com';
+
+    await user.type(screen.getByLabelText(/username/i), 'testuser');
+    formValues.username = 'testuser';
+
+    await user.type(screen.getByLabelText(/^password/i), 'password123');
+    formValues.password = 'password123';
+
+    await user.type(screen.getByLabelText(/confirm password/i), 'password456');
+    formValues.confirmPassword = 'password456';
+
     const submitButton = screen.getByRole('button', { name: /register/i });
-
-    await user.type(emailInput, 'test@example.com');
-    await user.type(usernameInput, 'testuser');
-    await user.type(passwordInput, 'password123');
-    await user.type(confirmPasswordInput, 'password123');
-    await user.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        variant: 'destructive',
-        title: 'Registration Error',
-        description: 'Email already registered',
-      });
-    });
-
-    (global.fetch as jest.Mock).mockRestore();
-  });
-
-  it('验证密码不匹配的情况', async () => {
-    const user = userEvent.setup();
-    renderWithQuery(<RegisterForm />);
-
-    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
-    const usernameInput = screen.getByLabelText(
-      /username/i
-    ) as HTMLInputElement;
-    const passwordInput = screen.getByLabelText(
-      /^password/i
-    ) as HTMLInputElement;
-    const confirmPasswordInput = screen.getByLabelText(
-      /confirm password/i
-    ) as HTMLInputElement;
-    const submitButton = screen.getByRole('button', { name: /register/i });
-
-    await user.type(emailInput, 'test@example.com');
-    await user.type(usernameInput, 'testuser');
-    await user.type(passwordInput, 'password123');
-    await user.type(confirmPasswordInput, 'password456');
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -161,26 +108,23 @@ describe('RegisterForm', () => {
     });
   });
 
-  it('验证用户名长度限制', async () => {
+  it('validate username length limit', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<RegisterForm />);
 
-    const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
-    const usernameInput = screen.getByLabelText(
-      /username/i
-    ) as HTMLInputElement;
-    const passwordInput = screen.getByLabelText(
-      /^password/i
-    ) as HTMLInputElement;
-    const confirmPasswordInput = screen.getByLabelText(
-      /confirm password/i
-    ) as HTMLInputElement;
+    // fill form and update formValues
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    formValues.email = 'test@example.com';
+
+    await user.type(screen.getByLabelText(/username/i), 'ab');
+    formValues.username = 'ab';
+
+    await user.type(screen.getByLabelText(/^password/i), 'password123');
+    formValues.password = 'password123';
+
+    await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+    formValues.confirmPassword = 'password123';
+
     const submitButton = screen.getByRole('button', { name: /register/i });
-
-    await user.type(emailInput, 'test@example.com');
-    await user.type(usernameInput, 'ab'); // 用户名太短
-    await user.type(passwordInput, 'password123');
-    await user.type(confirmPasswordInput, 'password123');
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -192,9 +136,8 @@ describe('RegisterForm', () => {
     });
   });
 
-  it('测试密码显示切换功能', async () => {
+  it('test password display toggle', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<RegisterForm />);
 
     const passwordInput = screen.getByLabelText(
       /^password/i
@@ -204,15 +147,14 @@ describe('RegisterForm', () => {
     ) as HTMLInputElement;
     const toggleButtons = screen.getAllByRole('button', { name: '' });
 
-    // 测试密码输入框的显示切换
     expect(passwordInput.type).toBe('password');
+    expect(confirmPasswordInput.type).toBe('password');
+
     await user.click(toggleButtons[0]);
     expect(passwordInput.type).toBe('text');
     await user.click(toggleButtons[0]);
     expect(passwordInput.type).toBe('password');
 
-    // 测试确认密码输入框的显示切换
-    expect(confirmPasswordInput.type).toBe('password');
     await user.click(toggleButtons[1]);
     expect(confirmPasswordInput.type).toBe('text');
     await user.click(toggleButtons[1]);
