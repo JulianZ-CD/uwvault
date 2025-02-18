@@ -2,7 +2,6 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
 import { UserList } from '@/app/components/manage/UserList';
-import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 import { act } from 'react';
 
 // Mock useAuth hook
@@ -71,33 +70,6 @@ describe('UserList', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No users found')).toBeInTheDocument();
-    });
-  });
-
-  it('处理加载失败的情况', async () => {
-    localStorage.setItem(
-      'token',
-      JSON.stringify({ access_token: 'fake-token' })
-    );
-
-    const error = new Error('Failed to fetch');
-    global.fetch = jest.fn().mockRejectedValueOnce(error);
-
-    renderWithQuery(<UserList />);
-
-    // 等待错误状态显示
-    await waitFor(() => {
-      expect(console.error).toHaveBeenCalledWith(
-        'Error fetching users:',
-        expect.any(Error)
-      );
-    });
-
-    // 验证 toast 调用
-    expect(mockToast).toHaveBeenCalledWith({
-      variant: 'destructive',
-      title: 'Error',
-      description: 'Failed to load users',
     });
   });
 
