@@ -18,6 +18,13 @@ delete window.location;
 // @ts-ignore
 window.location = mockLocation;
 
+// Mock useToast hook
+jest.mock('@/app/hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: mockToast,
+  }),
+}));
+
 describe('NewPasswordForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -25,12 +32,25 @@ describe('NewPasswordForm', () => {
 
   it('updates password successfully and redirects to login', async () => {
     // Mock successful fetch response
-    jest.spyOn(global, 'fetch').mockImplementation(() =>
-      Promise.resolve({
+    jest.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+      const requestBody = JSON.parse(init?.body as string);
+
+      if (!requestBody.access_token || !requestBody.refresh_token) {
+        return Promise.resolve({
+          ok: false,
+          json: () =>
+            Promise.resolve({
+              message:
+                'Invalid or expired password reset link. Please request a new password reset email.',
+            }),
+        } as Response);
+      }
+
+      return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ message: 'Password updated' }),
-      } as Response)
-    );
+      } as Response);
+    });
 
     const user = userEvent.setup();
     renderWithQuery(<NewPasswordForm />);
@@ -129,13 +149,11 @@ describe('NewPasswordForm', () => {
     await user.type(newPasswordInput, 'newPassword123');
     await user.type(confirmPasswordInput, 'differentPassword');
     await user.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        variant: 'destructive',
-        title: 'Error',
-        description: "Passwords don't match",
-      });
+    // 不需要等待 fetch，直接检查 toast
+    expect(mockToast).toHaveBeenCalledWith({
+      variant: 'destructive',
+      title: 'Error',
+      description: "Passwords don't match",
     });
   });
 
@@ -157,12 +175,11 @@ describe('NewPasswordForm', () => {
     await user.type(confirmPasswordInput, 'short');
     await user.click(submitButton);
 
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Password must be at least 8 characters long',
-      });
+    // 不需要等待 fetch，直接检查 toast
+    expect(mockToast).toHaveBeenCalledWith({
+      variant: 'destructive',
+      title: 'Error',
+      description: 'Password must be at least 8 characters long',
     });
   });
 
