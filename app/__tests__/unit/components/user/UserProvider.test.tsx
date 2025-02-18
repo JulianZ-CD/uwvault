@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, renderHook } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { UserProvider, useUser } from '@/app/components/user/UserProvider';
 
-// 创建一个使用 UserProvider 的子组件
+// create a child component of UserProvider
 const TestComponent = () => {
   const { updateProfile, resetPassword } = useUser();
 
@@ -98,28 +98,12 @@ describe('UserProvider', () => {
       JSON.stringify({ access_token: 'fake-token' })
     );
 
-    const TestUpdateProfileError = () => {
-      const { updateProfile } = useUser();
-      return (
-        <div data-testid="test-component">
-          {/* @ts-ignore */}
-          {
-            (window.testUpdateProfile = () =>
-              updateProfile({ new_username: 'testuser' }))
-          }
-        </div>
-      );
-    };
-
-    render(
-      <UserProvider>
-        <TestUpdateProfileError />
-      </UserProvider>
-    );
+    const { result } = renderHook(() => useUser(), {
+      wrapper: UserProvider,
+    });
 
     await expect(
-      // @ts-ignore
-      window.testUpdateProfile()
+      result.current.updateProfile({ new_username: 'testuser' })
     ).rejects.toThrow('Failed to update profile');
 
     localStorage.removeItem('token');
@@ -131,25 +115,12 @@ describe('UserProvider', () => {
       json: async () => ({}),
     });
 
-    const TestResetPasswordError = () => {
-      const { resetPassword } = useUser();
-      return (
-        <div data-testid="test-component">
-          {/* @ts-ignore */}
-          {(window.testResetPassword = () => resetPassword('test@example.com'))}
-        </div>
-      );
-    };
-
-    render(
-      <UserProvider>
-        <TestResetPasswordError />
-      </UserProvider>
-    );
+    const { result } = renderHook(() => useUser(), {
+      wrapper: UserProvider,
+    });
 
     await expect(
-      // @ts-ignore
-      window.testResetPassword()
+      result.current.resetPassword('test@example.com')
     ).rejects.toThrow('Failed to send reset password email');
   });
 });
