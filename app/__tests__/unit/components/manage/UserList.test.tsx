@@ -83,10 +83,17 @@ describe('UserList', () => {
     const error = new Error('Failed to fetch');
     global.fetch = jest.fn().mockRejectedValueOnce(error);
 
-    await act(async () => {
-      renderWithQuery(<UserList />);
+    renderWithQuery(<UserList />);
+
+    // 等待错误状态显示
+    await waitFor(() => {
+      expect(console.error).toHaveBeenCalledWith(
+        'Error fetching users:',
+        expect.any(Error)
+      );
     });
 
+    // 验证 toast 调用
     expect(mockToast).toHaveBeenCalledWith({
       variant: 'destructive',
       title: 'Error',
@@ -150,23 +157,13 @@ describe('UserList', () => {
       JSON.stringify({ access_token: 'fake-token' })
     );
 
-    const mockUsers = Array.from({ length: 15 }, (_, i) => ({
-      id: `user-${i + 1}`,
-      email: `user${String(i + 1).padStart(2, '0')}@example.com`,
-      username: `user${i + 1}`,
-      role: i === 0 ? 'admin' : 'user',
-      created_at: '2024-01-01',
-    }));
-
     global.fetch = jest.fn().mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(mockUsers),
     } as any);
 
     const user = userEvent.setup();
-    await act(async () => {
-      renderWithQuery(<UserList />);
-    });
+    renderWithQuery(<UserList />);
 
     // 等待表格加载
     const table = await screen.findByRole('table');
@@ -177,13 +174,15 @@ describe('UserList', () => {
       expect(screen.getByText(email)).toBeInTheDocument();
     }
 
-    // 点击下一页按钮
-    const nextButton = screen.getByLabelText('Next');
+    // 使用更准确的选择器找到下一页按钮
+    const nextButton = screen.getByLabelText('Go to next page');
     await user.click(nextButton);
 
-    // 验证第二页数据
+    // 验证页面切换后的数据
     await waitFor(() => {
+      // 验证第一页的第一个用户不在页面上
       expect(screen.queryByText(firstPageEmails[0])).not.toBeInTheDocument();
+      // 验证第二页的第一个用户在页面上
       expect(screen.getByText(mockUsers[10].email)).toBeInTheDocument();
     });
   });
