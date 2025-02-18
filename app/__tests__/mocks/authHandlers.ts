@@ -1,7 +1,28 @@
 import { http, HttpResponse } from 'msw';
+import { UserContextType } from '@/app/types/user';
 
-// 模拟用户数据
-const mockUsers = [
+type UpdateProfileRequest = Parameters<UserContextType['updateProfile']>[0];
+type ResetPasswordRequest = {
+  email: Parameters<UserContextType['resetPassword']>[0];
+};
+type LoginRequest = {
+  email: string;
+  password: string;
+};
+type RegisterRequest = {
+  email: string;
+  username: string;
+  password: string;
+};
+
+interface MockUser {
+  id: number;
+  email: string;
+  username: string;
+  role: string;
+}
+
+const mockUsers: MockUser[] = [
   {
     id: 1,
     email: 'test@example.com',
@@ -13,7 +34,7 @@ const mockUsers = [
 export const authHandlers = [
   // 重置密码
   http.post('/api/py/auth/reset-password', async ({ request }) => {
-    const { email } = await request.json();
+    const { email } = (await request.json()) as ResetPasswordRequest;
     const user = mockUsers.find((u) => u.email === email);
 
     if (!user) {
@@ -28,7 +49,7 @@ export const authHandlers = [
 
   // 登录
   http.post('/api/py/auth/login', async ({ request }) => {
-    const { email, password } = await request.json();
+    const { email, password } = (await request.json()) as LoginRequest;
     const user = mockUsers.find((u) => u.email === email);
 
     if (!user || password !== 'correctpassword') {
@@ -38,16 +59,18 @@ export const authHandlers = [
       );
     }
 
-    return HttpResponse.json({
+    const session = {
       access_token: 'fake-token',
       token_type: 'bearer',
       user,
-    });
+    };
+
+    return HttpResponse.json({ session }, { status: 200 });
   }),
 
   // 注册
   http.post('/api/py/auth/register', async ({ request }) => {
-    const newUser = await request.json();
+    const newUser = (await request.json()) as RegisterRequest;
 
     if (mockUsers.some((u) => u.email === newUser.email)) {
       return HttpResponse.json(
@@ -56,21 +79,23 @@ export const authHandlers = [
       );
     }
 
-    const user = {
+    const user: MockUser = {
       id: mockUsers.length + 1,
-      ...newUser,
+      email: newUser.email,
+      username: newUser.username,
       role: 'user',
     };
+
     mockUsers.push(user);
 
-    return HttpResponse.json(user, { status: 201 });
+    return HttpResponse.json({ user }, { status: 201 });
   }),
 
   // 更新用户名
   http.put('/api/py/auth/users/username', async ({ request }) => {
-    const { new_username } = await request.json();
+    const data = (await request.json()) as UpdateProfileRequest;
 
-    if (!new_username) {
+    if (!data.new_username) {
       return HttpResponse.json(
         { detail: 'Username is required' },
         { status: 400 }
