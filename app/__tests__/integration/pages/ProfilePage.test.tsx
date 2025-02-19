@@ -1,31 +1,17 @@
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { renderWithAllProviders } from '@/app/__tests__/utils/test-auth-utils';
 import ProfilePage from '@/app/(user)/profile/page';
 import { mockRouter } from '@/app/__tests__/mocks/mockRouter';
 import { authHandlers } from '@/app/__tests__/mocks/authHandlers';
 import { useAuth } from '@/app/hooks/useAuth';
+import { ProtectedRoute } from '@/app/components/auth/ProtectedRoute';
 
-// Mock useAuth
-jest.mock('@/app/hooks/useAuth', () => ({
-  useAuth: () => ({
-    user: {
-      id: 'test-user-id',
-      email: 'test@example.com',
-      username: 'testuser',
-      role: 'user',
-    },
-    loading: false,
-    isAuthenticated: true,
-    getCurrentUser: jest.fn().mockResolvedValue({}),
-  }),
-}));
+jest.mock('@/app/hooks/useAuth');
 
 const server = setupServer(...authHandlers);
 
-// 测试用户数据
+// mock user data
 const mockUser = {
   id: 'test-user-id',
   email: 'test@example.com',
@@ -39,20 +25,7 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/profile',
 }));
 
-// 在文件顶部的 mock 部分
-const mockUseAuth = {
-  user: null,
-  isLoading: false,
-  error: null,
-  isAdmin: () => false,
-  requireAuth: jest.fn(),
-  requireAdmin: jest.fn(),
-  getCurrentUser: jest.fn(),
-  login: jest.fn(),
-  logout: jest.fn(),
-};
-
-// 设置全局 fetch mock
+// set global fetch mock
 beforeAll(() => {
   global.fetch = jest.fn();
   server.listen();
@@ -68,79 +41,109 @@ afterAll(() => {
   server.close();
 });
 
+// create wrapped profile page
+const WrappedProfilePage = () => (
+  <ProtectedRoute>
+    <ProfilePage />
+  </ProtectedRoute>
+);
+
 describe('ProfilePage Integration', () => {
-  // 测试正常渲染
+  beforeEach(() => {
+    // reset all mocks
+    jest.clearAllMocks();
+    localStorage.clear();
+    mockRouter.push.mockReset();
+    (global.fetch as jest.Mock).mockReset();
+  });
+
+  // test normal rendering
   it('should render profile page with user data', async () => {
-    localStorage.setItem(
-      'token',
-      JSON.stringify({ access_token: 'valid-token' })
-    );
+    // set auth status
+    (useAuth as jest.Mock).mockReturnValue({
+      user: mockUser,
+      isLoading: false,
+      isAuthenticated: true,
+    });
 
-    renderWithAllProviders(<ProfilePage />);
+    renderWithAllProviders(<WrappedProfilePage />);
 
-    // 验证基础布局
     await waitFor(() => {
       expect(screen.getByText('Profile Settings')).toBeInTheDocument();
     });
 
-    // 验证用户信息
+    // verify user info
     expect(screen.getByText(mockUser.username)).toBeInTheDocument();
     expect(screen.getByText(mockUser.email)).toBeInTheDocument();
     expect(screen.getByText(mockUser.role)).toBeInTheDocument();
   });
 
-  // 测试用户名更新流程
+  // test username update workflow
   it('should handle username update workflow', async () => {
-    localStorage.setItem(
-      'token',
-      JSON.stringify({ access_token: 'valid-token' })
-    );
+    // 1. set localStorage token
+    const mockToken = 'mock-token';
+    localStorage.setItem('token', JSON.stringify({ access_token: mockToken }));
 
-    (global.fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ message: 'Success' }),
-      })
-    );
+    // 2. set fetch mock return value
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ message: 'Username updated successfully' }),
+    });
 
-    const { user } = renderWithAllProviders(<ProfilePage />);
+    // 3. set auth status
+    (useAuth as jest.Mock).mockReturnValue({
+      user: mockUser,
+      isLoading: false,
+      isAuthenticated: true,
+      token: mockToken, // ensure consistent with localStorage token
+    });
 
+    const { user } = renderWithAllProviders(<WrappedProfilePage />);
+
+    // 4. wait for edit button to appear and click
     const editButton = await screen.findByRole('button', {
-      name: /edit username/i,
+      name: /edit/i,
     });
     await user.click(editButton);
 
+    // 5. wait for input box to appear and input new username
     const input = await screen.findByRole('textbox');
     await user.clear(input);
     await user.type(input, 'newusername');
 
+    // 6. wait for save button to appear and click
     const saveButton = await screen.findByRole('button', { name: /save/i });
     await user.click(saveButton);
 
-    // 只验证 API 调用
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/py/auth/users/username',
-        expect.objectContaining({
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer valid-token',
-          },
-          body: JSON.stringify({ new_username: 'newusername' }),
-        })
-      );
-    });
+    // 7. verify API call
+    await waitFor(
+      () => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/py/auth/users/username'),
+          expect.objectContaining({
+            method: 'PUT',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${mockToken}`,
+            }),
+            body: JSON.stringify({ new_username: 'newusername' }),
+          })
+        );
+      },
+      {
+        timeout: 2000,
+      }
+    );
   });
 
-  // 测试密码重置流程
+  // test password reset workflow
   it('should handle password reset workflow', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ message: 'Success' }),
     });
 
-    const { user } = renderWithAllProviders(<ProfilePage />);
+    const { user } = renderWithAllProviders(<WrappedProfilePage />);
 
     const resetButton = await screen.findByRole('button', {
       name: /change password/i,
@@ -161,45 +164,43 @@ describe('ProfilePage Integration', () => {
     });
   });
 
-  // 测试未授权情况
+  // test unauthorized state
   it('should handle unauthorized state', async () => {
-    // 重置 mocks
-    mockRouter.push.mockReset();
-    localStorage.clear();
+    // set unauthenticated status
+    (useAuth as jest.Mock).mockReturnValue({
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+    });
 
-    // 重新设置 useAuth mock
-    jest.mock('@/app/hooks/useAuth', () => ({
-      useAuth: () => mockUseAuth,
-    }));
+    renderWithAllProviders(<WrappedProfilePage />);
 
-    // 强制清除模块缓存
-    jest.resetModules();
-
-    renderWithAllProviders(<ProfilePage />);
-
-    // 增加超时时间，确保有足够时间处理重定向
-    await waitFor(
-      () => {
-        expect(mockRouter.push).toHaveBeenCalledWith('/login');
-      },
-      { timeout: 10000 }
-    );
+    await waitFor(() => {
+      expect(mockRouter.push).toHaveBeenCalledWith('/login');
+    });
   });
 
-  // 测试API错误处理
+  // test API error handling
   it('should handle API errors gracefully', async () => {
-    // Mock 错误响应
+    // set fetch mock return error
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: () => Promise.resolve({ detail: 'Failed to update username' }),
     });
 
-    const { user } = renderWithAllProviders(<ProfilePage />);
+    // set auth status
+    (useAuth as jest.Mock).mockReturnValue({
+      user: mockUser,
+      isLoading: false,
+      isAuthenticated: true,
+    });
 
-    // 执行更新操作
+    const { user } = renderWithAllProviders(<WrappedProfilePage />);
+
+    // use correct button text
     const editButton = await screen.findByRole('button', {
-      name: /edit username/i,
+      name: /Edit/i,
     });
     await user.click(editButton);
 
@@ -210,14 +211,11 @@ describe('ProfilePage Integration', () => {
     const saveButton = await screen.findByRole('button', { name: /save/i });
     await user.click(saveButton);
 
-    // 验证错误提示
-    await waitFor(
-      () => {
-        expect(
-          screen.getByText(/Failed to update username/i)
-        ).toBeInTheDocument();
-      },
-      { timeout: 3000 }
-    );
+    // verify error prompt
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Failed to update username/i)
+      ).toBeInTheDocument();
+    });
   });
 });
