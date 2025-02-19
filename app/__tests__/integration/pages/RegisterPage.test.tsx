@@ -90,18 +90,16 @@ describe('RegisterPage', () => {
       );
       await user.click(screen.getByRole('button', { name: /register/i }));
 
-      await waitFor(() => {
-        expect(dispatchEventSpy).toHaveBeenCalledWith(expect.any(CustomEvent));
-        // 你可以进一步检查 CustomEvent 的 detail 属性是否符合预期
-        const dispatchedEvent = dispatchEventSpy.mock
-          .calls[0][0] as CustomEvent;
-        expect(dispatchedEvent.type).toBe('userRegistered');
-        expect(dispatchedEvent.detail).toEqual({
-          id: '123',
-          email: 'test@example.com',
-          username: 'testuser',
-          role: 'user',
-        });
+      // 直接断言，移除 waitFor
+      expect(dispatchEventSpy).toHaveBeenCalledWith(expect.any(CustomEvent));
+      // 更详细的断言 (可选)
+      const dispatchedEvent = dispatchEventSpy.mock.calls[0][0] as CustomEvent;
+      expect(dispatchedEvent.type).toBe('userRegistered');
+      expect(dispatchedEvent.detail).toEqual({
+        id: '123',
+        email: 'test@example.com',
+        username: 'testuser',
+        role: 'user',
       });
     });
 
@@ -109,7 +107,7 @@ describe('RegisterPage', () => {
       server.use(
         http.post('/api/py/auth/register', () => {
           return HttpResponse.json(
-            { detail: 'Registration failed' },
+            { detail: 'Registration failed' }, // 确保这里的错误消息与 RegisterForm.tsx 一致
             { status: 400 }
           );
         })
@@ -126,9 +124,7 @@ describe('RegisterPage', () => {
       );
       await user.click(screen.getByRole('button', { name: /register/i }));
 
-      await waitFor(() => {
-        expect(screen.getByText(/registration error/i)).toBeInTheDocument();
-      });
+      await screen.findByText(/Registration failed/i); // 使用 findByText
     });
   });
 
@@ -145,11 +141,8 @@ describe('RegisterPage', () => {
       );
       await user.click(screen.getByRole('button', { name: /register/i }));
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(/username must be at least 3 characters/i)
-        ).toBeInTheDocument();
-      });
+      // 从 RegisterForm.test.tsx 复制
+      await screen.findByText('Username must be at least 3 characters');
     });
 
     it('shows validation error for password mismatch', async () => {
@@ -164,9 +157,8 @@ describe('RegisterPage', () => {
       ); // 密码不匹配
       await user.click(screen.getByRole('button', { name: /register/i }));
 
-      await waitFor(() => {
-        expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
-      });
+      // 从 RegisterForm.test.tsx 复制
+      await screen.findByText('Passwords do not match');
     });
   });
 
