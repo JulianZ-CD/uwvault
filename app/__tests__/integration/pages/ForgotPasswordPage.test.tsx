@@ -1,12 +1,14 @@
-import { render, screen, waitFor } from '../../utils/test-utils';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithAuthProviders } from '../../utils/test-auth-utils';
 import ForgotPasswordPage from '@/app/(auth)/forgot-password/page';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
+import '@/app/__tests__/mocks/mockRouter';
 
 describe('ForgotPasswordPage', () => {
   describe('initial render', () => {
     it('renders forgot password form', () => {
-      render(<ForgotPasswordPage />);
+      renderWithAuthProviders(<ForgotPasswordPage />);
 
       expect(
         screen.getByRole('heading', { name: /forgot password/i })
@@ -20,7 +22,7 @@ describe('ForgotPasswordPage', () => {
 
   describe('form submission', () => {
     it('submits email successfully', async () => {
-      const { user } = render(<ForgotPasswordPage />);
+      const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
       await user.type(
         screen.getByPlaceholderText(/email/i),
@@ -45,7 +47,7 @@ describe('ForgotPasswordPage', () => {
         })
       );
 
-      const { user } = render(<ForgotPasswordPage />);
+      const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
       await user.type(
         screen.getByPlaceholderText(/email/i),
@@ -63,7 +65,7 @@ describe('ForgotPasswordPage', () => {
 
   describe('validation', () => {
     it('shows error when email is empty', async () => {
-      const { user } = render(<ForgotPasswordPage />);
+      const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
       await user.click(screen.getByRole('button', { name: /reset password/i }));
 
@@ -73,7 +75,7 @@ describe('ForgotPasswordPage', () => {
     });
 
     it('shows error when email format is invalid', async () => {
-      const { user } = render(<ForgotPasswordPage />);
+      const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
       await user.type(screen.getByPlaceholderText(/email/i), 'invalid-email');
       await user.click(screen.getByRole('button', { name: /reset password/i }));
@@ -94,7 +96,7 @@ describe('ForgotPasswordPage', () => {
         })
       );
 
-      const { user } = render(<ForgotPasswordPage />);
+      const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
       await user.type(
         screen.getByPlaceholderText(/email/i),
