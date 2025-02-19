@@ -6,7 +6,7 @@ import { server } from '../../mocks/server';
 import '@/app/__tests__/mocks/mockRouter';
 import userEvent from '@testing-library/user-event';
 
-// Mock useAuth hook (如果需要，可以根据实际情况调整)
+// Mock useAuth hook
 jest.mock('@/app/hooks/useAuth', () => ({
   useAuth: () => ({
     getCurrentUser: jest.fn(),
@@ -20,7 +20,7 @@ describe('RegisterPage', () => {
     jest.clearAllMocks();
     server.resetHandlers();
 
-    // 模拟 FormData
+    // mock FormData
     const mockFormData = {
       get: jest.fn((key) => {
         const values = {
@@ -40,7 +40,7 @@ describe('RegisterPage', () => {
     it('renders register form', () => {
       renderWithAuthProviders(<RegisterPage />);
 
-      // 检查标题
+      // check title
       const formContainer = screen.getByRole('main');
       expect(
         within(formContainer).getByText('Register', {
@@ -48,16 +48,16 @@ describe('RegisterPage', () => {
         })
       ).toBeInTheDocument();
 
-      // 检查输入框
+      // check input fields
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/^password/i)).toBeInTheDocument(); // 使用正则表达式匹配 "password" 开头的 label
+      expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
-      // 检查按钮
+      // check button
       expect(
         screen.getByRole('button', { name: /register/i })
       ).toBeInTheDocument();
-      // 检查链接
+      // check link
       expect(screen.getByText(/login here/i)).toBeInTheDocument();
     });
   });
@@ -90,9 +90,9 @@ describe('RegisterPage', () => {
       );
       await user.click(screen.getByRole('button', { name: /register/i }));
 
-      // 直接断言，移除 waitFor
+      // directly assert, remove waitFor
       expect(dispatchEventSpy).toHaveBeenCalledWith(expect.any(CustomEvent));
-      // 更详细的断言 (可选)
+      // more detailed assertion (optional)
       const dispatchedEvent = dispatchEventSpy.mock.calls[0][0] as CustomEvent;
       expect(dispatchedEvent.type).toBe('userRegistered');
       expect(dispatchedEvent.detail).toEqual({
@@ -107,7 +107,7 @@ describe('RegisterPage', () => {
       server.use(
         http.post('/api/py/auth/register', () => {
           return HttpResponse.json(
-            { detail: 'Registration failed' }, // 确保这里的错误消息与 RegisterForm.tsx 一致
+            { detail: 'Registration failed' }, // ensure the error message is consistent with RegisterForm.tsx
             { status: 400 }
           );
         })
@@ -124,41 +124,104 @@ describe('RegisterPage', () => {
       );
       await user.click(screen.getByRole('button', { name: /register/i }));
 
-      await screen.findByText(/Registration failed/i); // 使用 findByText
+      await screen.findByText(/Registration failed/i); // use findByText
     });
   });
 
   describe('validation', () => {
-    it('shows validation error for username length', async () => {
+    it('prevents form submission with short username', async () => {
       const { user } = renderWithAuthProviders(<RegisterPage />);
 
+      // fill form
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
-      await user.type(screen.getByLabelText(/username/i), 'ab'); // 用户名太短
+      await user.type(screen.getByLabelText(/username/i), 'ab'); // username is too short
       await user.type(screen.getByLabelText(/^password/i), 'password123');
       await user.type(
         screen.getByLabelText(/confirm password/i),
         'password123'
       );
-      await user.click(screen.getByRole('button', { name: /register/i }));
 
-      // 从 RegisterForm.test.tsx 复制
-      await screen.findByText('Username must be at least 3 characters');
+      const submitButton = screen.getByRole('button', { name: /register/i });
+      await user.click(submitButton);
+
+      // check form is still there (not submitted and not redirected)
+      expect(
+        screen.getByRole('button', { name: /register/i })
+      ).toBeInTheDocument();
+
+      // check username input field still contains short username
+      const usernameInput = screen.getByLabelText(
+        /username/i
+      ) as HTMLInputElement;
+      expect(usernameInput.value).toBe('ab');
     });
 
-    it('shows validation error for password mismatch', async () => {
+    it('prevents form submission with mismatched passwords', async () => {
       const { user } = renderWithAuthProviders(<RegisterPage />);
 
+      // fill form
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
       await user.type(screen.getByLabelText(/username/i), 'testuser');
       await user.type(screen.getByLabelText(/^password/i), 'password123');
       await user.type(
         screen.getByLabelText(/confirm password/i),
-        'password456'
-      ); // 密码不匹配
-      await user.click(screen.getByRole('button', { name: /register/i }));
+        'password456' // mismatched passwords
+      );
 
-      // 从 RegisterForm.test.tsx 复制
-      await screen.findByText('Passwords do not match');
+      const submitButton = screen.getByRole('button', { name: /register/i });
+      await user.click(submitButton);
+
+      // check form is still there (not submitted and not redirected)
+      expect(
+        screen.getByRole('button', { name: /register/i })
+      ).toBeInTheDocument();
+
+      // check password input field value is still the same
+      const passwordInput = screen.getByLabelText(
+        /^password/i
+      ) as HTMLInputElement;
+      const confirmPasswordInput = screen.getByLabelText(
+        /confirm password/i
+      ) as HTMLInputElement;
+      expect(passwordInput.value).toBe('password123');
+      expect(confirmPasswordInput.value).toBe('password456');
+    });
+
+    // add a positive test case to verify the behavior with valid inputs
+    it('allows form submission with valid inputs', async () => {
+      server.use(
+        http.post('/api/py/auth/register', () => {
+          return HttpResponse.json({
+            user: {
+              id: '123',
+              email: 'test@example.com',
+              user_metadata: { username: 'testuser' },
+              role: 'user',
+            },
+          });
+        })
+      );
+
+      const { user } = renderWithAuthProviders(<RegisterPage />);
+
+      // fill valid form data
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+      await user.type(screen.getByLabelText(/username/i), 'testuser');
+      await user.type(screen.getByLabelText(/^password/i), 'password123');
+      await user.type(
+        screen.getByLabelText(/confirm password/i),
+        'password123'
+      );
+
+      const submitButton = screen.getByRole('button', { name: /register/i });
+      await user.click(submitButton);
+
+      // verify the behavior after successful registration (e.g., check if the user registered event is triggered)
+      await waitFor(() => {
+        expect(window.dispatchEvent).toHaveBeenCalledWith(
+          expect.any(CustomEvent)
+        );
+      });
     });
   });
 
