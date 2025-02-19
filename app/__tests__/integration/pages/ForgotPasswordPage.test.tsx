@@ -41,7 +41,12 @@ describe('ForgotPasswordPage', () => {
     it('handles submission error', async () => {
       server.use(
         http.post('/api/py/auth/reset-password', () => {
-          return new HttpResponse(null, { status: 500 });
+          return new HttpResponse(
+            JSON.stringify({
+              message: 'Failed to send reset password email',
+            }),
+            { status: 500 }
+          );
         })
       );
 
@@ -53,9 +58,9 @@ describe('ForgotPasswordPage', () => {
       );
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/failed to send reset password email/i)
-        ).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toHaveTextContent(
+          /failed to send reset password email/i
+        );
       });
     });
   });
@@ -90,7 +95,12 @@ describe('ForgotPasswordPage', () => {
     it('handles network error', async () => {
       server.use(
         http.post('/api/py/auth/reset-password', () => {
-          throw new Error('Network error');
+          return new HttpResponse(
+            JSON.stringify({
+              message: 'Failed to send reset password email',
+            }),
+            { status: 500 }
+          );
         })
       );
 
@@ -105,9 +115,9 @@ describe('ForgotPasswordPage', () => {
       );
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/failed to send reset password email/i)
-        ).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toHaveTextContent(
+          /failed to send reset password email/i
+        );
       });
     });
   });
