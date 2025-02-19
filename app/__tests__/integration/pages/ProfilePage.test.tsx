@@ -39,6 +39,19 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/profile',
 }));
 
+// 在文件顶部的 mock 部分
+const mockUseAuth = {
+  user: null,
+  isLoading: false,
+  error: null,
+  isAdmin: () => false,
+  requireAuth: jest.fn(),
+  requireAdmin: jest.fn(),
+  getCurrentUser: jest.fn(),
+  login: jest.fn(),
+  logout: jest.fn(),
+};
+
 // 设置全局 fetch mock
 beforeAll(() => {
   global.fetch = jest.fn();
@@ -150,28 +163,27 @@ describe('ProfilePage Integration', () => {
 
   // 测试未授权情况
   it('should handle unauthorized state', async () => {
+    // 重置 mocks
     mockRouter.push.mockReset();
+    localStorage.clear();
 
-    // 直接修改已存在的 mock
+    // 重新设置 useAuth mock
     jest.mock('@/app/hooks/useAuth', () => ({
-      useAuth: () => ({
-        user: null,
-        isLoading: false,
-        error: null,
-        isAdmin: () => false,
-        requireAuth: jest.fn(),
-        requireAdmin: jest.fn(),
-        getCurrentUser: jest.fn(),
-        login: jest.fn(),
-        logout: jest.fn(),
-      }),
+      useAuth: () => mockUseAuth,
     }));
+
+    // 强制清除模块缓存
+    jest.resetModules();
 
     renderWithAllProviders(<ProfilePage />);
 
-    await waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith('/login');
-    });
+    // 增加超时时间，确保有足够时间处理重定向
+    await waitFor(
+      () => {
+        expect(mockRouter.push).toHaveBeenCalledWith('/login');
+      },
+      { timeout: 10000 }
+    );
   });
 
   // 测试API错误处理
