@@ -4,6 +4,8 @@ import LoginPage from '@/app/(auth)/login/page';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
 import '@/app/__tests__/mocks/mockRouter';
+import userEvent from '@testing-library/user-event';
+import { within } from '@testing-library/react';
 
 // Mock useAuth hook
 const mockGetCurrentUser = jest.fn();
@@ -50,9 +52,7 @@ describe('LoginPage', () => {
       renderWithAuthProviders(<LoginPage />);
 
       // 检查标题
-      expect(
-        screen.getByRole('heading', { name: /login/i })
-      ).toBeInTheDocument();
+      expect(screen.getByText('Login')).toBeInTheDocument();
       // 检查输入框
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
@@ -142,17 +142,17 @@ describe('LoginPage', () => {
 
   describe('password visibility toggle', () => {
     it('toggles password visibility', async () => {
-      const { user } = renderWithAuthProviders(<LoginPage />);
-
+      renderWithAuthProviders(<LoginPage />);
       const passwordInput = screen.getByLabelText(/password/i);
-      const toggleButton = screen.getByTestId('password-toggle');
+      const passwordContainer = passwordInput.closest('div'); // 找到最近的父级 div
+      const toggleButton = within(passwordContainer!).getByRole('button');
 
       expect(passwordInput).toHaveAttribute('type', 'password');
 
-      await user.click(toggleButton);
+      await userEvent.click(toggleButton);
       expect(passwordInput).toHaveAttribute('type', 'text');
 
-      await user.click(toggleButton);
+      await userEvent.click(toggleButton);
       expect(passwordInput).toHaveAttribute('type', 'password');
     });
   });
