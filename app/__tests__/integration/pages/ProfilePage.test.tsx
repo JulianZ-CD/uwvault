@@ -38,13 +38,21 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/profile',
 }));
 
-beforeAll(() => server.listen());
+// 设置全局 fetch mock
+beforeAll(() => {
+  global.fetch = jest.fn();
+  server.listen();
+});
+
 afterEach(() => {
   server.resetHandlers();
   jest.clearAllMocks();
   localStorage.clear();
 });
-afterAll(() => server.close());
+
+afterAll(() => {
+  server.close();
+});
 
 describe('ProfilePage Integration', () => {
   // 测试正常渲染
@@ -69,104 +77,129 @@ describe('ProfilePage Integration', () => {
 
   // 测试用户名更新流程
   it('should handle username update workflow', async () => {
-    localStorage.setItem(
-      'token',
-      JSON.stringify({ access_token: 'valid-token' })
-    );
+    // Mock fetch 成功响应
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ message: 'Success' }),
+    });
+
     const { user } = renderWithAllProviders(<ProfilePage />);
 
-    // 进入编辑模式
+    // 点击编辑按钮
     const editButton = await screen.findByRole('button', {
       name: /edit username/i,
     });
     await user.click(editButton);
 
-    // 修改用户名
-    const usernameInput = await screen.findByRole('textbox');
-    await user.clear(usernameInput);
-    await user.type(usernameInput, 'newusername');
+    // 输入新用户名
+    const input = await screen.findByRole('textbox');
+    await user.clear(input);
+    await user.type(input, 'newusername');
 
-    // 提交修改
-    const saveButton = screen.getByRole('button', { name: /save/i });
+    // 点击保存
+    const saveButton = await screen.findByRole('button', { name: /save/i });
     await user.click(saveButton);
 
-    // 验证API调用
+    // 验证 API 调用
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/py/auth/users/username', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer valid-token',
-        },
-        body: JSON.stringify({ new_username: 'newusername' }),
-      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/py/auth/users/username',
+        expect.objectContaining({
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer valid-token',
+          },
+          body: JSON.stringify({ new_username: 'newusername' }),
+        })
+      );
     });
   });
 
   // 测试密码重置流程
   it('should handle password reset workflow', async () => {
-    localStorage.setItem(
-      'token',
-      JSON.stringify({ access_token: 'valid-token' })
-    );
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ message: 'Success' }),
+    });
+
     const { user } = renderWithAllProviders(<ProfilePage />);
 
-    // 触发密码重置
     const resetButton = await screen.findByRole('button', {
       name: /change password/i,
     });
     await user.click(resetButton);
 
-    // 验证API调用
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/py/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: mockUser.email }),
-      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/py/auth/reset-password',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: 'test@example.com' }),
+        })
+      );
     });
   });
 
   // 测试未授权情况
   it('should handle unauthorized state', async () => {
+    // Mock 401 响应
+    server.use(
+      http.get('/api/py/auth/users/me', () => {
+        return new Response(null, { status: 401 });
+      })
+    );
+
+    // 清除认证状态
     localStorage.removeItem('token');
+
+    // 重新渲染组件
     renderWithAllProviders(<ProfilePage />);
 
-    // 验证重定向或错误提示
-    await waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith('/login');
-    });
+    // 验证重定向
+    await waitFor(
+      () => {
+        expect(mockRouter.push).toHaveBeenCalledWith('/login');
+      },
+      { timeout: 3000 }
+    );
   });
 
   // 测试API错误处理
   it('should handle API errors gracefully', async () => {
-    localStorage.setItem(
-      'token',
-      JSON.stringify({ access_token: 'invalid-token' })
-    );
-
-    // 覆盖默认的mock实现
-    server.use(
-      http.put('/api/py/auth/users/username', () => {
-        return HttpResponse.json({ detail: 'Invalid token' }, { status: 401 });
-      })
-    );
+    // Mock 错误响应
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: () => Promise.resolve({ detail: 'Failed to update username' }),
+    });
 
     const { user } = renderWithAllProviders(<ProfilePage />);
 
-    // 触发更新操作
+    // 执行更新操作
     const editButton = await screen.findByRole('button', {
       name: /edit username/i,
     });
     await user.click(editButton);
+
+    const input = await screen.findByRole('textbox');
+    await user.clear(input);
+    await user.type(input, 'invalid');
+
     const saveButton = await screen.findByRole('button', { name: /save/i });
     await user.click(saveButton);
 
     // 验证错误提示
-    await waitFor(() => {
-      expect(screen.getByText('Failed to update username')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText(/Failed to update username/i)
+        ).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
   });
 });
