@@ -10,10 +10,10 @@ describe('ForgotPasswordPage', () => {
     it('renders forgot password form', () => {
       renderWithAuthProviders(<ForgotPasswordPage />);
 
+      expect(screen.getByText(/reset password/i)).toBeInTheDocument();
       expect(
-        screen.getByRole('heading', { name: /reset password/i })
+        screen.getByPlaceholderText(/enter your email address/i)
       ).toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/email/i)).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: /send reset link/i })
       ).toBeInTheDocument();
@@ -24,17 +24,16 @@ describe('ForgotPasswordPage', () => {
     it('submits email successfully', async () => {
       const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
-      await user.type(
-        screen.getByPlaceholderText(/email/i),
-        'test@example.com'
-      );
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com');
       await user.click(
         screen.getByRole('button', { name: /send reset link/i })
       );
 
       await waitFor(() => {
         expect(
-          screen.getByText(/password reset email has been sent/i)
+          screen.getByText(
+            /if an account exists with this email address, you will receive password reset instructions/i
+          )
         ).toBeInTheDocument();
       });
     });
@@ -48,10 +47,7 @@ describe('ForgotPasswordPage', () => {
 
       const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
-      await user.type(
-        screen.getByPlaceholderText(/email/i),
-        'test@example.com'
-      );
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com');
       await user.click(
         screen.getByRole('button', { name: /send reset link/i })
       );
@@ -65,29 +61,28 @@ describe('ForgotPasswordPage', () => {
   });
 
   describe('validation', () => {
-    it('shows error when email is empty', async () => {
+    it('shows browser validation when email is empty', async () => {
       const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
+      const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
       await user.click(
         screen.getByRole('button', { name: /send reset link/i })
       );
 
-      await waitFor(() => {
-        expect(screen.getByText(/email is required/i)).toBeInTheDocument();
-      });
+      expect(emailInput).toBeInvalid();
+      expect(emailInput).toBeRequired();
     });
 
-    it('shows error when email format is invalid', async () => {
+    it('shows browser validation when email format is invalid', async () => {
       const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
-      await user.type(screen.getByPlaceholderText(/email/i), 'invalid-email');
+      const emailInput = screen.getByLabelText(/email/i) as HTMLInputElement;
+      await user.type(emailInput, 'invalid-email');
       await user.click(
         screen.getByRole('button', { name: /send reset link/i })
       );
 
-      await waitFor(() => {
-        expect(screen.getByText(/invalid email format/i)).toBeInTheDocument();
-      });
+      expect(emailInput).toBeInvalid();
     });
   });
 
