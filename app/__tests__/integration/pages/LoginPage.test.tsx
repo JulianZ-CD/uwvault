@@ -1,11 +1,10 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { renderWithAuthProviders } from '../../utils/test-auth-utils';
 import LoginPage from '@/app/(auth)/login/page';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
 import '@/app/__tests__/mocks/mockRouter';
 import userEvent from '@testing-library/user-event';
-import { within } from '@testing-library/react';
 
 // Mock useAuth hook
 const mockGetCurrentUser = jest.fn();
@@ -22,7 +21,7 @@ describe('LoginPage', () => {
     jest.clearAllMocks();
     server.resetHandlers();
 
-    // 模拟 FormData
+    // mock FormData
     const mockFormData = {
       get: jest.fn((key) => {
         const values = {
@@ -51,16 +50,20 @@ describe('LoginPage', () => {
     it('renders login form', () => {
       renderWithAuthProviders(<LoginPage />);
 
-      // 检查标题
-      expect(screen.getByText('Login')).toBeInTheDocument();
-      // 检查输入框
+      // check title
+      const formContainer = screen.getByRole('main');
+      expect(
+        within(formContainer).getByText('Login', { selector: 'div.text-2xl' })
+      ).toBeInTheDocument();
+
+      // check input fields
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-      // 检查按钮
+      // check button
       expect(
         screen.getByRole('button', { name: /login/i })
       ).toBeInTheDocument();
-      // 检查链接
+      // check links
       expect(screen.getByText(/register here/i)).toBeInTheDocument();
       expect(screen.getByText(/reset it/i)).toBeInTheDocument();
     });
