@@ -11,11 +11,11 @@ describe('ForgotPasswordPage', () => {
       renderWithAuthProviders(<ForgotPasswordPage />);
 
       expect(
-        screen.getByRole('heading', { name: /forgot password/i })
+        screen.getByRole('heading', { name: /reset password/i })
       ).toBeInTheDocument();
       expect(screen.getByPlaceholderText(/email/i)).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /reset password/i })
+        screen.getByRole('button', { name: /send reset link/i })
       ).toBeInTheDocument();
     });
   });
@@ -28,11 +28,13 @@ describe('ForgotPasswordPage', () => {
         screen.getByPlaceholderText(/email/i),
         'test@example.com'
       );
-      await user.click(screen.getByRole('button', { name: /reset password/i }));
+      await user.click(
+        screen.getByRole('button', { name: /send reset link/i })
+      );
 
       await waitFor(() => {
         expect(
-          screen.getByText(/password reset email sent/i)
+          screen.getByText(/password reset email has been sent/i)
         ).toBeInTheDocument();
       });
     });
@@ -40,10 +42,7 @@ describe('ForgotPasswordPage', () => {
     it('handles submission error', async () => {
       server.use(
         http.post('/api/py/auth/reset-password', () => {
-          return new HttpResponse(
-            JSON.stringify({ detail: 'Failed to send reset email' }),
-            { status: 500 }
-          );
+          return new HttpResponse(null, { status: 500 });
         })
       );
 
@@ -53,11 +52,13 @@ describe('ForgotPasswordPage', () => {
         screen.getByPlaceholderText(/email/i),
         'test@example.com'
       );
-      await user.click(screen.getByRole('button', { name: /reset password/i }));
+      await user.click(
+        screen.getByRole('button', { name: /send reset link/i })
+      );
 
       await waitFor(() => {
         expect(
-          screen.getByText(/failed to send reset email/i)
+          screen.getByText(/failed to send reset password email/i)
         ).toBeInTheDocument();
       });
     });
@@ -67,7 +68,9 @@ describe('ForgotPasswordPage', () => {
     it('shows error when email is empty', async () => {
       const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
-      await user.click(screen.getByRole('button', { name: /reset password/i }));
+      await user.click(
+        screen.getByRole('button', { name: /send reset link/i })
+      );
 
       await waitFor(() => {
         expect(screen.getByText(/email is required/i)).toBeInTheDocument();
@@ -78,12 +81,12 @@ describe('ForgotPasswordPage', () => {
       const { user } = renderWithAuthProviders(<ForgotPasswordPage />);
 
       await user.type(screen.getByPlaceholderText(/email/i), 'invalid-email');
-      await user.click(screen.getByRole('button', { name: /reset password/i }));
+      await user.click(
+        screen.getByRole('button', { name: /send reset link/i })
+      );
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/please enter a valid email/i)
-        ).toBeInTheDocument();
+        expect(screen.getByText(/invalid email format/i)).toBeInTheDocument();
       });
     });
   });
@@ -102,11 +105,13 @@ describe('ForgotPasswordPage', () => {
         screen.getByPlaceholderText(/email/i),
         'test@example.com'
       );
-      await user.click(screen.getByRole('button', { name: /reset password/i }));
+      await user.click(
+        screen.getByRole('button', { name: /send reset link/i })
+      );
 
       await waitFor(() => {
         expect(
-          screen.getByText(/failed to send reset email/i)
+          screen.getByText(/failed to send reset password email/i)
         ).toBeInTheDocument();
       });
     });
