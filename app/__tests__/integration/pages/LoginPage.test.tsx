@@ -5,7 +5,31 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
 import '@/app/__tests__/mocks/mockRouter';
 
+// Mock useAuth hook
+const mockGetCurrentUser = jest.fn();
+jest.mock('@/app/hooks/useAuth', () => ({
+  useAuth: () => ({
+    getCurrentUser: mockGetCurrentUser,
+    isAuthenticated: false,
+    user: null,
+  }),
+}));
+
+// Mock localStorage
+const mockSetItem = jest.fn();
+Object.defineProperty(window, 'localStorage', {
+  value: {
+    setItem: mockSetItem,
+  },
+  writable: true,
+});
+
 describe('LoginPage', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    server.resetHandlers();
+  });
+
   describe('initial render', () => {
     it('renders login form', () => {
       renderWithAuthProviders(<LoginPage />);
@@ -27,6 +51,17 @@ describe('LoginPage', () => {
 
   describe('form submission', () => {
     it('submits credentials successfully', async () => {
+      server.use(
+        http.post('/api/py/auth/login', () => {
+          return new HttpResponse(
+            JSON.stringify({
+              session: { access_token: 'fake-token' },
+            }),
+            { status: 200 }
+          );
+        })
+      );
+
       const { user } = renderWithAuthProviders(<LoginPage />);
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
@@ -34,7 +69,10 @@ describe('LoginPage', () => {
       await user.click(screen.getByRole('button', { name: /login/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/welcome back/i)).toBeInTheDocument();
+        expect(mockSetItem).toHaveBeenCalledWith(
+          'token',
+          JSON.stringify({ access_token: 'fake-token' })
+        );
       });
     });
 
