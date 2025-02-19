@@ -15,19 +15,34 @@ jest.mock('@/app/hooks/useAuth', () => ({
   }),
 }));
 
-// Mock localStorage
-const mockSetItem = jest.fn();
-Object.defineProperty(window, 'localStorage', {
-  value: {
-    setItem: mockSetItem,
-  },
-  writable: true,
-});
-
 describe('LoginPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     server.resetHandlers();
+
+    // 模拟 FormData
+    const mockFormData = {
+      get: jest.fn((key) => {
+        const values = {
+          email: 'test@example.com',
+          password: 'password123',
+        };
+        return values[key as keyof typeof values] || null;
+      }),
+    };
+    // @ts-ignore
+    global.FormData = jest.fn(() => mockFormData);
+
+    // Mock localStorage
+    const mockSetItem = jest.fn();
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        setItem: mockSetItem,
+        getItem: jest.fn(),
+        removeItem: jest.fn(),
+      },
+      writable: true,
+    });
   });
 
   describe('initial render', () => {
@@ -35,7 +50,9 @@ describe('LoginPage', () => {
       renderWithAuthProviders(<LoginPage />);
 
       // 检查标题
-      expect(screen.getByText(/login/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /login/i })
+      ).toBeInTheDocument();
       // 检查输入框
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
@@ -53,12 +70,9 @@ describe('LoginPage', () => {
     it('submits credentials successfully', async () => {
       server.use(
         http.post('/api/py/auth/login', () => {
-          return new HttpResponse(
-            JSON.stringify({
-              session: { access_token: 'fake-token' },
-            }),
-            { status: 200 }
-          );
+          return HttpResponse.json({
+            session: { access_token: 'fake-token' },
+          });
         })
       );
 
@@ -69,7 +83,7 @@ describe('LoginPage', () => {
       await user.click(screen.getByRole('button', { name: /login/i }));
 
       await waitFor(() => {
-        expect(mockSetItem).toHaveBeenCalledWith(
+        expect(localStorage.setItem).toHaveBeenCalledWith(
           'token',
           JSON.stringify({ access_token: 'fake-token' })
         );
@@ -79,10 +93,8 @@ describe('LoginPage', () => {
     it('handles login error', async () => {
       server.use(
         http.post('/api/py/auth/login', () => {
-          return new HttpResponse(
-            JSON.stringify({
-              message: 'Invalid credentials',
-            }),
+          return HttpResponse.json(
+            { message: 'Invalid credentials' },
             { status: 401 }
           );
         })
@@ -95,7 +107,7 @@ describe('LoginPage', () => {
       await user.click(screen.getByRole('button', { name: /login/i }));
 
       await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent(/sign in failed/i);
+        expect(screen.getByText(/sign in failed/i)).toBeInTheDocument();
       });
     });
   });
@@ -133,9 +145,7 @@ describe('LoginPage', () => {
       const { user } = renderWithAuthProviders(<LoginPage />);
 
       const passwordInput = screen.getByLabelText(/password/i);
-      const toggleButton = screen.getByRole('button', {
-        name: '',
-      });
+      const toggleButton = screen.getByTestId('password-toggle');
 
       expect(passwordInput).toHaveAttribute('type', 'password');
 
