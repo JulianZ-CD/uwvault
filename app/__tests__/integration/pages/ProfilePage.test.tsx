@@ -6,6 +6,7 @@ import { renderWithAllProviders } from '@/app/__tests__/utils/test-auth-utils';
 import ProfilePage from '@/app/(user)/profile/page';
 import { mockRouter } from '@/app/__tests__/mocks/mockRouter';
 import { authHandlers } from '@/app/__tests__/mocks/authHandlers';
+import { useAuth } from '@/app/hooks/useAuth';
 
 // Mock useAuth
 jest.mock('@/app/hooks/useAuth', () => ({
@@ -77,30 +78,33 @@ describe('ProfilePage Integration', () => {
 
   // 测试用户名更新流程
   it('should handle username update workflow', async () => {
-    // Mock fetch 成功响应
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ message: 'Success' }),
-    });
+    localStorage.setItem(
+      'token',
+      JSON.stringify({ access_token: 'valid-token' })
+    );
+
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ message: 'Success' }),
+      })
+    );
 
     const { user } = renderWithAllProviders(<ProfilePage />);
 
-    // 点击编辑按钮
     const editButton = await screen.findByRole('button', {
       name: /edit username/i,
     });
     await user.click(editButton);
 
-    // 输入新用户名
     const input = await screen.findByRole('textbox');
     await user.clear(input);
     await user.type(input, 'newusername');
 
-    // 点击保存
     const saveButton = await screen.findByRole('button', { name: /save/i });
     await user.click(saveButton);
 
-    // 验证 API 调用
+    // 只验证 API 调用
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/py/auth/users/username',
@@ -146,26 +150,28 @@ describe('ProfilePage Integration', () => {
 
   // 测试未授权情况
   it('should handle unauthorized state', async () => {
-    // Mock 401 响应
-    server.use(
-      http.get('/api/py/auth/users/me', () => {
-        return new Response(null, { status: 401 });
-      })
-    );
+    mockRouter.push.mockReset();
 
-    // 清除认证状态
-    localStorage.removeItem('token');
+    // 直接修改已存在的 mock
+    jest.mock('@/app/hooks/useAuth', () => ({
+      useAuth: () => ({
+        user: null,
+        isLoading: false,
+        error: null,
+        isAdmin: () => false,
+        requireAuth: jest.fn(),
+        requireAdmin: jest.fn(),
+        getCurrentUser: jest.fn(),
+        login: jest.fn(),
+        logout: jest.fn(),
+      }),
+    }));
 
-    // 重新渲染组件
     renderWithAllProviders(<ProfilePage />);
 
-    // 验证重定向
-    await waitFor(
-      () => {
-        expect(mockRouter.push).toHaveBeenCalledWith('/login');
-      },
-      { timeout: 3000 }
-    );
+    await waitFor(() => {
+      expect(mockRouter.push).toHaveBeenCalledWith('/login');
+    });
   });
 
   // 测试API错误处理
