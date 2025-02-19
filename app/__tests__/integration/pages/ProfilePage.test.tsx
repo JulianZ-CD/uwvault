@@ -1,15 +1,30 @@
 import { screen, waitFor } from '@testing-library/react';
-import { renderWithAuthProviders } from '../../utils/test-auth-utils';
-import ProfilePage from '@/app/(user)/profile/page';
-import '@/app/__tests__/mocks/mockRouter';
 import userEvent from '@testing-library/user-event';
-import { useAuth } from '@/app/hooks/useAuth';
-import { useUser } from '@/app/components/user/UserProvider';
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
+import { renderWithAllProviders } from '@/app/__tests__/utils/test-auth-utils';
+import ProfilePage from '@/app/(user)/profile/page';
+import { mockRouter } from '@/app/__tests__/mocks/mockRouter';
+import { authHandlers } from '@/app/__tests__/mocks/authHandlers';
 
-// Mock useAuth and useUser hooks
-jest.mock('@/app/hooks/useAuth');
-jest.mock('@/app/components/user/UserProvider');
+// Mock useAuth
+jest.mock('@/app/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'test-user-id',
+      email: 'test@example.com',
+      username: 'testuser',
+      role: 'user',
+    },
+    loading: false,
+    isAuthenticated: true,
+    getCurrentUser: jest.fn().mockResolvedValue({}),
+  }),
+}));
 
+const server = setupServer(...authHandlers);
+
+// 测试用户数据
 const mockUser = {
   id: 'test-user-id',
   email: 'test@example.com',
@@ -17,168 +32,141 @@ const mockUser = {
   role: 'user',
 };
 
-describe('ProfilePage', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+// Mock Next.js router
+jest.mock('next/navigation', () => ({
+  useRouter: () => mockRouter,
+  usePathname: () => '/profile',
+}));
 
-    // Mock useAuth hook
-    (useAuth as jest.Mock).mockReturnValue({
-      user: mockUser,
-      getCurrentUser: jest.fn().mockResolvedValue(mockUser),
-    });
+beforeAll(() => server.listen());
+afterEach(() => {
+  server.resetHandlers();
+  jest.clearAllMocks();
+  localStorage.clear();
+});
+afterAll(() => server.close());
 
-    // Mock useUser hook
-    (useUser as jest.Mock).mockReturnValue({
-      updateProfile: jest.fn().mockResolvedValue(undefined),
-      resetPassword: jest.fn().mockResolvedValue(undefined),
-    });
-  });
+describe('ProfilePage Integration', () => {
+  // 测试正常渲染
+  it('should render profile page with user data', async () => {
+    localStorage.setItem(
+      'token',
+      JSON.stringify({ access_token: 'valid-token' })
+    );
 
-  describe('initial render', () => {
-    it('renders profile page with correct layout', () => {
-      renderWithAuthProviders(<ProfilePage />);
+    renderWithAllProviders(<ProfilePage />);
 
-      // 检查页面标题
+    // 验证基础布局
+    await waitFor(() => {
       expect(screen.getByText('Profile Settings')).toBeInTheDocument();
-
-      // 检查卡片布局
-      expect(screen.getByRole('main')).toHaveClass('container');
-
-      // 检查用户信息是否显示
-      expect(screen.getByText(mockUser.username)).toBeInTheDocument();
-      expect(screen.getByText(mockUser.email)).toBeInTheDocument();
-      expect(screen.getByText(mockUser.role)).toBeInTheDocument();
-      expect(screen.getByText(mockUser.id)).toBeInTheDocument();
     });
 
-    it('renders all necessary buttons', () => {
-      renderWithAuthProviders(<ProfilePage />);
-
-      expect(
-        screen.getByRole('button', { name: 'Edit Username' })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: 'Change Password' })
-      ).toBeInTheDocument();
-    });
+    // 验证用户信息
+    expect(screen.getByText(mockUser.username)).toBeInTheDocument();
+    expect(screen.getByText(mockUser.email)).toBeInTheDocument();
+    expect(screen.getByText(mockUser.role)).toBeInTheDocument();
   });
 
-  describe('username update functionality', () => {
-    it('allows editing and saving username', async () => {
-      const { updateProfile } = useUser() as any;
-      const { user } = renderWithAuthProviders(<ProfilePage />);
+  // 测试用户名更新流程
+  it('should handle username update workflow', async () => {
+    localStorage.setItem(
+      'token',
+      JSON.stringify({ access_token: 'valid-token' })
+    );
+    const { user } = renderWithAllProviders(<ProfilePage />);
 
-      // 点击编辑按钮
-      const editButton = screen.getByRole('button', { name: 'Edit Username' });
-      await user.click(editButton);
-
-      // 修改用户名
-      const usernameLabel = screen.getByText('Username');
-      const usernameInput = usernameLabel.parentElement?.querySelector('input');
-      expect(usernameInput).toBeInTheDocument();
-
-      await user.clear(usernameInput!);
-      await user.type(usernameInput!, 'newusername');
-
-      // 保存更改
-      const saveButton = screen.getByRole('button', { name: 'Save' });
-      await user.click(saveButton);
-
-      // 验证更新调用
-      await waitFor(() => {
-        expect(updateProfile).toHaveBeenCalledWith({
-          new_username: 'newusername',
-        });
-      });
+    // 进入编辑模式
+    const editButton = await screen.findByRole('button', {
+      name: /edit username/i,
     });
+    await user.click(editButton);
 
-    it('allows canceling username edit', async () => {
-      const { user } = renderWithAuthProviders(<ProfilePage />);
+    // 修改用户名
+    const usernameInput = await screen.findByRole('textbox');
+    await user.clear(usernameInput);
+    await user.type(usernameInput, 'newusername');
 
-      // 点击编辑按钮
-      const editButton = screen.getByRole('button', { name: 'Edit Username' });
-      await user.click(editButton);
+    // 提交修改
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    await user.click(saveButton);
 
-      // 验证进入编辑模式
-      const usernameLabel = screen.getByText('Username');
-      const usernameInput = usernameLabel.parentElement?.querySelector('input');
-      expect(usernameInput).toBeInTheDocument();
-
-      // 点击取消按钮
-      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
-      await user.click(cancelButton);
-
-      // 验证返回查看模式
-      expect(
-        screen.queryByRole('textbox', { name: 'Username' })
-      ).not.toBeInTheDocument();
-      expect(screen.getByText(mockUser.username)).toBeInTheDocument();
-    });
-  });
-
-  describe('password change functionality', () => {
-    it('initiates password reset process', async () => {
-      const { resetPassword } = useUser() as any;
-      const { user } = renderWithAuthProviders(<ProfilePage />);
-
-      // 点击更改密码按钮
-      const resetButton = screen.getByRole('button', {
-        name: 'Change Password',
-      });
-      await user.click(resetButton);
-
-      // 验证密码重置调用
-      await waitFor(() => {
-        expect(resetPassword).toHaveBeenCalledWith(mockUser.email);
+    // 验证API调用
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith('/api/py/auth/users/username', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer valid-token',
+        },
+        body: JSON.stringify({ new_username: 'newusername' }),
       });
     });
   });
 
-  describe('error handling', () => {
-    it('handles username update failure', async () => {
-      const { updateProfile } = useUser() as any;
-      updateProfile.mockRejectedValueOnce(new Error('Update failed'));
+  // 测试密码重置流程
+  it('should handle password reset workflow', async () => {
+    localStorage.setItem(
+      'token',
+      JSON.stringify({ access_token: 'valid-token' })
+    );
+    const { user } = renderWithAllProviders(<ProfilePage />);
 
-      const { user } = renderWithAuthProviders(<ProfilePage />);
+    // 触发密码重置
+    const resetButton = await screen.findByRole('button', {
+      name: /change password/i,
+    });
+    await user.click(resetButton);
 
-      // 点击编辑按钮
-      const editButton = screen.getByRole('button', { name: 'Edit Username' });
-      await user.click(editButton);
-
-      // 修改用户名
-      const usernameLabel = screen.getByText('Username');
-      const usernameInput = usernameLabel.parentElement?.querySelector('input');
-      await user.clear(usernameInput!);
-      await user.type(usernameInput!, 'newusername');
-
-      // 尝试保存
-      const saveButton = screen.getByRole('button', { name: 'Save' });
-      await user.click(saveButton);
-
-      // 验证错误处理
-      await waitFor(() => {
-        expect(updateProfile).toHaveBeenCalledWith({
-          new_username: 'newusername',
-        });
+    // 验证API调用
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith('/api/py/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: mockUser.email }),
       });
     });
+  });
 
-    it('handles password reset failure', async () => {
-      const { resetPassword } = useUser() as any;
-      resetPassword.mockRejectedValueOnce(new Error('Reset failed'));
+  // 测试未授权情况
+  it('should handle unauthorized state', async () => {
+    localStorage.removeItem('token');
+    renderWithAllProviders(<ProfilePage />);
 
-      const { user } = renderWithAuthProviders(<ProfilePage />);
+    // 验证重定向或错误提示
+    await waitFor(() => {
+      expect(mockRouter.push).toHaveBeenCalledWith('/login');
+    });
+  });
 
-      // 点击更改密码按钮
-      const resetButton = screen.getByRole('button', {
-        name: 'Change Password',
-      });
-      await user.click(resetButton);
+  // 测试API错误处理
+  it('should handle API errors gracefully', async () => {
+    localStorage.setItem(
+      'token',
+      JSON.stringify({ access_token: 'invalid-token' })
+    );
 
-      // 验证错误处理
-      await waitFor(() => {
-        expect(resetPassword).toHaveBeenCalledWith(mockUser.email);
-      });
+    // 覆盖默认的mock实现
+    server.use(
+      http.put('/api/py/auth/users/username', () => {
+        return HttpResponse.json({ detail: 'Invalid token' }, { status: 401 });
+      })
+    );
+
+    const { user } = renderWithAllProviders(<ProfilePage />);
+
+    // 触发更新操作
+    const editButton = await screen.findByRole('button', {
+      name: /edit username/i,
+    });
+    await user.click(editButton);
+    const saveButton = await screen.findByRole('button', { name: /save/i });
+    await user.click(saveButton);
+
+    // 验证错误提示
+    await waitFor(() => {
+      expect(screen.getByText('Failed to update username')).toBeInTheDocument();
     });
   });
 });
