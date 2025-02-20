@@ -26,23 +26,23 @@ describe('VerifyPage Integration', () => {
     jest.useRealTimers();
   });
 
-  // 测试初始加载状态
+  // 修复加载状态测试
   it('should show loading state initially', () => {
     render(<VerifyPage />);
 
     // 验证加载状态
     expect(screen.getByText('Email Verification')).toBeInTheDocument();
-    // 使用 class 查找加载动画
-    expect(screen.getByText('Email Verification')).toBeInTheDocument();
-    expect(screen.getByRole('status', { hidden: true })).toBeInTheDocument();
+    // 查找加载动画 div
+    const loadingSpinner = screen.getByTestId('loading-spinner');
+    expect(loadingSpinner).toHaveClass('animate-spin');
   });
 
-  // 测试成功验证流程
+  // 修复成功验证流程测试
   it('should handle successful verification', async () => {
     // 设置验证成功的 URL hash
     window.location.hash = '#type=signup&access_token=valid_token';
 
-    render(<VerifyPage />);
+    const { container } = render(<VerifyPage />);
 
     // 验证成功状态
     await waitFor(() => {
@@ -51,9 +51,9 @@ describe('VerifyPage Integration', () => {
       ).toBeInTheDocument();
     });
 
-    // 验证成功图标显示（使用 SVG title 或周围的文本）
-    const successMessage = screen.getByText('Email verified successfully!');
-    expect(successMessage).toBeInTheDocument();
+    // 验证成功图标显示
+    const checkIcon = container.querySelector('.text-green-500');
+    expect(checkIcon).toBeInTheDocument();
 
     // 验证显示继续登录按钮
     const loginButton = screen.getByRole('button', {
@@ -61,10 +61,12 @@ describe('VerifyPage Integration', () => {
     });
     expect(loginButton).toBeInTheDocument();
 
-    // 验证 toast 提示
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'Success',
-      description: 'Your email has been verified successfully.',
+    // 验证 toast 提示 - 使用 waitFor
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Success',
+        description: 'Your email has been verified successfully.',
+      });
     });
 
     // 验证3秒后自动跳转
@@ -84,40 +86,46 @@ describe('VerifyPage Integration', () => {
       expect(screen.getByText('Invalid verification link')).toBeInTheDocument();
     });
 
-    // 验证错误消息显示
-    const errorMessage = screen.getByText('Invalid verification link');
-    expect(errorMessage).toBeInTheDocument();
+    // 验证错误图标
+    const errorIcon = screen.getByRole('alert');
+    expect(errorIcon).toBeInTheDocument();
 
     // 验证显示返回首页按钮
     const homeButton = screen.getByRole('button', { name: /return to home/i });
     expect(homeButton).toBeInTheDocument();
   });
 
-  // 测试按钮点击事件
+  // 修复按钮点击测试
   it('should handle button clicks correctly', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null }); // 禁用延迟
 
-    // 成功状态下的按钮点击
+    // 成功状态测试
     window.location.hash = '#type=signup&access_token=valid_token';
     render(<VerifyPage />);
 
-    const loginButton = await screen.findByRole('button', {
-      name: /continue to login/i,
+    // 等待按钮出现并点击
+    await waitFor(async () => {
+      const loginButton = screen.getByRole('button', {
+        name: /continue to login/i,
+      });
+      await user.click(loginButton);
     });
-    await user.click(loginButton);
     expect(mockRouter.push).toHaveBeenCalledWith('/login');
 
     // 清除 mock
     jest.clearAllMocks();
 
-    // 失败状态下的按钮点击
+    // 失败状态测试
     window.location.hash = '#type=invalid';
     render(<VerifyPage />);
 
-    const homeButton = await screen.findByRole('button', {
-      name: /return to home/i,
+    // 等待按钮出现并点击
+    await waitFor(async () => {
+      const homeButton = screen.getByRole('button', {
+        name: /return to home/i,
+      });
+      await user.click(homeButton);
     });
-    await user.click(homeButton);
     expect(mockRouter.push).toHaveBeenCalledWith('/');
   });
 });
