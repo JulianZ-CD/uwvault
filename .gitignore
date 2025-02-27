@@ -44,8 +44,16 @@ next-env.d.ts
 
 # python
 __pycache__/
+.venv
 venv/
 
 # cursor
 .cursorrules
+
+# new additions
+.env.dev
+credentials/
+api/tests/**/*.txt
+!requirements.txt
+sql/
 
