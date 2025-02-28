@@ -8,7 +8,7 @@ from api.tests.factories import FileFactory
 from api.tests.conftest import get_auth_headers
 
 # Constants
-RESOURCES_PATH = "/resources"  # 直接使用路由定义的路径
+RESOURCES_PATH = "/api/py/resources"  # 直接使用路由定义的路径
 TEST_TABLE_NAME = 'resources'
 
 # Test file paths
@@ -17,8 +17,8 @@ TEST_FILE_PATH = TEST_FILES_DIR / "test_document.pdf"
 
 # Test user credentials
 TEST_USER = {
-    "email": "ziyuwangca123456@gmail.com",
-    "password": "12345678"
+    "email": str,
+    "password": str
 }
 
 def cleanup_resource(resource_id, test_client, test_db, headers):
