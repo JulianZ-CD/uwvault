@@ -13,7 +13,7 @@ from api.core.exceptions import NotFoundError, ValidationError, StorageError
 from api.utils.logger import setup_logger
 
 router = APIRouter(
-    prefix="/resources",
+    prefix="/api/py/resources",
     tags=["resources"]
 )
 
