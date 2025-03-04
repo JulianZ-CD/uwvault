@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Request
 from typing import List, Dict, Optional
 from datetime import timedelta
-
+import logging
+from fastapi.responses import StreamingResponse
+import httpx
 from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, 
     ResourceInDB, ResourceReview, ResourceStatus
 )
 from api.services.resource_service import ResourceService
-# 临时使用 mock auth
 from api.core.mock_auth import get_current_user, require_admin  # 临时导入
 from api.core.exceptions import NotFoundError, ValidationError, StorageError
 from api.utils.logger import setup_logger
@@ -17,11 +18,12 @@ router = APIRouter(
     tags=["resources"]
 )
 
-# 依赖注入
 resource_service = ResourceService()
-logger = setup_logger("resource_router")
+logger = setup_logger("resource_router", log_file="resource_router.log", level=logging.DEBUG)
 
-# 1. 基础资源操作（所有用户可用）
+logger.info("Resource router initialized")
+
+# 1. basic resource operations (all users available)
 @router.get("/{id}", response_model=ResourceInDB)
 async def get_resource(
     id: int,
@@ -36,13 +38,16 @@ async def get_resource(
     Returns:
         Resource details if found and accessible
     """
+    logger.info(f"Received request to get resource with ID: {id}")
     try:
         include_pending = current_user.is_admin
+        logger.debug(f"Using include_pending={include_pending} for user {current_user.id}")
         return await resource_service.get_resource_by_id(id, include_pending)
     except NotFoundError as e:
+        logger.warning(f"Resource not found: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error getting resource {id}: {str(e)}")
+        logger.error(f"Error getting resource {id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get resource")
 
 @router.get("/{id}/download")
@@ -80,9 +85,8 @@ async def create_resource(
     file: UploadFile = File(...),
     current_user = Depends(get_current_user)
 ):
-    """创建新资源"""
+    """Create new resource"""
     try:
-        # 准备资源数据
         resource_data = ResourceCreate(
             title=title,
             description=description,
@@ -91,7 +95,6 @@ async def create_resource(
             original_filename=file.filename
         )
         
-        # 调用服务层创建资源
         return await resource_service.create_resource(resource_data, file)
     except ValidationError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
@@ -134,14 +137,14 @@ async def update_resource(
         logger.error(f"Error updating resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update resource")
 
-# 2. 管理员功能
+# 2. admin functions
 @router.post("/{id}/review", response_model=ResourceInDB)
 async def review_resource(
     id: int,
     review_data: ResourceReview,
     current_user = Depends(require_admin)
 ):
-    """审核资源（仅管理员）"""
+    """Review resource (admin only)"""
     try:
         review = ResourceReview(
             status=review_data.status,
@@ -216,26 +219,40 @@ async def reactivate_resource(
         logger.error(f"Error reactivating resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to reactivate resource")
 
-# 3. 权限查询
+# 3. permission query
 @router.get("/actions")
 async def get_available_actions(
+    request: Request,
     current_user = Depends(get_current_user)
 ) -> Dict[str, bool]:
     """Get available actions for current user"""
-    return {
-        "can_upload": True,
-        "can_download": True,
-        "can_update": True,
-        "can_delete": current_user.is_admin,
-        "can_review": current_user.is_admin,
-        "can_manage_status": current_user.is_admin
-    }
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(f"Received actions request from {client_host}")
+    logger.debug(f"Request headers: {dict(request.headers)}")
+    logger.info(f"Request path: {request.url.path}, method: {request.method}")
+    
+    try:
+        # to do: return default permissions, deploy step set as True
+        actions = {
+            "can_upload": True,
+            "can_download": True,
+            "can_update": True,
+            "can_delete": True,
+            "can_review": True,
+            "can_manage_status": True
+        }
+        logger.info(f"Returning actions: {actions}")
+        return actions
+    except Exception as e:
+        logger.error(f"Error in get_available_actions: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.get("/", response_model=List[ResourceInDB])
+@router.get("/", response_model=dict)
 async def list_resources(
+    request: Request,
     limit: int = 10,
     offset: int = 0,
-    is_admin: bool = False,
+    is_admin: bool = True,
     current_user = Depends(get_current_user)
 ):
     """Get a list of resources
@@ -249,21 +266,71 @@ async def list_resources(
     Returns:
         List of resources
     """
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(f"Received list request from {client_host} with params: limit={limit}, offset={offset}, is_admin={is_admin}")
+    logger.debug(f"Request headers: {dict(request.headers)}")
+    
     try:
-        # 检查是否是管理员请求
-        if is_admin and not current_user.is_admin:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin privileges required"
-            )
-            
-        # 调用服务层获取资源列表
-        resources = await resource_service.list_resources(
+        include_pending = True
+        
+        logger.info(f"Using include_pending={include_pending}")
+        
+        logger.debug("Calling resource_service.list_resources")
+
+        resources, total_count = await resource_service.list_resources(
             limit=limit,
             offset=offset,
-            include_pending=is_admin and current_user.is_admin
+            include_pending=include_pending
         )
-        return resources
+        
+        logger.info(f"Successfully retrieved {len(resources)} resources")
+        
+        return {
+            "items": resources,
+            "total": total_count
+        }
     except Exception as e:
-        logger.error(f"Error listing resources: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to list resources") 
+        logger.error(f"Error listing resources: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to list resources: {str(e)}")
+
+@router.get("/{id}/download-file")
+async def download_resource(
+    id: int,
+    current_user = Depends(get_current_user)
+):
+    """Download resource file directly
+    
+    Args:
+        id: Resource ID
+        current_user: Current authenticated user
+        
+    Returns:
+        StreamingResponse with the file content
+    """
+    try:
+        url = await resource_service.get_resource_url(
+            id,
+            expiration=timedelta(minutes=30)
+        )
+        
+        resource = await resource_service.get_resource_by_id(id)
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            
+            filename = resource.storage_path.split('/')[-1]
+            
+            return StreamingResponse(
+                content=response.aiter_bytes(),
+                media_type="application/octet-stream",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"'
+                }
+            )
+    except NotFoundError as e:
+        logger.error(f"Error downloading resource {id}: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))        
+    except Exception as e:
+        logger.error(f"Error downloading resource {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to download resource") 
