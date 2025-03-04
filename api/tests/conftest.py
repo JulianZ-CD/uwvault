@@ -36,7 +36,6 @@ def todo_service(mocker):
     mocker.patch.object(service, 'supabase')
     return service
 
-# 从环境变量获取测试用户凭据
 TEST_USER = {
     "email": settings.USER_EMAIL,
     "password": settings.USER_PASSWORD
@@ -49,7 +48,7 @@ def get_auth_headers(test_db):
 
 @pytest.fixture(scope="function")
 async def test_db():
-    """设置测试数据库"""
+    """setup test database"""
     try:
         settings = get_settings()
         client = create_client(
@@ -62,7 +61,7 @@ async def test_db():
 
 @pytest.fixture
 def resource_service():
-    """创建资源服务实例用于测试"""
+    """create resource service instance for testing"""
     service = ResourceService()
     service.table_name = 'resources'
     return service
@@ -107,11 +106,11 @@ async def admin_token(supabase_client):
     }
     
     try:
-        # 使用 service role 创建管理员用户
+        # use service role to create admin user
         response = await supabase_client.auth.admin.create_user(admin_data)
         user = response.user
         
-        # 获取访问令牌
+        # get access token
         auth_response = await supabase_client.auth.sign_in_with_password({
             "email": admin_data["email"],
             "password": admin_data["password"]
@@ -121,3 +120,31 @@ async def admin_token(supabase_client):
         
     except Exception as e:
         pytest.fail(f"Failed to create admin user: {str(e)}")
+
+@pytest.fixture
+def mock_supabase(mocker):
+    """Mock Supabase client"""
+    mock_client = mocker.Mock()
+    mock_table = mocker.Mock()
+    
+    # correctly set table method
+    mock_client.table = mocker.Mock(return_value=mock_table)
+    
+    # mock table operation method chain
+    mock_table.select = mocker.Mock(return_value=mock_table)
+    mock_table.insert = mocker.Mock(return_value=mock_table)
+    mock_table.update = mocker.Mock(return_value=mock_table)
+    mock_table.delete = mocker.Mock(return_value=mock_table)
+    mock_table.eq = mocker.Mock(return_value=mock_table)
+    mock_table.order = mocker.Mock(return_value=mock_table)
+    mock_table.limit = mocker.Mock(return_value=mock_table)
+    mock_table.offset = mocker.Mock(return_value=mock_table)
+    mock_table.single = mocker.Mock(return_value=mock_table)
+    
+    # set execute method
+    mock_execute = mocker.Mock()
+    mock_execute.data = []
+    mock_execute.count = 0
+    mock_table.execute = mocker.Mock(return_value=mock_execute)
+    
+    return mock_client

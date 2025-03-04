@@ -1,9 +1,7 @@
 import factory
-
 from datetime import datetime
 from api.models.todo import Todo, TodoCreate, TodoUpdate
 from api.models.user import UserCreate, UserLogin, UserUpdate, PasswordUpdateRequest
-
 from factory import Factory, Faker, LazyAttribute, LazyFunction
 from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB,
@@ -235,8 +233,10 @@ class FileFactory:
     
     @staticmethod
     async def cleanup_test_files(test_prefix: str = "test/") -> None:
-        """清理测试文件"""
+        """cleanup test files"""
         try:
+            # ensure storage manager is initialized
+            await storage_manager._ensure_initialized()
             blobs = storage_manager._bucket.list_blobs(prefix=test_prefix)
             for blob in blobs:
                 blob.delete()
@@ -245,11 +245,8 @@ class FileFactory:
 
     @staticmethod
     async def verify_file_exists(file_path: str) -> bool:
-        """验证文件是否存在"""
+        """verify file existence"""
         try:
-            blob = storage_manager._bucket.blob(file_path)
-            return await asyncio.get_event_loop().run_in_executor(
-                None, blob.exists
-            )
+            return await storage_manager.verify_file_exists(file_path)
         except Exception as e:
             raise StorageError(f"Failed to verify file existence: {str(e)}")
