@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 from fastapi import UploadFile
-
 from api.models.resource import (
     ResourceCreate, ResourceUpdate, ResourceInDB, 
     ResourceStatus, ResourceReview, StorageStatus, StorageOperation
@@ -20,10 +19,10 @@ from api.core.mock_auth import MockUser
 class ResourceService:
     def __init__(self, supabase_client: Optional[Client] = None, table_name: str = 'resources'):
         """
-        初始化资源服务
+        Initialize resource service
         Args:
-            supabase_client: 可选的 Supabase 客户端实例
-            table_name: 表名，默认为 'resources'
+            supabase_client: Optional Supabase client instance
+            table_name: Table name, defaults to 'resources'
         """
         settings = get_settings()
         self.supabase = supabase_client or create_client(
@@ -33,6 +32,7 @@ class ResourceService:
         self.table_name = table_name
         self.logger = setup_logger("resource_service", "resource_service.log")
         self.storage = storage_manager
+        self.MAX_ERROR_LENGTH = 500
 
     async def get_resource_by_id(self, id: int, include_pending: bool = False) -> ResourceInDB:
         """Get a single resource
@@ -42,13 +42,8 @@ class ResourceService:
             include_pending: If True, return resource regardless of status
         """
         try:
-            self.logger.info(f"获取ID为 {id} 的资源")
+            self.logger.info(f"Getting resource with ID {id}")
             query = self.supabase.table(self.table_name).select("*").eq('id', id)
-            
-            # # 临时注释掉状态检查，等认证模块完善后再启用
-            # if not include_pending:
-            #     # 只返回已审核通过的资源
-            #     query = query.eq('status', ResourceStatus.APPROVED)
                 
             response = query.single().execute()
 
@@ -59,7 +54,6 @@ class ResourceService:
             self.logger.info(f"Successfully fetched resource with id: {id}")
             return resource
         except Exception as e:
-            # 检查是否是 "no rows" 错误
             error_str = str(e)
             if "no rows" in error_str.lower() or "0 rows" in error_str.lower():
                 self.logger.error(f"Resource with id {id} not found")
@@ -73,17 +67,17 @@ class ResourceService:
         resource: ResourceCreate,
         file: UploadFile
     ) -> ResourceInDB:
-        """创建新资源"""
+        """Create new resource"""
         try:
             self.logger.info(f"Creating new resource: {resource.title}")
             
-            # 1. 文件验证
+            # 1. File validation
             if not FileHandler.validate_file_type(file.content_type):
                 raise ValidationError("Invalid file type")
             if not FileHandler.validate_file_size(file.size):
                 raise ValidationError("File too large")
 
-            # 2. 准备元数据
+            # 2. Prepare metadata
             file_hash = FileHandler.calculate_file_hash(file.file)
             safe_filename = FileHandler.generate_safe_filename(file.filename)
             storage_path = FileHandler.generate_storage_path(
@@ -92,7 +86,7 @@ class ResourceService:
                 resource.course_id
             )
 
-            # 3. 创建数据库记录
+            # 3. Create database record
             resource_data = resource.model_dump()
             
             current_time = datetime.now().isoformat()
@@ -112,13 +106,13 @@ class ResourceService:
                 "retry_count": 0
             })
 
-            # 4. 保存到数据库并上传文件
+            # 4. Save to database and upload file
             response = self.supabase.table(self.table_name).insert(resource_data).execute()
             created_resource = ResourceInDB(**response.data[0])
 
-            # 4. 上传到GCP，使用技术元数据
+            # 4. Upload to GCP, using technical metadata
             try:
-                # 准备 GCP 存储的技术元数据
+                # Prepare GCP storage technical metadata
                 gcp_metadata = {
                     "resource_id": str(created_resource.id),
                     "original_filename": file.filename,
@@ -138,7 +132,7 @@ class ResourceService:
                     metadata=gcp_metadata
                 )
                 
-                # 5. 更新同步状态
+                # 5. Update sync status
                 await self._update_sync_status(
                     created_resource.id,
                     StorageStatus.SYNCED,
@@ -160,7 +154,7 @@ class ResourceService:
             raise
 
     async def verify_resource_sync(self, resource_id: int) -> dict:
-        """验证资源同步状态"""
+        """Verify resource synchronization status"""
         resource = await self.get_resource_by_id(resource_id, include_pending=True)
         
         try:
@@ -185,7 +179,7 @@ class ResourceService:
         error_message: Optional[str] = None,
         last_sync_at: Optional[datetime] = None
     ) -> None:
-        """更新资源同步状态"""
+        """Update resource synchronization status"""
         update_data = {
             "storage_status": status,
             "updated_at": datetime.now().isoformat()
@@ -206,34 +200,50 @@ class ResourceService:
         operation: StorageOperation,
         error: Exception
     ) -> None:
-        """处理存储错误"""
-        error_message = f"{operation} failed: {str(error)}"
-        self.logger.error(error_message)
+        """Handle storage operation error
         
-        await self._update_sync_status(
-            resource_id,
-            StorageStatus.ERROR,
-            error_message=error_message  # 直接使用完整错误信息
-        )
+        Args:
+            resource_id: Resource ID
+            operation: Storage operation type
+            error: Exception that occurred
+        """
+        self.logger.error(f"{operation} failed: {str(error)}")
+        
+        try:
+            resource = await self.get_resource_by_id(resource_id, include_pending=True)
+            
+            update_data = {
+                "storage_status": StorageStatus.ERROR,
+                "sync_error": str(error)[:self.MAX_ERROR_LENGTH],
+                "updated_at": datetime.now().isoformat(),
+                "retry_count": resource.retry_count + 1  # 增加重试计数
+            }
+            
+            self.supabase.table(self.table_name).update(update_data).eq(
+                'id', resource_id
+            ).execute()
+            
+        except Exception as e:
+            self.logger.error(f"Failed to handle storage error: {str(e)}")
 
     async def update_resource(
         self,
         id: int,
         resource: ResourceUpdate
     ) -> ResourceInDB:
-        """更新资源信息"""
+        """Update resource information"""
         try:
             self.logger.info(f"Updating resource with id: {id}")
             
-            # 检查资源是否存在
+            # Check if resource exists
             existing_resource = await self.get_resource_by_id(id)
             
-            # 准备更新数据
+            # Prepare update data
             update_data = resource.model_dump(exclude_unset=True)
             update_data["updated_at"] = datetime.now().isoformat()
             update_data["updated_by"] = resource.updated_by
 
-            # 更新数据库
+            # Update database
             response = self.supabase.table(self.table_name).update(
                 update_data).eq('id', id).execute()
 
@@ -251,21 +261,21 @@ class ResourceService:
             raise
 
     async def delete_resource(self, id: int) -> bool:
-        """删除资源"""
+        """Delete resource"""
         try:
             self.logger.info(f"Deleting resource with id: {id}")
             
-            # 获取资源信息
+            # Get resource information
             resource = await self.get_resource_by_id(id)
             
-            # 从存储中删除文件
+            # Delete file from storage
             try:
                 await self.storage.delete_file(resource.storage_path)
             except StorageError as e:
                 self.logger.error(f"Storage error: {str(e)}")
                 raise StorageOperationError("delete", str(e))
 
-            # 从数据库中删除记录
+            # Delete record from database
             response = self.supabase.table(self.table_name).delete().eq('id', id).execute()
             
             if not response.data:
@@ -285,7 +295,7 @@ class ResourceService:
         id: int,
         expiration: Optional[timedelta] = None
     ) -> str:
-        """获取资源下载链接"""
+        """Get resource download URL"""
         try:
             resource = await self.get_resource_by_id(id)
             return await self.storage.get_signed_url(
@@ -310,10 +320,10 @@ class ResourceService:
         try:
             self.logger.info(f"Reviewing resource with id: {id}")
             
-            # 检查资源是否存在
+            # Check if resource exists
             existing_resource = await self.get_resource_by_id(id, include_pending=True)
             
-            # 准备更新数据
+            # Prepare update data
             update_data = {
                 "status": review.status,
                 "review_comment": review.review_comment,
@@ -323,13 +333,13 @@ class ResourceService:
                 "updated_by": review.reviewed_by
             }
 
-            # 如果资源被拒绝或停用，同时更新 is_active 状态
+            # If resource is rejected or deactivated, also update is_active status
             if review.status in [ResourceStatus.REJECTED, ResourceStatus.INACTIVE]:
                 update_data["is_active"] = False
             elif review.status == ResourceStatus.APPROVED:
                 update_data["is_active"] = True
 
-            # 更新数据库
+            # Update database
             response = self.supabase.table(self.table_name).update(
                 update_data).eq('id', id).execute()
 
@@ -372,28 +382,29 @@ class ResourceService:
         limit: int = 10,
         offset: int = 0,
         include_pending: bool = False
-    ) -> List[ResourceInDB]:
-        """获取资源列表
+    ) -> Tuple[List[ResourceInDB], int]:
+        """Get resource list
         
         Args:
-            limit: 最大返回数量
-            offset: 跳过的数量
-            include_pending: 是否包含待审核资源
+            limit: Maximum number of resources to return
+            offset: Number of resources to skip
+            include_pending: Whether to include pending resources
         """
         try:
-            self.logger.info(f"获取资源列表: limit={limit}, offset={offset}")
-            query = self.supabase.table(self.table_name).select("*")
+            self.logger.info(f"Getting resource list: limit={limit}, offset={offset}")
             
-            if not include_pending:
-                # 只返回已审核通过的资源
-                query = query.eq('status', ResourceStatus.APPROVED)
-                
+            count_query = self.supabase.table(self.table_name).select("*", count='exact')
+            count_response = count_query.execute()
+            total_count = count_response.count
+
+            query = self.supabase.table(self.table_name).select("*")
             query = query.order('created_at', desc=True).limit(limit).offset(offset)
             response = query.execute()
             
             resources = [ResourceInDB(**item) for item in response.data]
-            self.logger.info(f"成功获取 {len(resources)} 个资源")
-            return resources
+            self.logger.info(f"Successfully retrieved {len(resources)} resources")
+            
+            return resources, total_count
         except Exception as e:
-            self.logger.error(f"获取资源列表时出错: {str(e)}")
+            self.logger.error(f"Error while getting resource list: {str(e)}")
             raise 
