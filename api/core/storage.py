@@ -8,14 +8,14 @@ from .config import settings
 from .exceptions import StorageConnectionError, StorageError
 
 class StorageManager:
-    """GCP存储管理器 - 仅提供基础存储操作"""
+    """GCP storage manager - only provides basic storage operations"""
     
     def __init__(self):
         self._client = None
         self._bucket = None
         
     async def _ensure_initialized(self) -> None:
-        """初始化存储连接"""
+        """Ensure storage connection is initialized"""
         if self._bucket is None:
             try:
                 credentials = service_account.Credentials.from_service_account_file(
@@ -42,7 +42,7 @@ class StorageManager:
         content_type: Optional[str] = None,
         metadata: Optional[Dict[str, str]] = None
     ) -> str:
-        """上传文件到指定路径"""
+        """Upload file to specified path"""
         await self._ensure_initialized()
         try:
             blob = self._bucket.blob(destination_path)
@@ -67,7 +67,7 @@ class StorageManager:
         file_path: str,
         expiration: timedelta = timedelta(minutes=30)
     ) -> str:
-        """获取文件的签名URL"""
+        """Get signed URL for file"""
         await self._ensure_initialized()
         try:
             blob = self._bucket.blob(file_path)
@@ -83,7 +83,7 @@ class StorageManager:
             raise StorageError(f"Failed to generate signed URL: {str(e)}")
 
     async def delete_file(self, file_path: str) -> bool:
-        """删除指定路径的文件"""
+        """Delete file at specified path"""
         await self._ensure_initialized()
         try:
             blob = self._bucket.blob(file_path)
@@ -101,5 +101,16 @@ class StorageManager:
         except Exception as e:
             raise StorageError(f"Delete failed: {str(e)}")
 
-# 创建全局单例实例
+    async def verify_file_exists(self, file_path: str) -> bool:
+        """Verify if file exists"""
+        await self._ensure_initialized()
+        try:
+            blob = self._bucket.blob(file_path)
+            exists = await asyncio.get_event_loop().run_in_executor(
+                None, blob.exists
+            )
+            return exists
+        except Exception as e:
+            raise StorageError(f"Verification failed: {str(e)}")
+
 storage_manager = StorageManager()
