@@ -6,19 +6,19 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class ResourceStatus(str, Enum):
     """Resource status enumeration"""
-    UPLOADING = "uploading"  # 添加上传中状态
-    PENDING = "pending"    # Pending review
-    APPROVED = "approved"  # Review approved
-    REJECTED = "rejected"  # Review rejected
-    INACTIVE = "inactive"  # Resource inactive
+    UPLOADING = "uploading"  
+    PENDING = "pending"    
+    APPROVED = "approved" 
+    REJECTED = "rejected"  
+    INACTIVE = "inactive" 
 
 
 class StorageStatus(str, Enum):
     """Storage sync status enumeration"""
-    SYNCED = "synced"          # GCP 和 Supabase 同步
-    PENDING = "pending"        # 等待同步
-    ERROR = "error"            # 同步错误
-    DELETING = "deleting"      # 正在删除
+    SYNCED = "synced"
+    PENDING = "pending"
+    ERROR = "error"
+    DELETING = "deleting"
 
 
 class StorageOperation(str, Enum):
@@ -30,7 +30,7 @@ class StorageOperation(str, Enum):
 
 
 class ResourceBase(BaseModel):
-    """基础资源模型 - 用户提供的字段"""
+    """Base resource model - fields provided by users"""
     title: str = Field(..., min_length=1, max_length=100, description="Resource title")
     description: Optional[str] = Field(None, max_length=500, description="Resource description")
     course_id: Optional[str] = Field(None, max_length=50, description="Associated course ID")
@@ -45,11 +45,11 @@ class ResourceBase(BaseModel):
 
 
 class ResourceCreate(ResourceBase):
-    """创建资源请求模型"""
+    """create resource request model"""
     original_filename: str = Field(..., max_length=255, description="Original file name")
     uploader_id: int = Field(..., description="ID of the user uploading the resource")
     
-    # 添加可选的技术字段，允许服务层填充
+    # add optional technical fields, allowing service layer to fill
     file_type: Optional[str] = None
     file_size: Optional[int] = None
     storage_path: Optional[str] = None
@@ -58,7 +58,7 @@ class ResourceCreate(ResourceBase):
 
 
 class ResourceUpdate(BaseModel):
-    """更新资源请求模型"""
+    """update resource request model"""
     title: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     course_id: Optional[str] = Field(None, max_length=50, description="Associated course ID") 
@@ -93,7 +93,7 @@ class ResourceSyncOperation(BaseModel):
 
 
 class ResourceInDB(ResourceBase):
-    """数据库资源模型"""
+    """database resource model"""
     id: int = Field(..., description="Resource ID")
     created_at: datetime = Field(default_factory=datetime.now, description="Created timestamp")
     updated_at: datetime = Field(default_factory=datetime.now, description="Last updated timestamp")
@@ -135,7 +135,7 @@ class ResourceInDB(ResourceBase):
         return self.storage_status == StorageStatus.SYNCED
 
     def get_sync_status(self) -> dict:
-        """获取资源同步状态信息"""
+        """get resource sync status information"""
         return {
             "is_synced": self.is_synced,
             "storage_status": self.storage_status,
