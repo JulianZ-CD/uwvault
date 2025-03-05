@@ -52,6 +52,7 @@ jobs:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
           GCP_BUCKET_NAME: ${{ vars.GCP_BUCKET_NAME }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+          GCP_CREDENTIALS_PATH: ${{ steps.auth.outputs.credentials_file_path }}
           USER_EMAIL: ${{ secrets.USER_EMAIL }}
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
         run: |
