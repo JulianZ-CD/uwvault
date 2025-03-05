@@ -10,9 +10,9 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str
 
     # Auth URLs
-    VERIFY_EMAIL_URL: str
-    RESET_PASSWORD_URL: str
-    DEFAULT_ORIGIN: str
+    VERIFY_EMAIL_URL: str = "http://localhost:3000/verify-email"
+    RESET_PASSWORD_URL: str = "http://localhost:3000/reset-password"
+    DEFAULT_ORIGIN: str = "http://localhost:3000"
 
     # GCP Storage Configuration
     GCP_PROJECT_ID: str
