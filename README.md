@@ -110,20 +110,22 @@ To visit the auto-generated OpenAPI docs, go to `http://localhost:3000/api/py/do
 2.  Configure the following content in `env.dev`:
 
 ```
+GCP_PROJECT_ID="Your PROJECT ID"
+GCP_BUCKET_NAME="Your Bucket name"
+GCP_CREDENTIALS_PATH="Your GCP_CREDENTIALS_PATH"
+
 SUPABASE_URL="Your SUPABASE_URL"
 SUPABASE_KEY="Your SUPABASE_KEY"
-
-# Used to create admin user
 SUPABASE_SERVICE_KEY="Your SUPABASE_SERVICE_KEY"
 
-VERIFY_EMAIL_URL="/verify"
-RESET_PASSWORD_URL="/new-password"
-DEFAULT_ORIGIN= "Your Default Origin"
+USER_EMAIL="Your USER_EMAIL"
+USER_PASSWORD="Your USER_PASSWORD"
+
 ```
 
-3. `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard.
-
-## Getting Started
+3. `GCP_PROJECT_ID`, `GCP_BUCKET_NAME`, and `GCP_CREDENTIALS_PATH` can be found in the GCP Console.
+`SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard. 
+`USER_EMAIL`, and `USER_PASSWORD`can be found in the users table of Authentication on Supabase.
 
 First, create and activate a virtual environment:
 
