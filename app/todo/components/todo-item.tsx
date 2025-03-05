@@ -77,7 +77,7 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete }: TodoItemProps) {
             onClick={() => onEdit(todo)}
             aria-label="Edit todo"
           >
-            <Pencil className="h-4 w-4" />
+            {/* <Pencil className="h-4 w-4" /> */}
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>

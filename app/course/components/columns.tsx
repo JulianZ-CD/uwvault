@@ -9,19 +9,19 @@ import React from "react"
 
 export const columns: ColumnDef<Course>[] = [
   {
-    accessorKey: "term",
+    accessorKey: "Term",
     header: "Term",
   },
   {
-    accessorKey: "task",
+    accessorKey: "Task",
     header: "Task",
   },
   {
-    accessorKey: "title",
+    accessorKey: "Title",
     header: "Title",
   },
   {
-    accessorKey: "name",
+    accessorKey: "Name",
     header: "Name",
   },
 ]
