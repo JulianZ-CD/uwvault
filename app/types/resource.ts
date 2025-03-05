@@ -19,10 +19,10 @@ export enum ResourceStatus {
   export interface Resource {
     id: number;
     title: string;
-    description?: string;
-    course_id?: string;
+    description: string;
+    course_id: string;
     original_filename?: string;
-    file_type?: string;
+    file_type: string;
     file_size?: number;
     storage_path?: string;
     mime_type?: string;
@@ -89,6 +89,7 @@ export enum ResourceStatus {
     deleteResource: (id: number) => Promise<boolean>;
     reviewResource: (id: number, data: ResourceReviewData) => Promise<Resource | null>;
     getResourceUrl: (id: number) => Promise<string | null>;
+    downloadResource: (id: number) => Promise<void>;
   }
   
   // Resource list props
@@ -108,8 +109,10 @@ export enum ResourceStatus {
   
   // Resource form props
   export interface ResourceFormProps {
+    courseId?: string;
     initialData?: ResourceUpdateData;
-    onSubmit: (data: ResourceCreateData) => Promise<void>;
+    onSuccess?: () => void;
+    onSubmit?: (data: ResourceCreateData) => Promise<void>;
     isLoading?: boolean;
   }
   

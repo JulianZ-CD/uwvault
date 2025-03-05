@@ -13,25 +13,21 @@ import { resourceService } from "@/app/services/resourceService";
 import { useToast } from "@/app/hooks/use-toast";
 import { useAuth } from "@/app/hooks/useAuth";
 
-// 检测是否在服务器端
 const isServer = typeof window === 'undefined';
 
 export function useResource() {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   
-  // 基础状态
   const [resources, setResources] = useState<Resource[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
-  // 加载状态 - 适度粒度
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // 权限状态
   const [actions, setActions] = useState<ResourceActions>({
     can_upload: true,
     can_download: true,
@@ -41,7 +37,6 @@ export function useResource() {
     can_manage_status: isAdmin()
   });
 
-  // 统一的提示显示
   const showAlert = (message: string, type: "success" | "error") => {
     if (type === "error") {
       toast({
@@ -60,16 +55,12 @@ export function useResource() {
     }
   };
 
-
-  
-  // 获取权限
   const fetchActions = useCallback(async () => {
     try {
       const actionData = await resourceService.getResourceActions();
       setActions(actionData);
     } catch (err) {
       console.error("Error fetching resource permissions:", err);
-      // 默认权限基于用户角色
       setActions({
         can_upload: true,
         can_download: true,
@@ -81,67 +72,40 @@ export function useResource() {
     }
   }, [isAdmin]);
 
-  // 获取资源列表
   const fetchResources = useCallback(async (params?: ResourceListParams): Promise<ResourceListResponse> => {
-    console.log("fetchResources called, setting isLoading to true");
+    if (isLoading) return { items: [], total: 0 };
+    
     setIsLoading(true);
     setError(null);
     
     try {
-      console.log("Fetching resources with params:", params);
-      
-      // 暂时注释掉is_admin参数，直到我们解决类型问题
-      // 创建一个新的参数对象，避免修改原始参数
-      const queryParams = { ...params };
-      
-      // 管理员可以查看所有资源（包括待审核的）
-      // 暂时注释掉，等待后端API支持或类型定义更新
-      // if (isAdmin()) {
-      //   (queryParams as any).is_admin = true;
-      // }
-      
-      const result = await resourceService.getAllResources(queryParams);
-      console.log("Resources fetched:", result);
-      
-      // 更新本地状态
+      const result = await resourceService.getAllResources(params);
       setResources(result.items);
       setTotalItems(result.total);
-      
-      console.log("Successfully fetched resources, setting isLoading to false");
-      setIsLoading(false); // 也在这里设置为false，确保即使提前返回也会重置状态
-      
       return result;
     } catch (err) {
-      console.error("Error fetching resources:", err);
       const message = err instanceof Error ? err.message : 'Failed to fetch resources';
       setError(message);
-      showAlert(message, "error");
-      setIsLoading(false); // 确保出错时也重置loading状态
       return { items: [], total: 0 };
-    } finally {
-      console.log("Finally block: setting isLoading to false");
-      setIsLoading(false); // 最后保证重置
-    }
-  }, [isAdmin, showAlert]);
-
-  // 获取单个资源
-  const getResource = useCallback(async (id: number): Promise<Resource | null> => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const resource = await resourceService.getResource(id);
-      return resource;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to fetch resource #${id}`;
-      showAlert(message, "error");
-      return null;
     } finally {
       setIsLoading(false);
     }
-  }, [showAlert]);
+  }, [isLoading]);
 
-  // 创建资源
+  // get single resource
+  const getResource = useCallback(async (id: number): Promise<Resource | null> => {
+    try {
+      console.log(`[DEBUG] useResource.getResource: Fetching resource ${id}`);
+      const resource = await resourceService.getResource(id);
+      console.log(`[DEBUG] useResource.getResource: Resource fetched:`, resource);
+      return resource;
+    } catch (error) {
+      console.error(`[DEBUG] useResource.getResource: Error:`, error);
+      throw error;
+    }
+  }, []);
+
+  // create resource
   const createResource = useCallback(async (data: ResourceCreateData): Promise<Resource | null> => {
     setIsCreating(true);
     setError(null);
@@ -179,7 +143,7 @@ export function useResource() {
     }
   }, []);
 
-  // 更新资源
+  // update resource
   const updateResource = useCallback(async (id: number, data: ResourceUpdateData): Promise<Resource | null> => {
     if (!id) {
       showAlert("Resource ID is required", "error");
@@ -198,7 +162,6 @@ export function useResource() {
       
       const updatedResource = await response.json();
       
-      // 更新资源列表
       await fetchResources();
       
       showAlert("Resource updated successfully", "success");
@@ -212,7 +175,7 @@ export function useResource() {
     }
   }, [fetchResources, showAlert]);
 
-  // 删除资源
+  // delete resource
   const deleteResource = useCallback(async (id: number): Promise<boolean> => {
     if (!id) {
       showAlert("Resource ID is required", "error");
@@ -229,7 +192,6 @@ export function useResource() {
         throw new Error(`Error deleting resource: ${response.statusText}`);
       }
       
-      // 更新资源列表
       await fetchResources();
       
       showAlert("Resource deleted successfully", "success");
@@ -243,7 +205,7 @@ export function useResource() {
     }
   }, [fetchResources, showAlert]);
 
-  // 审核资源
+  // review resource
   const reviewResource = useCallback(async (id: number, data: ResourceReviewData): Promise<Resource | null> => {
     if (!id) {
       showAlert("Resource ID is required", "error");
@@ -267,7 +229,6 @@ export function useResource() {
       
       const reviewedResource = await response.json();
       
-      // 更新资源列表
       await fetchResources();
       
       showAlert("Resource reviewed successfully", "success");
@@ -281,7 +242,7 @@ export function useResource() {
     }
   }, [fetchResources, isAdmin, showAlert]);
 
-  // 获取资源下载URL
+  // get resource download URL
   const getResourceUrl = useCallback(async (id: number): Promise<string | null> => {
     if (!id) {
       showAlert("Resource ID is required", "error");
@@ -303,7 +264,7 @@ export function useResource() {
     }
   }, [showAlert]);
 
-  // 便捷方法：激活/停用资源
+  // activate/deactivate resource
   const toggleResourceStatus = useCallback(async (id: number, activate: boolean): Promise<Resource | null> => {
     if (!id) {
       showAlert("Resource ID is required", "error");
@@ -329,7 +290,6 @@ export function useResource() {
       
       const updatedResource = await response.json();
       
-      // 更新资源列表
       await fetchResources();
       
       const message = activate ? "Resource activated successfully" : "Resource deactivated successfully";
@@ -344,13 +304,48 @@ export function useResource() {
     }
   }, [fetchResources, isAdmin, showAlert]);
 
-  // 修改初始化逻辑
+  // download resource
+  const downloadResource = useCallback(async (id: number): Promise<void> => {
+    if (!id) {
+      showAlert("Resource ID is required", "error");
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await resourceService.downloadResource(id);
+      const blob = await response.blob();
+      
+      // get filename from Content-Disposition
+      const contentDisposition = response.headers.get('content-disposition');
+      const filenameMatch = contentDisposition && contentDisposition.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : `resource-${id}`;
+      
+      // create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (err) {
+      const message = err instanceof Error ? err.message : `Failed to download resource ${id}`;
+      showAlert(message, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showAlert]);
+
+  // initialize
   useEffect(() => {
-    // 仅在客户端执行且只执行一次
     if (!isServer) {
       console.log("Client-side initialization - single run");
-      
-      // 使用立即执行的异步函数
+
       (async () => {
         try {
           await fetchActions();
@@ -360,12 +355,10 @@ export function useResource() {
         }
       })();
     }
-  // 移除依赖数组中的函数，使用空数组确保只执行一次
   }, []);
 
   
   return {
-    // 状态
     resources,
     totalItems,
     isLoading,
@@ -375,7 +368,6 @@ export function useResource() {
     error,
     actions,
     
-    // 方法
     fetchResources,
     getResource,
     createResource,
@@ -384,8 +376,8 @@ export function useResource() {
     reviewResource,
     getResourceUrl,
     toggleResourceStatus,
+    downloadResource,
     
-    // 便捷方法
     approveResource: (id: number, comment?: string) => 
       reviewResource(id, { status: ResourceStatus.APPROVED, review_comment: comment }),
     rejectResource: (id: number, comment?: string) => 
