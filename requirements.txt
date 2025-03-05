@@ -9,4 +9,7 @@ pytest-cov==6.0.0
 pytest-mock==3.14.0
 fastapi-users[sqlalchemy]
 python-jose[cryptography]
+beautifulsoup4==4.12.3
 passlib[bcrypt]
+lxml==5.3.0
+pandas==2.2.3
