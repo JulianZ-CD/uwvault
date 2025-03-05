@@ -92,31 +92,40 @@ export function ResourceList() {
                   {resource.description || "No description provided"}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleViewDetails(resource.id, resource.file_type)}
-                  disabled={viewLoading === resource.id}
-                >
-                  {viewLoading === resource.id ? (
-                    <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                  ) : (
-                    "View Details"
-                  )}
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => handleDownload(resource.id)}
-                  disabled={downloading === resource.id}
-                >
-                  {downloading === resource.id ? (
-                    <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                </Button>
+              <div className="flex flex-col gap-2 items-end">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewDetails(resource.id, resource.file_type)}
+                    disabled={viewLoading === resource.id}
+                  >
+                    {viewLoading === resource.id ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
+                    ) : (
+                      "View Details"
+                    )}
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => handleDownload(resource.id)}
+                    disabled={downloading === resource.id}
+                  >
+                    {downloading === resource.id ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-xs font-medium">
+                  {new Date(resource.created_at).toLocaleDateString('en-CA', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                  }).replace(/\//g, '-')}
+                </p>
               </div>
             </CardHeader>
           </Card>
