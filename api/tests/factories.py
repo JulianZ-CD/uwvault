@@ -13,6 +13,7 @@ import asyncio
 from api.core.storage import storage_manager
 from api.core.exceptions import StorageError
 from pathlib import Path
+import io
 
 def format_datetime():
     """Helper function to format datetime consistently"""
@@ -250,3 +251,8 @@ class FileFactory:
             return await storage_manager.verify_file_exists(file_path)
         except Exception as e:
             raise StorageError(f"Failed to verify file existence: {str(e)}")
+            
+    @classmethod
+    def create(cls):
+        """Create a test file (compatibility method for TestFileFactory)"""
+        return cls.generate_test_file()
