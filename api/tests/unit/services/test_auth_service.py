@@ -328,3 +328,210 @@ class TestAuthService:
         assert result["username"] == new_username
         assert result["role"] == current_user["role"]
         auth_service.logger.info.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_sign_up_registration_failed(self, auth_service, mocker):
+        """Test registration failure when no user is returned"""
+        # Arrange
+        user_data = UserCreateFactory()
+        auth_service.admin_client.auth.admin.list_users.return_value = []
+        auth_service.client.auth.sign_up.return_value = mocker.Mock(user=None)
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.sign_up(user_data)
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Registration failed" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_sign_up_unexpected_error(self, auth_service):
+        """Test registration with unexpected error"""
+        # Arrange
+        user_data = UserCreateFactory()
+        auth_service.admin_client.auth.admin.list_users.side_effect = Exception(
+            "Unexpected error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.sign_up(user_data)
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Unexpected error" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_sign_out_error(self, auth_service):
+        """Test logout with error"""
+        # Arrange
+        access_token = "test-token"
+        auth_service.client.auth.sign_out.side_effect = Exception(
+            "Logout error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.sign_out(access_token)
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Logout error" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_reset_password_error(self, auth_service):
+        """Test password reset with error"""
+        # Arrange
+        email = "test@example.com"
+        auth_service.client.auth.reset_password_for_email.side_effect = Exception(
+            "Reset error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.reset_password(email)
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Reset error" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_update_user_password_no_user(self, auth_service, mocker):
+        """Test password update when no user is returned"""
+        # Arrange
+        mock_response = mocker.Mock(user=None)
+        auth_service.client.auth.update_user.return_value = mock_response
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.update_user_password("token", "refresh", "newpass")
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Password update failed" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_update_user_password_error(self, auth_service):
+        """Test password update with error"""
+        # Arrange
+        auth_service.client.auth.update_user.side_effect = Exception(
+            "Update error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.update_user_password("token", "refresh", "newpass")
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Update error" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_error(self, auth_service):
+        """Test getting current user with error"""
+        # Arrange
+        token = "test-token"
+        auth_service.client.auth.get_user.side_effect = Exception(
+            "Get user error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.get_current_user(token)
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "Invalid token" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_refresh_token_success(self, auth_service, mocker):
+        """Test successful token refresh"""
+        # Arrange
+        refresh_token = "test-refresh-token"
+        mock_user = mocker.Mock(id="test-id")
+        mock_session = mocker.Mock(access_token="new-test-token")
+        auth_service.client.auth.refresh_session.return_value = mocker.Mock(
+            user=mock_user,
+            session=mock_session
+        )
+
+        # Act
+        result = await auth_service.refresh_token(refresh_token)
+
+        # Assert
+        assert result["user"] == mock_user
+        assert result["session"] == mock_session
+        auth_service.logger.info.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_refresh_token_error(self, auth_service):
+        """Test token refresh with error"""
+        # Arrange
+        refresh_token = "test-refresh-token"
+        auth_service.client.auth.refresh_session.side_effect = Exception(
+            "Refresh error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.refresh_token(refresh_token)
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "Invalid refresh token" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_delete_user_success(self, auth_service):
+        """Test successful user deletion"""
+        # Arrange
+        user_id = "test-id"
+        auth_service.admin_client.auth.admin.delete_user.return_value = None
+
+        # Act
+        result = await auth_service.delete_user(user_id)
+
+        # Assert
+        assert result["message"] == f"User {user_id} deleted successfully"
+        auth_service.admin_client.auth.admin.delete_user.assert_called_once_with(
+            user_id)
+
+    @pytest.mark.asyncio
+    async def test_delete_user_error(self, auth_service):
+        """Test user deletion with error"""
+        # Arrange
+        user_id = "test-id"
+        auth_service.admin_client.auth.admin.delete_user.side_effect = Exception(
+            "Delete error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.delete_user(user_id)
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Delete error" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_list_users_error(self, auth_service):
+        """Test listing users with error"""
+        # Arrange
+        auth_service.admin_client.auth.admin.list_users.side_effect = Exception(
+            "List error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.list_users()
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "List error" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_set_user_role_error(self, auth_service):
+        """Test setting user role with error"""
+        # Arrange
+        user_id = "test-id"
+        new_role = "admin"
+        auth_service.admin_client.auth.admin.update_user_by_id.side_effect = Exception(
+            "Role update error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.set_user_role(user_id, new_role)
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Role update error" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_update_username_error(self, auth_service, mocker):
+        """Test updating username with error"""
+        # Arrange
+        token = "test-token"
+        new_username = "newusername"
+        mocker.patch.object(
+            auth_service,
+            'get_current_user',
+            return_value={"id": "test-id", "role": "user"}
+        )
+        auth_service.admin_client.auth.admin.update_user_by_id.side_effect = Exception(
+            "Username update error")
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.update_username(new_username, token)
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Username update error" in str(exc_info.value.detail)
