@@ -27,6 +27,25 @@ const mockLocalStorage = {
 };
 Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
 
+// 创建模拟的 Response
+const createMockResponse = (ok: boolean = true) => {
+  return Promise.resolve({
+    ok,
+    status: ok ? 200 : 400,
+    statusText: ok ? 'OK' : 'Bad Request',
+    json: () =>
+      Promise.resolve({
+        message: ok ? 'Success' : 'Error',
+        success: ok, // 添加 success 字段
+      }),
+    clone: function () {
+      return {
+        json: () => this.json(),
+      };
+    },
+  });
+};
+
 describe('useUserActions', () => {
   const mockToast = jest.fn();
   const mockCurrentUser = {
@@ -40,7 +59,7 @@ describe('useUserActions', () => {
     jest.clearAllMocks();
     (useToast as jest.Mock).mockReturnValue({ toast: mockToast });
     (useAuth as jest.Mock).mockReturnValue({ user: mockCurrentUser });
-    mockFetch.mockImplementation(() => Promise.resolve({ ok: true }));
+    mockFetch.mockImplementation(() => createMockResponse(true));
     mockLocalStorage.getItem.mockReturnValue(
       JSON.stringify({ access_token: 'mock-token' })
     );
@@ -48,25 +67,31 @@ describe('useUserActions', () => {
 
   describe('setUserRole', () => {
     it('should successfully update user role', async () => {
-      const { result } = renderHook(() => useUserActions());
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'token') {
+          return JSON.stringify({ access_token: 'mock-token' });
+        }
+        return null;
+      });
 
+      const { result } = renderHook(() => useUserActions());
       const success = await result.current.setUserRole(
         'other-user-id',
         'admin'
       );
 
       expect(success).toBe(true);
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/py/auth/admin/users/other-user-id/role',
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer mock-token',
-          },
-          body: JSON.stringify({ role: 'admin' }),
-        }
-      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/auth/admin/users/other-user-id/role');
+      expect(options).toMatchObject({
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer mock-token',
+        },
+        body: JSON.stringify({ role: 'admin' }),
+      });
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Success',
         description: 'User role updated to admin successfully',
@@ -123,7 +148,7 @@ describe('useUserActions', () => {
     });
 
     it('should handle non-ok response', async () => {
-      mockFetch.mockImplementation(() => Promise.resolve({ ok: false }));
+      mockFetch.mockImplementation(() => createMockResponse(false));
       const { result } = renderHook(() => useUserActions());
 
       const success = await result.current.setUserRole(
@@ -142,20 +167,26 @@ describe('useUserActions', () => {
 
   describe('deleteUser', () => {
     it('should successfully delete user', async () => {
-      const { result } = renderHook(() => useUserActions());
+      mockLocalStorage.getItem.mockImplementation((key) => {
+        if (key === 'token') {
+          return JSON.stringify({ access_token: 'mock-token' });
+        }
+        return null;
+      });
 
+      const { result } = renderHook(() => useUserActions());
       const success = await result.current.deleteUser('other-user-id');
 
       expect(success).toBe(true);
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/py/auth/admin/users/other-user-id',
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: 'Bearer mock-token',
-          },
-        }
-      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/auth/admin/users/other-user-id');
+      expect(options).toMatchObject({
+        method: 'DELETE',
+        headers: {
+          Authorization: 'Bearer mock-token',
+        },
+      });
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Success',
         description: 'User deleted successfully',
@@ -203,7 +234,7 @@ describe('useUserActions', () => {
     });
 
     it('should handle non-ok response', async () => {
-      mockFetch.mockImplementation(() => Promise.resolve({ ok: false }));
+      mockFetch.mockImplementation(() => createMockResponse(false));
       const { result } = renderHook(() => useUserActions());
 
       const success = await result.current.deleteUser('other-user-id');
