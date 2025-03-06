@@ -1,6 +1,9 @@
 import { render, screen, waitFor, renderHook } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { UserProvider, useUser } from '@/app/components/user/UserProvider';
+import {
+  UserProvider,
+  useUser,
+} from '@/app/(user)/profile/components/UserProvider';
 
 // create a child component of UserProvider
 const TestComponent = () => {

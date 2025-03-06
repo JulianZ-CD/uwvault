@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
-import { UserList } from '@/app/components/manage/UserList';
+import { UserList } from '@/app/manage-users/components/UserList';
 import { act } from 'react';
 
 // Mock useAuth hook

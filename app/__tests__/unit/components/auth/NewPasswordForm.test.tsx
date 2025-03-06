@@ -1,6 +1,6 @@
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
 import userEvent from '@testing-library/user-event';
-import { NewPasswordForm } from '@/app/components/auth/NewPasswordForm';
+import { NewPasswordForm } from '@/app/(auth)/new-password/components/NewPasswordForm';
 import { mockToast, mockRouter } from '@/app/__tests__/mocks/mockRouter';
 import { screen, waitFor } from '@testing-library/react';
 

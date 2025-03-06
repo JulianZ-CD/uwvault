@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { UserProfile } from '@/app/components/user/UserProfile';
-import { useUser } from '@/app/components/user/UserProvider';
+import { UserProfile } from '@/app/(user)/profile/components/UserProfile';
+import { useUser } from '@/app/(user)/profile/components/UserProvider';
 import { useAuth } from '@/app/hooks/useAuth';
 
 jest.mock('@/app/components/user/UserProvider');

@@ -3,7 +3,7 @@ import { render, screen, act } from '@/app/__tests__/utils/test-utils';
 import {
   ConfirmationProvider,
   useConfirmation,
-} from '@/app/components/auth/ConfirmationProvider';
+} from '@/app/(auth)/verify/components/ConfirmationProvider';
 import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 
 // create test component

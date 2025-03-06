@@ -1,8 +1,8 @@
 import '@/app/__tests__/mocks/mockRouter';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
 import userEvent from '@testing-library/user-event';
-import { ForgotPasswordForm } from '@/app/components/auth/ForgotPasswordForm';
-import { useUser } from '@/app/components/user/UserProvider';
+import { ForgotPasswordForm } from '@/app/(auth)/forgot-password/components/ForgotPasswordForm';
+import { useUser } from '@/app/(user)/profile/components/UserProvider';
 import { mockToast } from '@/app/__tests__/mocks/mockRouter';
 import { screen, waitFor, act } from '@testing-library/react';
 

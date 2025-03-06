@@ -12,7 +12,7 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 import {
   ConfirmationProvider,
   useConfirmation,
-} from '@/app/components/auth/ConfirmationProvider';
+} from '@/app/(auth)/verify/components/ConfirmationProvider';
 import { useRouter } from 'next/navigation';
 
 function VerifyContent() {

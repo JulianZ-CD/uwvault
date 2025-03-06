@@ -1,6 +1,6 @@
 'use client';
 
-import { UserList } from '@/app/components/manage/UserList';
+import { UserList } from '@/app/manage-users/components/UserList';
 import { ProtectedRoute } from '@/app/components/auth/ProtectedRoute';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useEffect } from 'react';

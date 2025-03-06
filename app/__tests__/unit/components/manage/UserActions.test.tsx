@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
-import { UserActions } from '@/app/components/manage/UserActions';
+import { UserActions } from '@/app/manage-users/components/UserActions';
 
 // Mock useUserActions hook
 const mockSetUserRole = jest.fn();

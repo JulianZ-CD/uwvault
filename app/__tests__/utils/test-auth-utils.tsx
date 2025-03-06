@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { UserProvider } from '@/app/components/user/UserProvider';
+import { UserProvider } from '@/app/(user)/profile/components/UserProvider';
 import { Toaster } from '@/app/components/ui/toaster';
 import userEvent from '@testing-library/user-event';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';

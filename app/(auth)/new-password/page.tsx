@@ -1,4 +1,4 @@
-import { NewPasswordForm } from '@/app/components/auth/NewPasswordForm';
+import { NewPasswordForm } from '@/app/(auth)/new-password/components/NewPasswordForm';
 
 export default function NewPasswordPage() {
   return <NewPasswordForm />;

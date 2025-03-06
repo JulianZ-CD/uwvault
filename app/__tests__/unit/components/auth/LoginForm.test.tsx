@@ -1,7 +1,7 @@
 import '@/app/__tests__/mocks/mockRouter';
 import { renderWithQuery } from '@/app/__tests__/utils/test-query-utils';
 import userEvent from '@testing-library/user-event';
-import { LoginForm } from '@/app/components/auth/LoginForm';
+import { LoginForm } from '@/app/(auth)/login/components/LoginForm';
 import { mockToast, mockRouter } from '@/app/__tests__/mocks/mockRouter';
 import { screen, waitFor } from '@testing-library/react';
 
