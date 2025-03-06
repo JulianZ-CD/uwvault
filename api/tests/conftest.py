@@ -3,6 +3,8 @@ from fastapi.testclient import TestClient
 from api.index import app
 from api.core.config import get_settings, Settings
 from api.services.todo_service import TodoService
+from api.services.auth_service import AuthService
+import os
 
 
 @pytest.fixture
@@ -27,3 +29,33 @@ def todo_service(mocker):
     # Mock Supabase client
     mocker.patch.object(service, 'supabase')
     return service
+
+
+@pytest.fixture
+async def admin_token(test_client):
+    """获取admin token用于清理操作"""
+    auth_service = AuthService()
+    admin_credentials = {
+        "email": os.getenv("ADMIN_EMAIL"),
+        "password": os.getenv("ADMIN_PASSWORD")
+    }
+    response = await auth_service.sign_in(admin_credentials)
+    return response["session"]["access_token"]
+
+
+@pytest.fixture(scope="function")
+async def cleanup_users(admin_token):
+    test_emails = []
+    test_emails.append(admin_token["email"])  # 添加admin用户到清理列表
+    yield test_emails
+
+    auth_service = AuthService()
+    # 使用admin token进行清理
+    users = await auth_service.list_users()
+    for user in users:
+        if user["email"].endswith("@example.com"):
+            try:
+                await auth_service.delete_user(user["id"])
+                print(f"Successfully deleted user: {user['email']}")
+            except Exception as e:
+                print(f"Failed to delete test user {user['email']}: {e}")

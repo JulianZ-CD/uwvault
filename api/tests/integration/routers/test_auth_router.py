@@ -18,9 +18,10 @@ class TestAuthRouter:
         time.sleep(1)
         yield
 
-    def test_register_user(self, test_client):
+    def test_register_user(self, test_client, cleanup_users):
         # Arrange
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
 
         # Act
         response = test_client.post(
@@ -37,10 +38,12 @@ class TestAuthRouter:
         assert "id" in response_data["user"]
         assert "session" in response_data
 
-    def test_login_user(self, test_client):
+    def test_login_user(self, test_client, cleanup_users):
         # Arrange
-        # First register a user
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
+
+        # First register a user
         test_client.post(f"{self.BASE_URL}/register", json=user_data)
 
         # Act
@@ -55,10 +58,12 @@ class TestAuthRouter:
         assert "session" in response.json()
         assert "access_token" in response.json()["session"]
 
-    def test_get_user_profile(self, test_client):
+    def test_get_user_profile(self, test_client, cleanup_users):
         # Arrange
-        # First create and login a user
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
+
+        # First create and login a user
         register_response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
         access_token = register_response.json()["session"]["access_token"]
@@ -75,9 +80,10 @@ class TestAuthRouter:
         assert user_profile["email"] == user_data["email"]
         assert user_profile["username"] == user_data["username"]
 
-    def test_update_username(self, test_client):
+    def test_update_username(self, test_client, cleanup_users):
         # Arrange
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
         register_response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
         access_token = register_response.json()["session"]["access_token"]
@@ -119,12 +125,15 @@ class TestAuthRouter:
         )
         assert login_response.status_code == status.HTTP_200_OK
 
-        return login_response.json()["session"]["access_token"]
+        return {
+            "token": login_response.json()["session"]["access_token"],
+            "email": admin_data["email"]
+        }
 
-    async def test_admin_operations(self, test_client, admin_token):
+    async def test_admin_operations(self, test_client, admin_token, cleanup_users):
         """Test admin operations"""
         # use admin_token to perform admin operations
-        headers = {"Authorization": f"Bearer {admin_token}"}
+        headers = {"Authorization": f"Bearer {admin_token['token']}"}
 
         # get user list
         users_response = test_client.get(
@@ -136,6 +145,7 @@ class TestAuthRouter:
 
         # Test set user role
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
         user_response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
         user_id = user_response.json()["user"]["id"]
@@ -154,7 +164,7 @@ class TestAuthRouter:
         )
         assert delete_response.status_code == status.HTTP_200_OK
 
-    def test_error_cases(self, test_client):
+    def test_error_cases(self, test_client, cleanup_users):
         """Test various error cases"""
         try:
             # Test invalid registration with custom invalid data
@@ -183,6 +193,7 @@ class TestAuthRouter:
 
             # Test password update
             user_data = UserCreateFactory().model_dump(mode='json')
+            cleanup_users.append(user_data["email"])
             register_response = test_client.post(
                 f"{self.BASE_URL}/register", json=user_data)
             session = register_response.json()["session"]
@@ -232,10 +243,11 @@ class TestAuthRouter:
         )
         assert response.status_code == status.HTTP_200_OK
 
-    def test_refresh_token(self, test_client):
+    def test_refresh_token(self, test_client, cleanup_users):
         """Test token refresh endpoint"""
         # First register and login a user
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
         register_response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
         refresh_token = register_response.json()["session"]["refresh_token"]
@@ -262,10 +274,11 @@ class TestAuthRouter:
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_require_admin_unauthorized(self, test_client):
+    def test_require_admin_unauthorized(self, test_client, cleanup_users):
         """Test admin check with non-admin user"""
         # Register a regular user
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
         register_response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
         access_token = register_response.json()["session"]["access_token"]
@@ -278,19 +291,21 @@ class TestAuthRouter:
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert "Admin access required" in response.json()["detail"]
 
-    def test_set_user_role_invalid_role(self, test_client, admin_token):
+    def test_set_user_role_invalid_role(self, test_client, admin_token, cleanup_users):
         """Test setting invalid role"""
         # Create a user to update
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
         user_response = test_client.post(
             f"{self.BASE_URL}/register", json=user_data)
         user_id = user_response.json()["user"]["id"]
 
         # Try to set invalid role
+        headers = {"Authorization": f"Bearer {admin_token['token']}"}
         response = test_client.put(
             f"{self.BASE_URL}/admin/users/{user_id}/role",
             json={"role": "invalid_role"},
-            headers={"Authorization": f"Bearer {admin_token}"}
+            headers=headers
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid role" in response.json()["detail"]
