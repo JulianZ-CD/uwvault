@@ -4,7 +4,7 @@ import { UserProfile } from '@/app/(user)/profile/components/UserProfile';
 import { useUser } from '@/app/(user)/profile/components/UserProvider';
 import { useAuth } from '@/app/hooks/useAuth';
 
-jest.mock('@/app/components/user/UserProvider');
+jest.mock('@/app/(user)/profile/components/UserProvider');
 jest.mock('@/app/hooks/useAuth');
 
 const mockUser = {

@@ -10,7 +10,7 @@ import { screen, waitFor, act } from '@testing-library/react';
 const mockResetPassword = jest.fn();
 
 // Mock useUser hook
-jest.mock('@/app/components/user/UserProvider', () => ({
+jest.mock('@/app/(user)/profile/components/UserProvider', () => ({
   useUser: () => ({
     resetPassword: mockResetPassword,
   }),

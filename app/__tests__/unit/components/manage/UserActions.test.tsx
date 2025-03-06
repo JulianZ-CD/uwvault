@@ -7,7 +7,7 @@ import { UserActions } from '@/app/manage-users/components/UserActions';
 const mockSetUserRole = jest.fn();
 const mockDeleteUser = jest.fn();
 
-jest.mock('@/app/components/manage/useUserActions', () => ({
+jest.mock('@/app/manage-users/components/useUserActions', () => ({
   useUserActions: () => ({
     setUserRole: mockSetUserRole,
     deleteUser: mockDeleteUser,
