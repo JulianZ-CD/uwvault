@@ -212,3 +212,85 @@ class TestAuthRouter:
 
         except Exception as e:
             pytest.fail(f"Unexpected error occurred: {e}")
+
+    def test_reset_password(self, test_client):
+        """Test reset password endpoint"""
+        # Test with custom redirect URL
+        response = test_client.post(
+            f"{self.BASE_URL}/reset-password",
+            json={
+                "email": "test@example.com",
+                "redirect_url": "https://custom.com/reset"
+            }
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        # Test without redirect URL (should use default)
+        response = test_client.post(
+            f"{self.BASE_URL}/reset-password",
+            json={"email": "test@example.com"}
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_refresh_token(self, test_client):
+        """Test token refresh endpoint"""
+        # First register and login a user
+        user_data = UserCreateFactory().model_dump(mode='json')
+        register_response = test_client.post(
+            f"{self.BASE_URL}/register", json=user_data)
+        refresh_token = register_response.json()["session"]["refresh_token"]
+
+        # Test refresh token
+        response = test_client.post(
+            f"{self.BASE_URL}/refresh",
+            json={"refresh_token": refresh_token}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "access_token" in response.json()["session"]
+
+    def test_update_password_errors(self, test_client):
+        """Test password update error cases"""
+        # Test with invalid tokens
+        invalid_request = {
+            "access_token": "invalid_token",
+            "refresh_token": "invalid_token",
+            "new_password": "NewPassword123!"
+        }
+        response = test_client.post(
+            f"{self.BASE_URL}/update-password",
+            json=invalid_request
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_require_admin_unauthorized(self, test_client):
+        """Test admin check with non-admin user"""
+        # Register a regular user
+        user_data = UserCreateFactory().model_dump(mode='json')
+        register_response = test_client.post(
+            f"{self.BASE_URL}/register", json=user_data)
+        access_token = register_response.json()["session"]["access_token"]
+
+        # Try to access admin endpoint
+        response = test_client.get(
+            f"{self.BASE_URL}/admin/users",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Admin access required" in response.json()["detail"]
+
+    def test_set_user_role_invalid_role(self, test_client, admin_token):
+        """Test setting invalid role"""
+        # Create a user to update
+        user_data = UserCreateFactory().model_dump(mode='json')
+        user_response = test_client.post(
+            f"{self.BASE_URL}/register", json=user_data)
+        user_id = user_response.json()["user"]["id"]
+
+        # Try to set invalid role
+        response = test_client.put(
+            f"{self.BASE_URL}/admin/users/{user_id}/role",
+            json={"role": "invalid_role"},
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Invalid role" in response.json()["detail"]
