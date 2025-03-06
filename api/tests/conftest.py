@@ -33,7 +33,7 @@ def todo_service(mocker):
 
 @pytest.fixture
 async def admin_token(test_client):
-    """获取admin token用于清理操作"""
+    """obtain admin token for cleanup operations"""
     auth_service = AuthService()
     admin_credentials = {
         "email": os.getenv("ADMIN_EMAIL"),
@@ -46,11 +46,11 @@ async def admin_token(test_client):
 @pytest.fixture(scope="function")
 async def cleanup_users(admin_token):
     test_emails = []
-    test_emails.append(admin_token["email"])  # 添加admin用户到清理列表
+    test_emails.append(admin_token["email"])  # add admin user to cleanup list
     yield test_emails
 
     auth_service = AuthService()
-    # 使用admin token进行清理
+    # use admin token for cleanup
     users = await auth_service.list_users()
     for user in users:
         if user["email"].endswith("@example.com"):
