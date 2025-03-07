@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
 import '@/app/__tests__/mocks/mockRouter';
 import userEvent from '@testing-library/user-event';
+import { metadata } from '@/app/(auth)/login/page';
 
 // Mock useAuth hook
 const mockGetCurrentUser = jest.fn();
@@ -43,6 +44,15 @@ describe('LoginPage', () => {
         removeItem: jest.fn(),
       },
       writable: true,
+    });
+  });
+
+  describe('metadata', () => {
+    it('should have correct metadata', () => {
+      expect(metadata).toEqual({
+        title: 'Login | UWvault',
+        description: 'Login to UWvault',
+      });
     });
   });
 

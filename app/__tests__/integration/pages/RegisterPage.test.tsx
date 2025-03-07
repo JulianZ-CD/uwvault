@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderWithAuthProviders } from '../../utils/test-auth-utils';
-import RegisterPage from '@/app/(auth)/register/page';
+import RegisterPage, { metadata } from '@/app/(auth)/register/page';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
 import '@/app/__tests__/mocks/mockRouter';
@@ -267,6 +267,15 @@ describe('RegisterPage', () => {
         'href',
         '/login'
       );
+    });
+  });
+
+  describe('metadata', () => {
+    it('should have correct metadata', () => {
+      expect(metadata).toEqual({
+        title: 'Register | UWvault',
+        description: 'Register UWvault account',
+      });
     });
   });
 });
