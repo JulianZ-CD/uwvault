@@ -11,12 +11,24 @@ from api.tests.factories import ResourceFactory, ResourceCreateFactory, Resource
 from unittest.mock import Mock, AsyncMock, MagicMock
 from io import BytesIO
 from api.utils.file_handlers import ResourceType
+import asyncio
+
+
+@pytest.fixture
+def mock_file():
+    """Create a mock file for testing"""
+    file = Mock(spec=UploadFile)
+    file.filename = "test.pdf"
+    file.content_type = "application/pdf"
+    file.file = BytesIO(b"test content")
+    file.size = 1024
+    return file
 
 
 @pytest.mark.unit
 class TestResourceService:
     @pytest.fixture
-    def resource_service(self, mocker):
+    def resource_service(self, mocker, mock_gcp_storage):
         """Resource service fixture with mocked dependencies"""
         # create a correct mock Supabase client
         mock_supabase = mocker.Mock()
@@ -36,59 +48,42 @@ class TestResourceService:
         mock_table.execute = mocker.Mock()
         mock_table.execute.return_value = mocker.Mock(data=[], count=0)
         
-        # mock storage manager
-        mock_storage = mocker.Mock()
-        mock_storage._ensure_initialized = mocker.AsyncMock()
-        mock_storage.upload_file = mocker.AsyncMock()
-        mock_storage.delete_file = mocker.AsyncMock()
-        mock_storage.get_signed_url = mocker.AsyncMock()
-        mock_storage.verify_file_exists = mocker.AsyncMock()
+        # create service with mocks
+        service = ResourceService(
+            supabase_client=mock_supabase,
+            table_name="resources"
+        )
         
-        # create service instance
-        service = ResourceService()
-        service.supabase = mock_supabase
-        service.storage = mock_storage
-        service.table_name = "resources"
+        # Set up GCP storage mocks
+        service._storage_bucket = mock_gcp_storage["bucket"]
+        service._ensure_storage_initialized = AsyncMock()
         
         return service
 
-    @pytest.fixture
-    def mock_file(self):
-        """Mock UploadFile for testing"""
-        file = Mock(spec=UploadFile)
-        file.filename = "test.pdf"
-        file.content_type = "application/pdf"
-        file.size = 1024
-        file.file = BytesIO(b"test content")
-        return file
-
     @pytest.mark.asyncio
     async def test_get_resource_by_id(self, resource_service, mocker):
-        """Test getting a single resource by ID"""
-        mock_data = {
+        """Test getting a resource by ID"""
+        # set mock response
+        mock_response = mocker.Mock()
+        mock_response.data = {
             "id": 1,
             "title": "Test Resource",
             "description": "Test Description",
             "course_id": "ece 651",
+            "created_by": 1,
+            "updated_by": 1,
+            "status": ResourceStatus.APPROVED,
+            "storage_status": StorageStatus.SYNCED,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
             "file_type": "pdf",
             "file_size": 1024,
             "storage_path": "test/path/file.pdf",
             "mime_type": "application/pdf",
-            "created_by": 1,
-            "updated_by": 1,
             "file_hash": "test_hash",
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-            "status": ResourceStatus.APPROVED,
-            "storage_status": StorageStatus.SYNCED,
             "is_active": True,
-            "retry_count": 0,
-            "last_sync_at": datetime.now().isoformat()
+            "retry_count": 0
         }
-        
-        # set mock response
-        mock_response = mocker.Mock()
-        mock_response.data = mock_data
         resource_service.supabase.table().select().eq().single().execute.return_value = mock_response
 
         # Act
@@ -117,17 +112,14 @@ class TestResourceService:
         """Test creating a resource"""
         # prepare test data
         resource_data = ResourceCreateFactory(course_id="ece 651")
-        
+    
         # mock file handling
         mocker.patch('api.utils.file_handlers.FileHandler.validate_file_type', return_value=True)
         mocker.patch('api.utils.file_handlers.FileHandler.validate_file_size', return_value=True)
         mocker.patch('api.utils.file_handlers.FileHandler.generate_safe_filename', return_value="safe_filename.pdf")
         mocker.patch('api.utils.file_handlers.FileHandler.generate_storage_path', return_value="test/path/safe_filename.pdf")
         mocker.patch('api.utils.file_handlers.FileHandler.calculate_file_hash', return_value="test_hash")
-        
-        # mock storage upload
-        resource_service.storage.upload_file.return_value = "test/path/safe_filename.pdf"
-        
+    
         # mock database insert
         mock_response = mocker.Mock()
         mock_response.data = [{
@@ -150,17 +142,21 @@ class TestResourceService:
             "retry_count": 0
         }]
         resource_service.supabase.table().insert().execute.return_value = mock_response
-
+    
         # Act
         result = await resource_service.create_resource(resource_data, mock_file)
-
+    
         # Assert
         assert result.id == 1
         assert result.title == resource_data.title
         assert result.course_id == resource_data.course_id
         assert result.status == ResourceStatus.PENDING
         assert result.storage_status == StorageStatus.SYNCED
-        resource_service.storage.upload_file.assert_called_once()
+        
+        # Verify GCP storage was used
+        resource_service._storage_bucket.blob.assert_called_once()
+        blob = resource_service._storage_bucket.blob.return_value
+        blob.upload_from_file.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_create_resource_invalid_file(self, resource_service, mocker):
@@ -211,8 +207,10 @@ class TestResourceService:
             return mock_resource
         mocker.patch.object(resource_service, 'get_resource_by_id', side_effect=mock_get_resource)
         
-        # use AsyncMock to mock asynchronous delete method
-        resource_service.storage.delete_file = mocker.AsyncMock()
+        # Mock blob exists to return True
+        blob = resource_service._storage_bucket.blob.return_value
+        blob.exists.return_value = True
+        
         resource_service.supabase.table().delete().eq().execute.return_value.data = [mock_resource.model_dump()]
 
         # Act
@@ -220,7 +218,8 @@ class TestResourceService:
 
         # Assert
         assert result is True
-        resource_service.storage.delete_file.assert_called_once_with(mock_resource.storage_path)
+        resource_service._storage_bucket.blob.assert_called_with(mock_resource.storage_path)
+        blob.delete.assert_called_once()
         resource_service.supabase.table().delete().eq().execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -228,22 +227,23 @@ class TestResourceService:
         """Test getting resource download URL"""
         # Arrange
         mock_resource = ResourceFactory(course_id="ece 651")
-        mock_url = "https://test-url.com/resource"
+        mock_url = "https://storage.googleapis.com/test-url"
         
         async def mock_get_resource(*args, **kwargs):
             return mock_resource
         mocker.patch.object(resource_service, 'get_resource_by_id', side_effect=mock_get_resource)
         
-        async def mock_get_url(*args, **kwargs):
-            return mock_url
-        resource_service.storage.get_signed_url = mocker.AsyncMock(side_effect=mock_get_url)
+        # Set the return value for generate_signed_url
+        blob = resource_service._storage_bucket.blob.return_value
+        blob.generate_signed_url.return_value = mock_url
 
         # Act
         result = await resource_service.get_resource_url(mock_resource.id)
 
         # Assert
         assert result == mock_url
-        resource_service.storage.get_signed_url.assert_called_once()
+        resource_service._storage_bucket.blob.assert_called_with(mock_resource.storage_path)
+        blob.generate_signed_url.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_create_resource_with_storage(self, resource_service, mock_file, mocker):
@@ -257,38 +257,33 @@ class TestResourceService:
             storage_status=StorageStatus.PENDING,
             status=ResourceStatus.UPLOADING
         )
-
+    
         # Mock file handling
         mocker.patch('api.utils.file_handlers.FileHandler.validate_file_type', return_value=True)
         mocker.patch('api.utils.file_handlers.FileHandler.validate_file_size', return_value=True)
         mocker.patch('api.utils.file_handlers.FileHandler.generate_storage_path',
                     return_value="test/path/file.pdf")
         mocker.patch('api.utils.file_handlers.FileHandler.get_file_extension', return_value="pdf")
-
+    
         # Mock database operations
         mock_response = mocker.Mock()
         mock_response.data = [mock_resource.model_dump()]
         resource_service.supabase.table().insert().execute.return_value = mock_response
-
-        # Mock storage operations
-        resource_service.storage.upload_file = mocker.AsyncMock()
+    
+        # Mock _update_sync_status
         mocker.patch.object(resource_service, '_update_sync_status', new_callable=AsyncMock)
-
+    
         # Act
         result = await resource_service.create_resource(resource_create, mock_file)
-
+    
         # Assert
         assert result.status == ResourceStatus.UPLOADING
         assert result.storage_status == StorageStatus.PENDING
-        resource_service.storage.upload_file.assert_called_once()
-
-        # fix: use upload_file.call_args
-        upload_call = resource_service.storage.upload_file.call_args
-        assert upload_call.kwargs['content_type'] == mock_file.content_type
-        assert 'metadata' in upload_call.kwargs
-        metadata = upload_call.kwargs['metadata']
-        assert metadata['resource_id'] == str(result.id)
-        assert metadata['file_type'] == "pdf"
+        
+        # Verify GCP storage was used
+        resource_service._storage_bucket.blob.assert_called_once()
+        blob = resource_service._storage_bucket.blob.return_value
+        blob.upload_from_file.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_verify_resource_sync(self, resource_service, mocker):
@@ -307,8 +302,9 @@ class TestResourceService:
             return_value=mock_resource
         )
         
-        # Mock verify_file_exists to return True
-        resource_service.storage.verify_file_exists.return_value = True
+        # Mock blob exists to return True
+        blob = resource_service._storage_bucket.blob.return_value
+        blob.exists.return_value = True
         
         # Mock _update_sync_status
         mocker.patch.object(
@@ -324,11 +320,33 @@ class TestResourceService:
         assert result["is_synced"] is True
         assert result["storage_status"] == StorageStatus.SYNCED
         assert result["error_message"] is None
-        resource_service.storage.verify_file_exists.assert_called_with(mock_resource.storage_path)
+        resource_service._storage_bucket.blob.assert_called_with(mock_resource.storage_path)
+        blob.exists.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_storage_connection_error(self, resource_service, mocker):
         """Test handling storage connection errors"""
+        # Arrange
+        mock_resource = ResourceFactory(storage_path="test/path/file.pdf")
+        
+        # Mock get_resource_by_id
+        mocker.patch.object(
+            resource_service,
+            'get_resource_by_id',
+            new_callable=AsyncMock,
+            return_value=mock_resource
+        )
+        
+        # Mock _ensure_storage_initialized to raise an exception
+        resource_service._ensure_storage_initialized.side_effect = StorageConnectionError("Connection failed")
+        
+        # Act & Assert
+        with pytest.raises(StorageOperationError, match="get_url failed: Connection failed"):
+            await resource_service.get_resource_url(mock_resource.id)
+
+    @pytest.mark.asyncio
+    async def test_storage_operation_error(self, resource_service, mocker):
+        """Test handling storage operation errors"""
         # Arrange
         mock_resource = ResourceFactory(storage_path="test/path/file.pdf")
         
@@ -340,150 +358,133 @@ class TestResourceService:
             return_value=mock_resource
         )
         
-        # Mock storage connection error
-        connection_error = StorageConnectionError("Failed to connect to storage")
-        resource_service.storage.verify_file_exists.side_effect = connection_error
+        # Mock blob.generate_signed_url to raise an exception
+        blob = resource_service._storage_bucket.blob.return_value
+        blob.generate_signed_url.side_effect = Exception("Operation failed")
         
-        # Act
-        result = await resource_service.verify_resource_sync(mock_resource.id)
-        
-        # Assert
-        assert result["is_synced"] is False
-        assert result["storage_status"] == StorageStatus.ERROR
-        assert "Failed to connect to storage" in result["error_message"]
-
-    @pytest.mark.asyncio
-    async def test_handle_storage_error(self, resource_service, mocker):
-        """Test handling storage errors"""
-        # Arrange
-        resource_id = 1
-        mock_resource = ResourceFactory(
-            id=resource_id,
-            retry_count=0,
-            storage_status=StorageStatus.PENDING
-        )
-        
-        # Mock get_resource_by_id
-        mocker.patch.object(
-            resource_service, 
-            'get_resource_by_id', 
-            new_callable=AsyncMock,
-            return_value=mock_resource
-        )
-        
-        # Mock database update
-        mock_update = mocker.Mock()
-        mock_update.eq.return_value.execute.return_value = mocker.Mock()
-        resource_service.supabase.table().update.return_value = mock_update
-        
-        # Act
-        await resource_service._handle_storage_error(
-            resource_id, 
-            StorageOperation.UPLOAD, 
-            Exception("Test error")
-        )
-        
-        # Assert
-        resource_service.supabase.table.assert_called_with(resource_service.table_name)
-        resource_service.supabase.table().update.assert_called_once()
-        
-        # verify updated data contains correct fields
-        update_call = resource_service.supabase.table().update.call_args
-        update_data = update_call[0][0]
-        assert update_data["storage_status"] == StorageStatus.ERROR
-        assert "Test error" in update_data["sync_error"]
-        assert update_data["retry_count"] == mock_resource.retry_count + 1
+        # Act & Assert
+        with pytest.raises(StorageOperationError):
+            await resource_service.get_resource_url(mock_resource.id)
 
     @pytest.mark.asyncio
     async def test_review_resource(self, resource_service, mocker):
         """Test reviewing a resource"""
         # Arrange
-        mock_resource = ResourceFactory(status=ResourceStatus.PENDING)
-        review_data = ResourceReviewFactory(
-            status=ResourceStatus.APPROVED,
-            reviewed_by=1
+        mock_resource = ResourceFactory(
+            id=1,
+            status=ResourceStatus.PENDING
         )
         
+        review = ResourceReviewFactory(
+            status=ResourceStatus.APPROVED,
+            review_comment="Approved by admin"
+        )
+        
+        # Mock get_resource_by_id
         mocker.patch.object(
             resource_service,
             'get_resource_by_id',
+            new_callable=AsyncMock,
             return_value=mock_resource
         )
         
-        updated_resource = mock_resource.model_dump()
-        updated_resource.update({
-            "status": review_data.status,
-            "review_comment": review_data.review_comment,
-            "reviewed_by": review_data.reviewed_by,
-            "is_active": True
+        # Mock database update with proper datetime format
+        updated_resource_data = mock_resource.model_dump()
+        updated_resource_data.update({
+            "status": review.status,
+            "review_comment": review.review_comment,
+            "reviewed_by": review.reviewed_by,
+            "reviewed_at": datetime.now().isoformat(),  # Use proper datetime format
+            "updated_at": datetime.now().isoformat()
         })
         
-        resource_service.supabase.table().update().eq().execute.return_value.data = [updated_resource]
-
+        resource_service.supabase.table().update().eq().execute.return_value.data = [updated_resource_data]
+        
         # Act
-        result = await resource_service.review_resource(mock_resource.id, review_data)
-
+        result = await resource_service.review_resource(mock_resource.id, review)
+        
         # Assert
         assert result.status == ResourceStatus.APPROVED
-        assert result.reviewed_by == review_data.reviewed_by
-        assert result.is_active is True
+        assert result.review_comment == review.review_comment
+        resource_service.supabase.table().update().eq().execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_deactivate_resource(self, resource_service, mocker):
         """Test deactivating a resource"""
         # Arrange
-        mock_resource = ResourceFactory(status=ResourceStatus.APPROVED)
-        admin_id = 1
+        resource_id = 1
+        admin_id = 999
+        
+        # Mock review_resource method
+        mock_reviewed_resource = ResourceFactory(
+            id=resource_id,
+            status=ResourceStatus.INACTIVE,
+            is_active=False
+        )
         
         mocker.patch.object(
             resource_service,
             'review_resource',
-            return_value=ResourceFactory(
-                status=ResourceStatus.INACTIVE,
-                is_active=False
-            )
+            new_callable=AsyncMock,
+            return_value=mock_reviewed_resource
         )
-
+        
         # Act
-        result = await resource_service.deactivate_resource(mock_resource.id, admin_id)
-
+        result = await resource_service.deactivate_resource(resource_id, admin_id)
+        
         # Assert
         assert result.status == ResourceStatus.INACTIVE
         assert result.is_active is False
-        resource_service.review_resource.assert_called_once()
+        
+        # Verify review_resource was called with correct parameters
+        resource_service.review_resource.assert_awaited_once()
+        call_args = resource_service.review_resource.await_args[0]
+        assert call_args[0] == resource_id
+        assert call_args[1].status == ResourceStatus.INACTIVE
+        assert call_args[1].reviewed_by == admin_id
 
     @pytest.mark.asyncio
     async def test_reactivate_resource(self, resource_service, mocker):
         """Test reactivating a resource"""
         # Arrange
-        mock_resource = ResourceFactory(
-            status=ResourceStatus.INACTIVE,
-            is_active=False
+        resource_id = 1
+        admin_id = 999
+        
+        # Mock review_resource method
+        mock_reviewed_resource = ResourceFactory(
+            id=resource_id,
+            status=ResourceStatus.APPROVED,
+            is_active=True
         )
-        admin_id = 1
         
         mocker.patch.object(
             resource_service,
             'review_resource',
-            return_value=ResourceFactory(
-                status=ResourceStatus.APPROVED,
-                is_active=True
-            )
+            new_callable=AsyncMock,
+            return_value=mock_reviewed_resource
         )
-
+        
         # Act
-        result = await resource_service.reactivate_resource(mock_resource.id, admin_id)
-
+        result = await resource_service.reactivate_resource(resource_id, admin_id)
+        
         # Assert
         assert result.status == ResourceStatus.APPROVED
         assert result.is_active is True
-        resource_service.review_resource.assert_called_once()
+        
+        # Verify review_resource was called with correct parameters
+        resource_service.review_resource.assert_awaited_once()
+        call_args = resource_service.review_resource.await_args[0]
+        assert call_args[0] == resource_id
+        assert call_args[1].status == ResourceStatus.APPROVED
+        assert call_args[1].reviewed_by == admin_id
 
     @pytest.mark.asyncio
     async def test_resource_lifecycle(self, resource_service, mock_file, mocker):
-        """Test complete resource lifecycle"""
-        # 1. Create resource
+        """Test the complete resource lifecycle"""
+        # Arrange
         resource_create = ResourceCreateFactory(course_id="ece 651")
+        
+        # 1. Create resource
         created_resource = ResourceFactory(
             id=1,
             title=resource_create.title,
@@ -574,42 +575,3 @@ class TestResourceService:
         reactivated = await resource_service.reactivate_resource(resource.id, admin_id=1)
         assert reactivated.status == ResourceStatus.APPROVED
         assert reactivated.is_active is True
-
-    @pytest.mark.asyncio
-    async def test_storage_operation_error(self, resource_service, mocker):
-        """Test handling storage operation errors"""
-        # Arrange
-        mock_resource = ResourceFactory(course_id="ece 651")
-        
-        # Mock the logger
-        mock_logger = mocker.Mock()
-        resource_service.logger = mock_logger
-        
-        # Mock get_resource_by_id
-        mocker.patch.object(
-            resource_service, 
-            'get_resource_by_id', 
-            new_callable=AsyncMock,
-            return_value=mock_resource
-        )
-        
-        # Mock storage error
-        storage_error = StorageError("Failed to delete file")
-        resource_service.storage.delete_file.side_effect = storage_error
-        
-        # Mock the database delete to avoid actual deletion
-        mock_response = mocker.Mock()
-        mock_response.data = [mock_resource.model_dump()]
-        resource_service.supabase.table().delete().eq().execute.return_value = mock_response
-
-        # Act & Assert
-        with pytest.raises(StorageOperationError) as exc_info:
-            await resource_service.delete_resource(mock_resource.id)
-        
-        # Verify error handling
-        assert "delete" in str(exc_info.value)
-        assert "Failed to delete file" in str(exc_info.value)
-        
-        # Verify logging
-        mock_logger.error.assert_called()
-        assert "Storage error" in mock_logger.error.call_args_list[0][0][0] 

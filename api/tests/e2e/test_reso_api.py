@@ -3,10 +3,10 @@ from pathlib import Path
 from fastapi import status
 
 from api.core.config import get_settings, Settings
-from api.core.storage import storage_manager
 from api.tests.factories import FileFactory
 from api.tests.conftest import get_auth_headers
 from api.utils.logger import setup_logger
+from api.services.resource_service import ResourceService
 
 # setup test logger
 test_logger = setup_logger("test_reso_api", "test_reso_api.log")
@@ -29,8 +29,8 @@ TEST_USER = {
 async def setup_test_env(test_db, resource_service):
     """Set up test environment for each test"""
     try:
-        await storage_manager._ensure_initialized()
-        await FileFactory.cleanup_test_files()
+        await resource_service._ensure_storage_initialized()
+        await FileFactory.cleanup_test_files(resource_service)
         yield
     except Exception as e:
         raise

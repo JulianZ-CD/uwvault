@@ -8,8 +8,10 @@ from supabase import create_client
 from api.index import app
 from api.services.resource_service import ResourceService
 from api.services.todo_service import TodoService
-from api.core.storage import StorageManager
 from api.utils.file_handlers import FILE_SIZE_LIMIT,ResourceType
+from fastapi import UploadFile
+from unittest.mock import Mock
+from io import BytesIO
 
 settings = get_settings()
 
@@ -67,9 +69,9 @@ def resource_service():
     return service
 
 @pytest.fixture
-def storage_manager():
-    """Create a real StorageManager instance"""
-    return StorageManager()
+def storage_manager(resource_service):
+    """Create a storage manager from resource service"""
+    return resource_service
 
 @pytest.fixture
 def test_file():
@@ -148,3 +150,29 @@ def mock_supabase(mocker):
     mock_table.execute = mocker.Mock(return_value=mock_execute)
     
     return mock_client
+
+@pytest.fixture
+def mock_file():
+    """Create a mock file for testing"""
+    file = Mock(spec=UploadFile)
+    file.filename = "test.pdf"
+    file.content_type = "application/pdf"
+    file.file = BytesIO(b"test content")
+    file.size = 1024
+    return file
+
+@pytest.fixture
+def mock_gcp_storage(mocker):
+    """Mock GCP storage bucket and blob"""
+    mock_storage_bucket = mocker.Mock()
+    mock_blob = mocker.Mock()
+    mock_storage_bucket.blob = mocker.Mock(return_value=mock_blob)
+    mock_blob.exists = mocker.Mock(return_value=True)
+    mock_blob.delete = mocker.Mock()
+    mock_blob.upload_from_file = mocker.Mock()
+    mock_blob.generate_signed_url = mocker.Mock(return_value="https://storage.googleapis.com/test-url")
+    
+    return {
+        "bucket": mock_storage_bucket,
+        "blob": mock_blob
+    }
