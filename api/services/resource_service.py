@@ -1,19 +1,21 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, BinaryIO
 from fastapi import UploadFile
 from api.models.resource import (
     ResourceCreate, ResourceUpdate, ResourceInDB, 
     ResourceStatus, ResourceReview, StorageStatus, StorageOperation
 )
-from api.core.storage import storage_manager
 from api.core.exceptions import (
-    NotFoundError, ValidationError, StorageError, StorageOperationError
+    NotFoundError, ValidationError, StorageError, StorageConnectionError, StorageOperationError
 )
 from api.utils.logger import setup_logger
 from api.utils.file_handlers import FileHandler, ResourceType
 from api.core.config import get_settings
 from supabase import create_client, Client
 from api.core.mock_auth import MockUser
+import asyncio
+from google.cloud import storage
+from google.oauth2 import service_account
 
 
 class ResourceService:
@@ -31,8 +33,34 @@ class ResourceService:
         )
         self.table_name = table_name
         self.logger = setup_logger("resource_service", "resource_service.log")
-        self.storage = storage_manager
         self.MAX_ERROR_LENGTH = 500
+        
+        # Storage related attributes
+        self._storage_client = None
+        self._storage_bucket = None
+        self.settings = settings
+
+    # Storage related methods
+    async def _ensure_storage_initialized(self) -> None:
+        """Ensure storage connection is initialized"""
+        if self._storage_bucket is None:
+            try:
+                credentials = service_account.Credentials.from_service_account_file(
+                    self.settings.GCP_CREDENTIALS_PATH
+                )
+                self._storage_client = storage.Client(
+                    project=self.settings.GCP_PROJECT_ID,
+                    credentials=credentials
+                )
+                self._storage_bucket = self._storage_client.bucket(self.settings.GCP_BUCKET_NAME)
+                
+                if not self._storage_bucket.exists():
+                    raise StorageConnectionError(
+                        f"Bucket {self.settings.GCP_BUCKET_NAME} does not exist"
+                    )
+                    
+            except Exception as e:
+                raise StorageConnectionError(f"Storage initialization failed: {str(e)}")
 
     async def get_resource_by_id(self, id: int, include_pending: bool = False) -> ResourceInDB:
         """Get a single resource
@@ -125,12 +153,22 @@ class ResourceService:
                     "course_id": resource.course_id
                 }
                 
-                await self.storage.upload_file(
-                    file.file,
-                    storage_path,
-                    content_type=file.content_type,
-                    metadata=gcp_metadata
-                )
+                # 直接使用GCP存储方法，替换storage.upload_file
+                await self._ensure_storage_initialized()
+                try:
+                    blob = self._storage_bucket.blob(storage_path)
+                    
+                    if file.content_type:
+                        blob.content_type = file.content_type
+                    if gcp_metadata:
+                        blob.metadata = gcp_metadata
+                        
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: blob.upload_from_file(file.file, rewind=True)
+                    )
+                except Exception as e:
+                    raise StorageError(f"Upload failed: {str(e)}")
                 
                 # 5. Update sync status
                 await self._update_sync_status(
@@ -158,13 +196,21 @@ class ResourceService:
         resource = await self.get_resource_by_id(resource_id, include_pending=True)
         
         try:
-            exists = await self.storage.verify_file_exists(resource.storage_path)
-            if exists:
-                return {
-                    "is_synced": True,
-                    "storage_status": StorageStatus.SYNCED,
-                    "error_message": None
-                }
+            # 直接使用GCP存储方法，替换storage.verify_file_exists
+            await self._ensure_storage_initialized()
+            try:
+                blob = self._storage_bucket.blob(resource.storage_path)
+                exists = await asyncio.get_event_loop().run_in_executor(
+                    None, blob.exists
+                )
+                if exists:
+                    return {
+                        "is_synced": True,
+                        "storage_status": StorageStatus.SYNCED,
+                        "error_message": None
+                    }
+            except Exception as e:
+                raise StorageError(f"Verification failed: {str(e)}")
         except Exception as e:
             return {
                 "is_synced": False,
@@ -270,7 +316,21 @@ class ResourceService:
             
             # Delete file from storage
             try:
-                await self.storage.delete_file(resource.storage_path)
+                # 直接使用GCP存储方法，替换storage.delete_file
+                await self._ensure_storage_initialized()
+                try:
+                    blob = self._storage_bucket.blob(resource.storage_path)
+                    exists = await asyncio.get_event_loop().run_in_executor(
+                        None, blob.exists
+                    )
+                    if not exists:
+                        self.logger.warning(f"File {resource.storage_path} does not exist in storage")
+                    else:
+                        await asyncio.get_event_loop().run_in_executor(
+                            None, blob.delete
+                        )
+                except Exception as e:
+                    raise StorageError(f"Delete failed: {str(e)}")
             except StorageError as e:
                 self.logger.error(f"Storage error: {str(e)}")
                 raise StorageOperationError("delete", str(e))
@@ -298,10 +358,22 @@ class ResourceService:
         """Get resource download URL"""
         try:
             resource = await self.get_resource_by_id(id)
-            return await self.storage.get_signed_url(
-                resource.storage_path,
-                expiration=expiration
-            )
+            
+            # 直接使用GCP存储方法，替换storage.get_signed_url
+            await self._ensure_storage_initialized()
+            try:
+                blob = self._storage_bucket.blob(resource.storage_path)
+                url = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: blob.generate_signed_url(
+                        expiration=expiration or timedelta(minutes=30),
+                        method='GET'
+                    )
+                )
+                return url
+            except Exception as e:
+                raise StorageError(f"Failed to generate signed URL: {str(e)}")
+                
         except NotFoundError:
             raise
         except StorageError as e:
