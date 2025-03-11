@@ -6,9 +6,8 @@ from api.services.todo_service import TodoService
 
 from supabase import create_client
 from api.index import app
-from api.services.resource_service import ResourceService
+from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT, ResourceType
 from api.services.todo_service import TodoService
-from api.utils.file_handlers import FILE_SIZE_LIMIT,ResourceType
 from fastapi import UploadFile
 from unittest.mock import Mock
 from io import BytesIO

@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from fastapi import UploadFile
-from api.services.resource_service import ResourceService
+from api.services.resource_service import ResourceService, ResourceType
 from api.models.resource import (
     ResourceCreate, ResourceUpdate, ResourceInDB, ResourceReview,
     ResourceStatus, StorageStatus, StorageOperation,
@@ -10,7 +10,6 @@ from api.core.exceptions import NotFoundError, ValidationError, StorageOperation
 from api.tests.factories import ResourceFactory, ResourceCreateFactory, ResourceReviewFactory, ResourceUpdateFactory
 from unittest.mock import Mock, AsyncMock, MagicMock
 from io import BytesIO
-from api.utils.file_handlers import ResourceType
 import asyncio
 
 
@@ -113,12 +112,12 @@ class TestResourceService:
         # prepare test data
         resource_data = ResourceCreateFactory(course_id="ece 651")
     
-        # mock file handling
-        mocker.patch('api.utils.file_handlers.FileHandler.validate_file_type', return_value=True)
-        mocker.patch('api.utils.file_handlers.FileHandler.validate_file_size', return_value=True)
-        mocker.patch('api.utils.file_handlers.FileHandler.generate_safe_filename', return_value="safe_filename.pdf")
-        mocker.patch('api.utils.file_handlers.FileHandler.generate_storage_path', return_value="test/path/safe_filename.pdf")
-        mocker.patch('api.utils.file_handlers.FileHandler.calculate_file_hash', return_value="test_hash")
+        # mock file handling methods in ResourceService
+        mocker.patch.object(resource_service, 'validate_file_type', return_value=True)
+        mocker.patch.object(resource_service, 'validate_file_size', return_value=True)
+        mocker.patch.object(resource_service, 'generate_safe_filename', return_value="safe_filename.pdf")
+        mocker.patch.object(resource_service, 'generate_storage_path', return_value="test/path/safe_filename.pdf")
+        mocker.patch.object(resource_service, 'calculate_file_hash', return_value="test_hash")
     
         # mock database insert
         mock_response = mocker.Mock()
@@ -166,7 +165,7 @@ class TestResourceService:
         mock_file.content_type = "invalid/type"
         resource_create = ResourceCreateFactory()
         
-        mocker.patch('api.utils.file_handlers.FileHandler.validate_file_type', return_value=False)
+        mocker.patch.object(resource_service, 'validate_file_type', return_value=False)
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Invalid file type"):
@@ -258,12 +257,12 @@ class TestResourceService:
             status=ResourceStatus.UPLOADING
         )
     
-        # Mock file handling
-        mocker.patch('api.utils.file_handlers.FileHandler.validate_file_type', return_value=True)
-        mocker.patch('api.utils.file_handlers.FileHandler.validate_file_size', return_value=True)
-        mocker.patch('api.utils.file_handlers.FileHandler.generate_storage_path',
-                    return_value="test/path/file.pdf")
-        mocker.patch('api.utils.file_handlers.FileHandler.get_file_extension', return_value="pdf")
+        # Mock file handling - 使用 patch.object 而不是 patch
+        mocker.patch.object(resource_service, 'validate_file_type', return_value=True)
+        mocker.patch.object(resource_service, 'validate_file_size', return_value=True)
+        mocker.patch.object(resource_service, 'generate_safe_filename', return_value="safe_filename.pdf")
+        mocker.patch.object(resource_service, 'generate_storage_path', return_value="test/path/safe_filename.pdf")
+        mocker.patch.object(resource_service, 'calculate_file_hash', return_value="test_hash")
     
         # Mock database operations
         mock_response = mocker.Mock()

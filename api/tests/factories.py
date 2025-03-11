@@ -8,7 +8,7 @@ from api.models.resource import (
     ResourceReview, ResourceStatus, StorageStatus, StorageOperation,
 )
 from api.core.mock_auth import MockUser
-from api.utils.file_handlers import ResourceType
+from api.services.resource_service import ResourceType
 import asyncio
 from api.core.exceptions import StorageError
 from pathlib import Path
