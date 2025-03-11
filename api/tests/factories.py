@@ -7,10 +7,9 @@ from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB,
     ResourceReview, ResourceStatus, StorageStatus, StorageOperation,
 )
-from api.core.mock_auth import MockUser
-from api.utils.file_handlers import ResourceType
+from api.tests.conftest import MockUser
+from api.services.resource_service import ResourceType
 import asyncio
-from api.core.storage import storage_manager
 from api.core.exceptions import StorageError
 from pathlib import Path
 import io
@@ -233,22 +232,28 @@ class FileFactory:
         }
     
     @staticmethod
-    async def cleanup_test_files(test_prefix: str = "test/") -> None:
+    async def cleanup_test_files(resource_service, test_prefix: str = "test/") -> None:
         """cleanup test files"""
         try:
             # ensure storage manager is initialized
-            await storage_manager._ensure_initialized()
-            blobs = storage_manager._bucket.list_blobs(prefix=test_prefix)
+            await resource_service._ensure_storage_initialized()
+            blobs = resource_service._storage_bucket.list_blobs(prefix=test_prefix)
             for blob in blobs:
                 blob.delete()
         except Exception as e:
             raise StorageError(f"Failed to cleanup test files: {str(e)}")
 
     @staticmethod
-    async def verify_file_exists(file_path: str) -> bool:
+    async def verify_file_exists(resource_service, file_path: str) -> bool:
         """verify file existence"""
         try:
-            return await storage_manager.verify_file_exists(file_path)
+            # 直接使用 resource_service 的方法验证文件存在
+            await resource_service._ensure_storage_initialized()
+            blob = resource_service._storage_bucket.blob(file_path)
+            exists = await asyncio.get_event_loop().run_in_executor(
+                None, blob.exists
+            )
+            return exists
         except Exception as e:
             raise StorageError(f"Failed to verify file existence: {str(e)}")
             

@@ -9,7 +9,7 @@ import io
 from api.routers.resources_router import router
 from api.models.resource import ResourceStatus, ResourceCreate, ResourceReview
 from api.core.exceptions import NotFoundError, ValidationError, StorageError
-from api.core.mock_auth import MockUser
+from api.tests.conftest import MockUser
 from api.tests.factories import (
     ResourceFactory, ResourceCreateFactory, 
     ResourceUpdateFactory, ResourceReviewFactory,
@@ -26,23 +26,6 @@ def test_app():
 @pytest.fixture
 def test_client(test_app):
     return TestClient(test_app)
-
-# Mock 用户
-@pytest.fixture
-def mock_normal_user():
-    return MockUser(
-        id=1,
-        username="test_user",
-        is_admin=False
-    )
-
-@pytest.fixture
-def mock_admin_user():
-    return MockUser(
-        id=999,
-        username="admin",
-        is_admin=True
-    )
 
 # 测试文件
 @pytest.fixture

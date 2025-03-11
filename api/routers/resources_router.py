@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Request
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from datetime import timedelta
 import logging
 from fastapi.responses import StreamingResponse
@@ -9,9 +9,10 @@ from api.models.resource import (
     ResourceInDB, ResourceReview, ResourceStatus
 )
 from api.services.resource_service import ResourceService
-from api.core.mock_auth import get_current_user, require_admin  # 临时导入
+from api.routers.auth_router import get_auth_service, require_admin, security
 from api.core.exceptions import NotFoundError, ValidationError, StorageError
 from api.utils.logger import setup_logger
+from api.services.auth_service import AuthService
 
 router = APIRouter(
     prefix="/api/py/resources",
@@ -23,29 +24,41 @@ logger = setup_logger("resource_router", log_file="resource_router.log", level=l
 
 logger.info("Resource router initialized")
 
+async def get_current_user(
+    auth_service: AuthService = Depends(get_auth_service),
+    token: str = Depends(security)
+):
+    """Get current authenticated user"""
+    return await auth_service.get_current_user(token.credentials) 
+
 # 1. basic resource operations (all users available)
 @router.get("/{id}", response_model=ResourceInDB)
 async def get_resource(
     id: int,
     current_user = Depends(get_current_user)
 ):
-    """Get resource details
-    
-    Args:
-        id: Resource ID
-        current_user: Current authenticated user
-        
-    Returns:
-        Resource details if found and accessible
-    """
+    """Get resource details"""
     logger.info(f"Received request to get resource with ID: {id}")
     try:
-        include_pending = current_user.is_admin
-        logger.debug(f"Using include_pending={include_pending} for user {current_user.id}")
-        return await resource_service.get_resource_by_id(id, include_pending)
+        is_admin = current_user.get("role") == "admin"
+        include_pending = is_admin  # 只有管理员可以看到非APPROVED状态的资源
+        
+        resource = await resource_service.get_resource_by_id(id, include_pending)
+        
+        # 如果不是管理员且资源不是APPROVED状态，检查是否是资源创建者
+        if not is_admin and resource.status != ResourceStatus.APPROVED:
+            if resource.created_by != current_user.get("id"):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to view this resource"
+                )
+        
+        return resource
     except NotFoundError as e:
         logger.warning(f"Resource not found: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error getting resource {id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get resource")
@@ -87,19 +100,51 @@ async def create_resource(
 ):
     """Create new resource"""
     try:
+        # 在路由层确定初始状态
+        is_admin = current_user.get("role") == "admin"
+        initial_status = ResourceStatus.APPROVED if is_admin else ResourceStatus.PENDING
+        
         resource_data = ResourceCreate(
             title=title,
             description=description,
             course_id=course_id,
-            uploader_id=current_user.id,
-            original_filename=file.filename
+            uploader_id=current_user.get("id"),
+            original_filename=file.filename,
+            status=initial_status  # 直接设置初始状态
         )
         
         return await resource_service.create_resource(resource_data, file)
     except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
-    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except StorageError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating resource: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/history/uploads")
+async def get_upload_history(
+    limit: int = 10,
+    offset: int = 0,
+    current_user = Depends(get_current_user)
+):
+    """Get current user's upload history"""
+    try:
+        resources, total = await resource_service.get_user_uploads(
+            user_id=current_user.get("id"),
+            limit=limit,
+            offset=offset
+        )
+        return {
+            "items": resources,
+            "total": total
+        }
+    except Exception as e:
+        logger.error(f"Error getting upload history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get upload history")
 
 @router.patch("/{id}", response_model=ResourceInDB)
 async def update_resource(
@@ -109,33 +154,51 @@ async def update_resource(
     course_id: Optional[str] = Form(None),
     current_user = Depends(get_current_user)
 ):
-    """Update resource details
-    
-    Args:
-        id: Resource ID
-        title: New title (optional)
-        description: New description (optional)
-        course_id: New course ID (optional)
-        current_user: Current authenticated user
-        
-    Returns:
-        Updated resource details
-    """
+    """Update resource details"""
     try:
+        # 添加输入验证
+        if title is not None and len(title.strip()) == 0:
+            raise ValidationError("Title cannot be empty")
+            
+        # 获取资源以检查所有权和状态
+        resource = await resource_service.get_resource_by_id(id, include_pending=True)
+        
+        # 检查权限：
+        # 1. 管理员可以更新任何资源
+        # 2. 普通用户只能更新自己创建的、非APPROVED状态的资源
+        is_admin = current_user.get("role") == "admin"
+        is_owner = resource.created_by == current_user.get("id")
+        is_approved = resource.status == ResourceStatus.APPROVED
+        
+        if not is_admin and (not is_owner or is_approved):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this resource"
+            )
+        
         update_data = ResourceUpdate(
             title=title,
             description=description,
             course_id=course_id,
-            updated_by=current_user.id
+            updated_by=current_user.get("id")
         )
         return await resource_service.update_resource(id, update_data)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        # 确保 ValidationError 被转换为 422 响应
+        logger.error(f"Validation error updating resource {id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except NotFoundError as e:
+        logger.warning(f"Resource not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException as e:
+        # 直接重新抛出 HTTPException
+        raise e
     except Exception as e:
         logger.error(f"Error updating resource {id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update resource")
+        raise HTTPException(status_code=500, detail=f"Failed to update resource: {str(e)}")
 
 # 2. admin functions
 @router.post("/{id}/review", response_model=ResourceInDB)
@@ -149,11 +212,10 @@ async def review_resource(
         review = ResourceReview(
             status=review_data.status,
             review_comment=review_data.review_comment,
-            reviewed_by=current_user.id
+            reviewed_by=current_user.get("id")
         )
         resource = await resource_service.review_resource(id, review)
         return resource
-        
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValidationError as e:
@@ -198,7 +260,7 @@ async def deactivate_resource(
 ):
     """Deactivate a resource (admin only)"""
     try:
-        return await resource_service.deactivate_resource(id, current_user.id)
+        return await resource_service.deactivate_resource(id, current_user.get("id"))
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -212,7 +274,7 @@ async def reactivate_resource(
 ):
     """Reactivate a resource (admin only)"""
     try:
-        return await resource_service.reactivate_resource(id, current_user.id)
+        return await resource_service.reactivate_resource(id, current_user.get("id"))
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -222,68 +284,40 @@ async def reactivate_resource(
 # 3. permission query
 @router.get("/actions")
 async def get_available_actions(
-    request: Request,
     current_user = Depends(get_current_user)
 ) -> Dict[str, bool]:
     """Get available actions for current user"""
-    client_host = request.client.host if request.client else "unknown"
-    logger.info(f"Received actions request from {client_host}")
-    logger.debug(f"Request headers: {dict(request.headers)}")
-    logger.info(f"Request path: {request.url.path}, method: {request.method}")
+    is_admin = current_user.get("role") == "admin"
     
-    try:
-        # to do: return default permissions, deploy step set as True
-        actions = {
-            "can_upload": True,
-            "can_download": True,
-            "can_update": True,
-            "can_delete": True,
-            "can_review": True,
-            "can_manage_status": True
-        }
-        logger.info(f"Returning actions: {actions}")
-        return actions
-    except Exception as e:
-        logger.error(f"Error in get_available_actions: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    actions = {
+        "can_upload": True,  # 所有用户都可以上传
+        "can_download": True,  # 所有用户都可以下载
+        "can_update": True,  # 普通用户只能更新非APPROVED状态的自己的资源
+        "can_delete": is_admin,  # 只有管理员可以删除
+        "can_review": is_admin,  # 只有管理员可以审核
+        "can_manage_status": is_admin,  # 只有管理员可以管理状态
+        "can_see_all_statuses": is_admin  # 只有管理员可以看到所有状态
+    }
+    
+    return actions
 
 @router.get("/", response_model=dict)
 async def list_resources(
     request: Request,
     limit: int = 10,
     offset: int = 0,
-    is_admin: bool = True,
     current_user = Depends(get_current_user)
 ):
-    """Get a list of resources
-    
-    Args:
-        limit: Maximum number of resources to return
-        offset: Number of resources to skip
-        is_admin: Whether to include pending resources (admin only)
-        current_user: Current authenticated user
-        
-    Returns:
-        List of resources
-    """
-    client_host = request.client.host if request.client else "unknown"
-    logger.info(f"Received list request from {client_host} with params: limit={limit}, offset={offset}, is_admin={is_admin}")
-    logger.debug(f"Request headers: {dict(request.headers)}")
-    
+    """Get a list of resources"""
     try:
-        include_pending = True
+        is_admin = current_user.get("role") == "admin"
+        include_pending = is_admin  # 只有管理员可以看到所有状态的资源
         
-        logger.info(f"Using include_pending={include_pending}")
-        
-        logger.debug("Calling resource_service.list_resources")
-
         resources, total_count = await resource_service.list_resources(
             limit=limit,
             offset=offset,
             include_pending=include_pending
         )
-        
-        logger.info(f"Successfully retrieved {len(resources)} resources")
         
         return {
             "items": resources,
@@ -333,4 +367,4 @@ async def download_resource(
         raise HTTPException(status_code=404, detail=str(e))        
     except Exception as e:
         logger.error(f"Error downloading resource {id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to download resource") 
+        raise HTTPException(status_code=500, detail="Failed to download resource")

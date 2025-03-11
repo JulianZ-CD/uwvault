@@ -41,13 +41,13 @@ class ResourceBase(BaseModel):
     )
     review_comment: Optional[str] = Field(None, max_length=500, description="Review comment")
     reviewed_at: Optional[datetime] = Field(None, description="Review timestamp")
-    reviewed_by: Optional[int] = Field(None, description="Reviewer user ID")
+    reviewed_by: Optional[str] = Field(None, description="Reviewer user ID")
 
 
 class ResourceCreate(ResourceBase):
     """create resource request model"""
     original_filename: str = Field(..., max_length=255, description="Original file name")
-    uploader_id: int = Field(..., description="ID of the user uploading the resource")
+    uploader_id: str = Field(..., description="ID of the user uploading the resource")
     
     # add optional technical fields, allowing service layer to fill
     file_type: Optional[str] = None
@@ -56,13 +56,12 @@ class ResourceCreate(ResourceBase):
     mime_type: Optional[str] = None
     file_hash: Optional[str] = None
 
-
 class ResourceUpdate(BaseModel):
     """update resource request model"""
     title: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     course_id: Optional[str] = Field(None, max_length=50, description="Associated course ID") 
-    updated_by: int = Field(..., description="ID of the user updating the resource")
+    updated_by: str = Field(..., description="ID of the user updating the resource")
 
 
 class ResourceReview(BaseModel):
@@ -76,9 +75,8 @@ class ResourceReview(BaseModel):
         max_length=500,
         description="Review comment"
     )
-    reviewed_by: int = Field(
+    reviewed_by: str = Field(
         ...,
-        gt=0,
         description="ID of the reviewing user"
     )
 
@@ -97,8 +95,8 @@ class ResourceInDB(ResourceBase):
     id: int = Field(..., description="Resource ID")
     created_at: datetime = Field(default_factory=datetime.now, description="Created timestamp")
     updated_at: datetime = Field(default_factory=datetime.now, description="Last updated timestamp")
-    created_by: int = Field(..., description="Creator user ID")
-    updated_by: int = Field(..., description="Last updater user ID")
+    created_by: str = Field(..., description="Creator user ID")
+    updated_by: str = Field(..., description="Last updater user ID")
     is_active: bool = Field(default=True, description="Resource status")
     storage_status: StorageStatus = Field(
         default=StorageStatus.PENDING,
