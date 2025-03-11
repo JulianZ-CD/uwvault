@@ -12,16 +12,29 @@ from fastapi import UploadFile
 from unittest.mock import Mock
 from io import BytesIO
 
+import uuid
+from api.services.auth_service import AuthService
+from api.tests.factories import UserCreateFactory, AdminUserCreateFactory
+import json
+import jwt
+from datetime import datetime, timedelta
+from fastapi import status
+from pydantic import BaseModel
+
 settings = get_settings()
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def test_settings():
-    """Override settings for testing"""
-    return Settings(
-        SUPABASE_URL="https://test-url.supabase.co",
-        SUPABASE_KEY="test-key"
-    )
+    """测试环境配置"""
+    settings = get_settings()
+    settings.TESTING = True
+    return settings
 
+@pytest.fixture(autouse=True)
+def setup_test_env(test_settings):
+    """设置测试环境"""
+    # 确保使用测试配置
+    yield
 
 @pytest.fixture
 def test_client():
@@ -42,10 +55,43 @@ TEST_USER = {
     "password": settings.USER_PASSWORD
 }
 
-def get_auth_headers(test_db):
-    """Get authentication headers for test user"""
-    auth_response = test_db.auth.sign_in_with_password(TEST_USER)
-    return {"Authorization": f"Bearer {auth_response.session.access_token}"}
+@pytest.fixture
+async def regular_user_headers(test_client):
+    """获取普通用户的认证头"""
+    try:
+        # 使用已存在的普通用户账户
+        login_response = test_client.post("/api/py/auth/login", json={
+            "email": "ljytest@gmail.com",  # 替换为实际的普通用户邮箱
+            "password": "12345678"   # 替换为实际的普通用户密码
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        
+        access_token = login_response.json()["session"]["access_token"]
+        user_id = login_response.json()["user"]["id"]
+        
+        return {"Authorization": f"Bearer {access_token}"}, user_id
+        
+    except Exception as e:
+        pytest.fail(f"Failed to get regular user headers: {e}")
+
+@pytest.fixture
+async def admin_user_headers(test_client):
+    """获取管理员用户的认证头"""
+    try:
+        # 使用已存在的管理员账户
+        login_response = test_client.post("/api/py/auth/login", json={
+            "email": "ziyuwangca123456@gmail.com",  # 替换为实际的管理员邮箱
+            "password": "12345678"   # 替换为实际的管理员密码
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        
+        access_token = login_response.json()["session"]["access_token"]
+        user_id = login_response.json()["user"]["id"]
+        
+        return {"Authorization": f"Bearer {access_token}"}, user_id
+        
+    except Exception as e:
+        pytest.fail(f"Failed to get admin headers: {e}")
 
 @pytest.fixture(scope="function")
 async def test_db():
@@ -175,3 +221,50 @@ def mock_gcp_storage(mocker):
         "bucket": mock_storage_bucket,
         "blob": mock_blob
     }
+
+# Mock User for testing
+class MockUser(BaseModel):
+    """Mock user model for testing"""
+    id: int
+    username: str
+    is_admin: bool = False
+
+@pytest.fixture
+def mock_normal_user():
+    """Mock normal user for testing"""
+    return MockUser(
+        id=1,
+        username="test_user",
+        is_admin=False
+    )
+
+@pytest.fixture
+def mock_admin_user():
+    """Mock admin user for testing"""
+    return MockUser(
+        id=999,
+        username="admin",
+        is_admin=True
+    )
+
+@pytest.fixture
+def get_current_user():
+    """Mock current user function for testing"""
+    async def _get_current_user():
+        return MockUser(
+            id=1,
+            username="test_user",
+            is_admin=False
+        )
+    return _get_current_user
+
+@pytest.fixture
+def require_admin():
+    """Mock require admin function for testing"""
+    async def _require_admin():
+        return MockUser(
+            id=999,
+            username="admin",
+            is_admin=True
+        )
+    return _require_admin

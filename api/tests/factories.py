@@ -7,7 +7,7 @@ from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB,
     ResourceReview, ResourceStatus, StorageStatus, StorageOperation,
 )
-from api.core.mock_auth import MockUser
+from api.tests.conftest import MockUser
 from api.services.resource_service import ResourceType
 import asyncio
 from api.core.exceptions import StorageError

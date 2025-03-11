@@ -191,11 +191,17 @@ class ResourceService:
         try:
             self.logger.info(f"Creating new resource: {resource.title}")
             
-            # 1. File validation
+            # 验证文件类型
             if not self.validate_file_type(file.content_type):
                 raise ValidationError("Invalid file type")
+            
+            # 验证文件大小
             if not self.validate_file_size(file.size):
                 raise ValidationError("File too large")
+
+            # 确保 uploader_id 是有效的UUID字符串
+            if not isinstance(resource.uploader_id, str):
+                raise ValidationError("uploader_id must be a string")
 
             # 2. Prepare metadata
             file_hash = self.calculate_file_hash(file.file)
@@ -209,10 +215,6 @@ class ResourceService:
             # 3. Create database record
             resource_data = resource.model_dump()
             
-            # 检查上传者是否为管理员，设置相应的状态
-            is_admin = getattr(resource, 'is_admin', False)
-            initial_status = ResourceStatus.APPROVED if is_admin else ResourceStatus.PENDING
-            
             current_time = datetime.now().isoformat()
             resource_data.update({
                 "created_at": current_time,
@@ -225,7 +227,7 @@ class ResourceService:
                 "original_filename": file.filename,
                 "created_by": resource.uploader_id,
                 "updated_by": resource.uploader_id,
-                "status": initial_status,
+                "status": resource.status,
                 "storage_status": StorageStatus.PENDING,
                 "retry_count": 0
             })
@@ -288,8 +290,11 @@ class ResourceService:
 
             return created_resource
 
+        except ValidationError as e:
+            self.logger.error(f"Validation error: {str(e)}")
+            raise
         except Exception as e:
-            self.logger.error(f"Error while creating resource: {str(e)}")
+            self.logger.error(f"Error creating resource: {str(e)}")
             raise
 
     async def get_user_uploads(self, user_id: str, limit: int = 10, offset: int = 0):
@@ -561,23 +566,31 @@ class ResourceService:
             self.logger.error(f"Error while reviewing resource {id}: {str(e)}")
             raise
 
-    async def deactivate_resource(self, id: int, admin_id: int) -> ResourceInDB:
+    async def deactivate_resource(self, id: int, admin_id: str) -> ResourceInDB:
         """Deactivate a resource"""
-        review = ResourceReview(
-            status=ResourceStatus.INACTIVE,
-            review_comment="Resource deactivated by admin",
-            reviewed_by=admin_id
-        )
-        return await self.review_resource(id, review)
+        try:
+            review = ResourceReview(
+                status=ResourceStatus.INACTIVE,
+                review_comment="Resource deactivated by admin",
+                reviewed_by=admin_id
+            )
+            return await self.review_resource(id, review)
+        except Exception as e:
+            self.logger.error(f"Error deactivating resource {id}: {str(e)}")
+            raise
 
-    async def reactivate_resource(self, id: int, admin_id: int) -> ResourceInDB:
+    async def reactivate_resource(self, id: int, admin_id: str) -> ResourceInDB:
         """Reactivate a resource"""
-        review = ResourceReview(
-            status=ResourceStatus.APPROVED,
-            review_comment="Resource reactivated by admin",
-            reviewed_by=admin_id
-        )
-        return await self.review_resource(id, review)
+        try:
+            review = ResourceReview(
+                status=ResourceStatus.APPROVED,
+                review_comment="Resource reactivated by admin",
+                reviewed_by=admin_id
+            )
+            return await self.review_resource(id, review)
+        except Exception as e:
+            self.logger.error(f"Error reactivating resource {id}: {str(e)}")
+            raise
 
     async def list_resources(
         self,
@@ -611,10 +624,15 @@ class ResourceService:
             query = base_query.select("*").order('created_at', desc=True).limit(limit).offset(offset)
             response = query.execute()
             
+            # 添加错误处理
+            if not response.data:
+                return [], 0
+            
             resources = [ResourceInDB(**item) for item in response.data]
             self.logger.info(f"Successfully retrieved {len(resources)} resources")
             
             return resources, total_count
         except Exception as e:
             self.logger.error(f"Error while getting resource list: {str(e)}")
-            raise 
+            # 返回空列表而不是抛出异常
+            return [], 0 

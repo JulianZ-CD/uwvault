@@ -100,22 +100,29 @@ async def create_resource(
 ):
     """Create new resource"""
     try:
-        # 检查用户是否为管理员
-        is_admin = getattr(current_user, 'is_admin', False)
+        # 在路由层确定初始状态
+        is_admin = current_user.get("role") == "admin"
+        initial_status = ResourceStatus.APPROVED if is_admin else ResourceStatus.PENDING
         
         resource_data = ResourceCreate(
             title=title,
             description=description,
             course_id=course_id,
-            uploader_id=current_user.id,
+            uploader_id=current_user.get("id"),
             original_filename=file.filename,
-            is_admin=is_admin  # 传递管理员状态
+            status=initial_status  # 直接设置初始状态
         )
         
         return await resource_service.create_resource(resource_data, file)
     except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except StorageError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
+        logger.error(f"Error creating resource: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/history/uploads")
@@ -149,6 +156,10 @@ async def update_resource(
 ):
     """Update resource details"""
     try:
+        # 添加输入验证
+        if title is not None and len(title.strip()) == 0:
+            raise ValidationError("Title cannot be empty")
+            
         # 获取资源以检查所有权和状态
         resource = await resource_service.get_resource_by_id(id, include_pending=True)
         
@@ -172,13 +183,22 @@ async def update_resource(
             updated_by=current_user.get("id")
         )
         return await resource_service.update_resource(id, update_data)
+    except ValidationError as e:
+        # 确保 ValidationError 被转换为 422 响应
+        logger.error(f"Validation error updating resource {id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
     except NotFoundError as e:
+        logger.warning(f"Resource not found: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except HTTPException as e:
+        # 直接重新抛出 HTTPException
         raise e
     except Exception as e:
         logger.error(f"Error updating resource {id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update resource")
+        raise HTTPException(status_code=500, detail=f"Failed to update resource: {str(e)}")
 
 # 2. admin functions
 @router.post("/{id}/review", response_model=ResourceInDB)
@@ -192,11 +212,10 @@ async def review_resource(
         review = ResourceReview(
             status=review_data.status,
             review_comment=review_data.review_comment,
-            reviewed_by=current_user.id
+            reviewed_by=current_user.get("id")
         )
         resource = await resource_service.review_resource(id, review)
         return resource
-        
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValidationError as e:
@@ -241,7 +260,7 @@ async def deactivate_resource(
 ):
     """Deactivate a resource (admin only)"""
     try:
-        return await resource_service.deactivate_resource(id, current_user.id)
+        return await resource_service.deactivate_resource(id, current_user.get("id"))
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -255,7 +274,7 @@ async def reactivate_resource(
 ):
     """Reactivate a resource (admin only)"""
     try:
-        return await resource_service.reactivate_resource(id, current_user.id)
+        return await resource_service.reactivate_resource(id, current_user.get("id"))
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
