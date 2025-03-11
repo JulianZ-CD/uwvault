@@ -10,6 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Setup GCP
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
       # Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,10 +56,17 @@ jobs:
           VERIFY_EMAIL_URL: ${{ vars.VERIFY_EMAIL_URL }}
           RESET_PASSWORD_URL: ${{ vars.RESET_PASSWORD_URL }}
           DEFAULT_ORIGIN: ${{ vars.DEFAULT_ORIGIN }}
+<<<<<<< HEAD
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
           GCP_CREDENTIALS_PATH: ${{ steps.auth.outputs.credentials_file_path }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+=======
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_BUCKET_NAME: ${{ vars.GCP_BUCKET_NAME }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+          GCP_CREDENTIALS_PATH: ${{ steps.auth.outputs.credentials_file_path }}
+>>>>>>> f5b0efc1eee32679bf2acdcff8a537f74183e252
           USER_EMAIL: ${{ secrets.USER_EMAIL }}
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
         run: |
