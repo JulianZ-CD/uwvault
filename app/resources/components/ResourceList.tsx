@@ -2,17 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useResource } from "@/app/hooks/useResource";
+import { useAuth } from "@/app/hooks/useAuth";
 import { ResourceListParams } from "@/app/types/resource";
 import { Card, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Download } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/app/components/ui/pagination";
+import { useToast } from "@/app/hooks/use-toast";
 
 export function ResourceList() {
+  const { user, isLoading: authLoading } = useAuth(); // 添加这一行
   const { resources, totalItems, isLoading, fetchResources, getResourceUrl, downloadResource } = useResource();
   const [page, setPage] = useState(1);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [viewLoading, setViewLoading] = useState<number | null>(null);
+  const [authError, setAuthError] = useState(false);
   const pageSize = 10;
 
   const handlePageChange = (newPage: number) => {
@@ -20,51 +24,82 @@ export function ResourceList() {
   };
 
   useEffect(() => {
-    const params: ResourceListParams = {
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
-    };
-    
+    if (authLoading) {
+      console.log("waiting for authentication...");
+      return;
+    }
+
+    // 先检查认证状态
+    if (!user) {
+      console.log("waiting for authentication...");
+      setAuthError(true);
+      return;
+    }
+
+    // 用户已登录，获取资源
+    console.log("user is logged in, fetching resources...");
     const timer = setTimeout(() => {
-      fetchResources(params);
-    }, 100);
+      fetchResources({ limit: pageSize, offset: (page - 1) * pageSize })
+        .catch(error => {
+          console.error("Error fetching resources:", error);
+          if (error.status === 401 || error.status === 403) {
+            setAuthError(true);
+          }
+        });
+    }, 300);
 
     return () => clearTimeout(timer);
-  }, [page, pageSize, fetchResources]);
+  }, [fetchResources, page, pageSize, user, authLoading]);
 
   const handleDownload = async (id: number) => {
+    setDownloading(id);
     try {
-      setDownloading(id);
-      await downloadResource(id);
+      const success = await downloadResource(id);
+      if (!success) {
+        console.warn("Download failed but no exception was thrown");
+      }
+    } catch (error) {
+      console.error("Error downloading resource:", error);
+      useToast().toast({
+        variant: "destructive",
+        title: "download failed",
+        description: "please check your permissions or try again later",
+      });
     } finally {
       setDownloading(null);
     }
   };
 
   const handleViewDetails = async (id: number, fileType: string) => {
+    setViewLoading(id);
     try {
-      setViewLoading(id);
       const url = await getResourceUrl(id);
-      if (!url) return;
-
-      const fileExtension = fileType.toLowerCase();
-      let viewerUrl = url;
-
-      if (fileExtension.includes('doc')) {
-        viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
-      } else if (!fileExtension.includes('pdf')) {
-        console.warn('Unsupported file type for preview:', fileExtension);
-        await downloadResource(id);
-        return;
+      if (url) {
+        window.open(url, '_blank');
       }
-
-      window.open(viewerUrl, "_blank");
     } catch (error) {
-      console.error('Error viewing resource:', error);
+      console.error("Error viewing resource:", error);
     } finally {
       setViewLoading(null);
     }
   };
+
+  if (authError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <div className="text-destructive text-xl mb-4">Authentication Required</div>
+        <p className="text-muted-foreground mb-6">
+          You need to be logged in to view resources. Please sign in to continue.
+        </p>
+        <Button 
+          onClick={() => window.location.href = '/login'} 
+          variant="default"
+        >
+          Sign In
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoading && !resources.length) {
     return (

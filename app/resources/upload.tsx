@@ -1,6 +1,6 @@
 "use client";
 
-import { ResourceForm } from "@/app/components/resource/ResourceForm";
+import { ResourceForm } from "@/app/resources/components//ResourceForm";
 import { useRouter } from "next/navigation";
 
 export default function ResourceUploadPage() {

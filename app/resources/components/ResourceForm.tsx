@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useResource } from "@/app/hooks/useResource";
 import { ResourceCreateData } from "@/app/types/resource";
@@ -29,6 +29,30 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
   const router = useRouter();
   
   const [file, setFile] = useState<File | null>(null);
+  const [authError, setAuthError] = useState(false);
+  
+  useEffect(() => {
+    // 检查认证状态
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/py/resources/actions/', {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.status === 401 || response.status === 403) {
+          setAuthError(true);
+        }
+      } catch (error) {
+        console.error("Error checking auth:", error);
+        // 网络错误不应该导致认为用户未登录
+        setAuthError(false);
+      }
+    };
+    
+    checkAuth();
+  }, []);
   
   const form = useForm<ResourceCreateData>({
     defaultValues: {
@@ -111,6 +135,29 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
   };
 
   const fileValue = form.watch("file") as unknown as FileList;
+
+  if (authError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Authentication Required</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center p-4 text-center">
+            <p className="text-muted-foreground mb-6">
+              You need to be logged in to upload resources. Please sign in to continue.
+            </p>
+            <Button 
+              onClick={() => window.location.href = '/login'} 
+              variant="default"
+            >
+              Sign In
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

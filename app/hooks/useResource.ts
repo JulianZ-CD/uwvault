@@ -108,10 +108,29 @@ export function useResource() {
     setError(null);
     
     try {
-      const result = await resourceService.getAllResources(params);
-      setResources(result.items);
-      setTotalItems(result.total);
-      return result;
+      // 添加重试逻辑
+      let retries = 0;
+      const maxRetries = 2;
+
+      while (retries < maxRetries) {
+        try { 
+          const result = await resourceService.getAllResources(params);
+          setResources(result.items);
+          setTotalItems(result.total);
+          return result;
+        } catch (err) {
+          retries++;
+          console.log(`try to fetch resources for the ${retries} time`);
+          
+          if (retries >= maxRetries) {
+            throw err;
+          }
+          // 否则等待一段时间后重试
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      return { items: [], total: 0 };
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error.message);
