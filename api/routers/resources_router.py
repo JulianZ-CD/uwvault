@@ -31,6 +31,95 @@ async def get_current_user(
     """Get current authenticated user"""
     return await auth_service.get_current_user(token.credentials) 
 
+# 3. permission query
+@router.get("/actions")
+async def get_available_actions(
+    current_user = Depends(get_current_user)
+) -> Dict[str, bool]:
+    """Get available actions for current user"""
+    try:
+        is_admin = current_user.get("role") == "admin"
+        
+        actions = {
+            "can_upload": True,  # 所有用户都可以上传
+            "can_download": True,  # 所有用户都可以下载
+            "can_update": True,  # 普通用户只能更新非APPROVED状态的自己的资源
+            "can_delete": is_admin,  # 只有管理员可以删除
+            "can_review": is_admin,  # 只有管理员可以审核
+            "can_manage_status": is_admin,  # 只有管理员可以管理状态
+            "can_see_all_statuses": is_admin  # 只有管理员可以看到所有状态
+        }
+        
+        return actions
+    except Exception as e:
+        logger.error(f"Error getting available actions: {str(e)}")
+        # Return default permissions for unauthenticated users
+        return {
+            "can_upload": False,
+            "can_download": True,
+            "can_update": False,
+            "can_delete": False,
+            "can_review": False,
+            "can_manage_status": False,
+            "can_see_all_statuses": False
+        }
+
+@router.post("/create", response_model=ResourceInDB)
+async def create_resource(
+    title: str = Form(...),
+    description: Optional[str] = Form(None),
+    course_id: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    current_user = Depends(get_current_user)
+):
+    """Create new resource"""
+    try:
+        # 在路由层确定初始状态
+        is_admin = current_user.get("role") == "admin"
+        initial_status = ResourceStatus.APPROVED if is_admin else ResourceStatus.PENDING
+        
+        resource_data = ResourceCreate(
+            title=title,
+            description=description,
+            course_id=course_id,
+            uploader_id=current_user.get("id"),
+            original_filename=file.filename,
+            status=initial_status  # 直接设置初始状态
+        )
+        
+        return await resource_service.create_resource(resource_data, file)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except StorageError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating resource: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/history/uploads")
+async def get_upload_history(
+    limit: int = 10,
+    offset: int = 0,
+    current_user = Depends(get_current_user)
+):
+    """Get current user's upload history"""
+    try:
+        resources, total = await resource_service.get_user_uploads(
+            user_id=current_user.get("id"),
+            limit=limit,
+            offset=offset
+        )
+        return {
+            "items": resources,
+            "total": total
+        }
+    except Exception as e:
+        logger.error(f"Error getting upload history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get upload history")
+
 # 1. basic resource operations (all users available)
 @router.get("/{id}", response_model=ResourceInDB)
 async def get_resource(
@@ -89,62 +178,6 @@ async def get_resource_url(
     except Exception as e:
         logger.error(f"Error getting resource URL {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get download URL")
-
-@router.post("/create", response_model=ResourceInDB)
-async def create_resource(
-    title: str = Form(...),
-    description: Optional[str] = Form(None),
-    course_id: Optional[str] = Form(None),
-    file: UploadFile = File(...),
-    current_user = Depends(get_current_user)
-):
-    """Create new resource"""
-    try:
-        # 在路由层确定初始状态
-        is_admin = current_user.get("role") == "admin"
-        initial_status = ResourceStatus.APPROVED if is_admin else ResourceStatus.PENDING
-        
-        resource_data = ResourceCreate(
-            title=title,
-            description=description,
-            course_id=course_id,
-            uploader_id=current_user.get("id"),
-            original_filename=file.filename,
-            status=initial_status  # 直接设置初始状态
-        )
-        
-        return await resource_service.create_resource(resource_data, file)
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
-    except StorageError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error creating resource: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/history/uploads")
-async def get_upload_history(
-    limit: int = 10,
-    offset: int = 0,
-    current_user = Depends(get_current_user)
-):
-    """Get current user's upload history"""
-    try:
-        resources, total = await resource_service.get_user_uploads(
-            user_id=current_user.get("id"),
-            limit=limit,
-            offset=offset
-        )
-        return {
-            "items": resources,
-            "total": total
-        }
-    except Exception as e:
-        logger.error(f"Error getting upload history: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to get upload history")
 
 @router.patch("/{id}", response_model=ResourceInDB)
 async def update_resource(
@@ -281,39 +314,20 @@ async def reactivate_resource(
         logger.error(f"Error reactivating resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to reactivate resource")
 
-# 3. permission query
-@router.get("/actions")
-async def get_available_actions(
-    current_user = Depends(get_current_user)
-) -> Dict[str, bool]:
-    """Get available actions for current user"""
-    is_admin = current_user.get("role") == "admin"
-    
-    actions = {
-        "can_upload": True,  # 所有用户都可以上传
-        "can_download": True,  # 所有用户都可以下载
-        "can_update": True,  # 普通用户只能更新非APPROVED状态的自己的资源
-        "can_delete": is_admin,  # 只有管理员可以删除
-        "can_review": is_admin,  # 只有管理员可以审核
-        "can_manage_status": is_admin,  # 只有管理员可以管理状态
-        "can_see_all_statuses": is_admin  # 只有管理员可以看到所有状态
-    }
-    
-    return actions
-
-@router.get("/", response_model=dict)
+@router.get("", response_model=Dict)
 async def list_resources(
-    request: Request,
-    limit: int = 10,
-    offset: int = 0,
+    limit: Optional[int] = 10,
+    offset: Optional[int] = 0,
+    course_id: Optional[str] = None,
+    search: Optional[str] = None,
     current_user = Depends(get_current_user)
 ):
-    """Get a list of resources"""
+    """List resources with pagination"""
     try:
         is_admin = current_user.get("role") == "admin"
-        include_pending = is_admin  # 只有管理员可以看到所有状态的资源
+        include_pending = is_admin
         
-        resources, total_count = await resource_service.list_resources(
+        resources, total = await resource_service.list_resources(
             limit=limit,
             offset=offset,
             include_pending=include_pending
@@ -321,7 +335,7 @@ async def list_resources(
         
         return {
             "items": resources,
-            "total": total_count
+            "total": total
         }
     except Exception as e:
         logger.error(f"Error listing resources: {str(e)}", exc_info=True)
