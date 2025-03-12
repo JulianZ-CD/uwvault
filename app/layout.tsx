@@ -4,7 +4,7 @@ import { MainNav } from '@/app/components/main-nav';
 import { ThemeProvider } from '@/app/components/theme-provider';
 import { Toaster } from '@/app/components/ui/toaster';
 import { AuthProvider } from '@/app/components/auth/AuthProvider';
-import { UserProvider } from '@/app/components/user/UserProvider';
+import { UserProvider } from '@/app/(user)/profile/components/UserProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
