@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/app/hooks/useAuth";
 import { 
   Resource, 
   ResourceCreateData, 
@@ -11,14 +12,12 @@ import {
 } from "@/app/types/resource";
 import { resourceService } from "@/app/services/resourceService";
 import { useToast } from "@/app/hooks/use-toast";
-import { useAuth } from "@/app/hooks/useAuth";
 
 const isServer = typeof window === 'undefined';
 
 export function useResource() {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
-  
+  const { user, isLoading: authLoading } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -29,12 +28,13 @@ export function useResource() {
   const [isDeleting, setIsDeleting] = useState(false);
   
   const [actions, setActions] = useState<ResourceActions>({
-    can_upload: true,
-    can_download: true,
-    can_update: true,
-    can_delete: isAdmin(),
-    can_review: isAdmin(),
-    can_manage_status: isAdmin()
+    can_upload: false,
+    can_download: false,
+    can_update: false,
+    can_delete: false,
+    can_review: false,
+    can_manage_status: false,
+    can_see_all_statuses: false
   });
 
   const showAlert = (message: string, type: "success" | "error") => {
@@ -55,25 +55,54 @@ export function useResource() {
     }
   };
 
+  const isAdmin = useCallback(() => {
+    return user?.role === 'admin';
+  }, [user]);
+
   const fetchActions = useCallback(async () => {
+    if (!user) {
+      console.warn("User not authenticated, using default permissions");
+      // 设置默认权限
+      const defaultActions = {
+        can_upload: false,
+        can_download: true,
+        can_update: false,
+        can_delete: false,
+        can_review: false,
+        can_manage_status: false,
+        can_see_all_statuses: false
+      };
+      setActions(defaultActions);
+      return defaultActions;
+    }
+    
     try {
-      const actionData = await resourceService.getResourceActions();
-      setActions(actionData);
+      setError(null);
+      const actionsData = await resourceService.getResourceActions();
+      setActions(actionsData);
+      return actionsData;
     } catch (err) {
-      console.error("Error fetching resource permissions:", err);
-      setActions({
+      console.error("Error fetching actions:", err);
+      // 根据用户角色提供默认权限
+      const defaultActions = {
         can_upload: true,
         can_download: true,
         can_update: true,
         can_delete: isAdmin(),
         can_review: isAdmin(),
-        can_manage_status: isAdmin()
-      });
+        can_manage_status: isAdmin(),
+        can_see_all_statuses: isAdmin()
+      };
+      setActions(defaultActions);
+      return defaultActions;
     }
-  }, [isAdmin]);
+  }, [user, isAdmin]);
 
   const fetchResources = useCallback(async (params?: ResourceListParams): Promise<ResourceListResponse> => {
-    if (isLoading) return { items: [], total: 0 };
+    if (!user) {
+      console.warn("User not authenticated, skipping resource fetch");
+      return { items: [], total: 0 };
+    }
     
     setIsLoading(true);
     setError(null);
@@ -84,13 +113,20 @@ export function useResource() {
       setTotalItems(result.total);
       return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch resources';
-      setError(message);
-      return { items: [], total: 0 };
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error.message);
+      throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, [user]);
+
+  // 初始化时获取权限
+  useEffect(() => {
+    if (user && !authLoading) {
+      fetchActions();
+    }
+  }, [user, authLoading, fetchActions]);
 
   // get single resource
   const getResource = useCallback(async (id: number): Promise<Resource | null> => {
@@ -160,20 +196,16 @@ export function useResource() {
         throw new Error(`Error updating resource: ${response.statusText}`);
       }
       
-      const updatedResource = await response.json();
-      
-      await fetchResources();
-      
-      showAlert("Resource updated successfully", "success");
-      return updatedResource;
+      const responseData = await response.json();
+      return responseData;
     } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to update resource #${id}`;
-      showAlert(message, "error");
+      console.error("Error updating resource:", err);
+      setError(err instanceof Error ? err.message : 'Failed to update resource');
       return null;
     } finally {
       setIsUpdating(false);
     }
-  }, [fetchResources, showAlert]);
+  }, [showAlert]);
 
   // delete resource
   const deleteResource = useCallback(async (id: number): Promise<boolean> => {
@@ -192,55 +224,15 @@ export function useResource() {
         throw new Error(`Error deleting resource: ${response.statusText}`);
       }
       
-      await fetchResources();
-      
-      showAlert("Resource deleted successfully", "success");
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to delete resource #${id}`;
-      showAlert(message, "error");
+      console.error("Error deleting resource:", err);
+      setError(err instanceof Error ? err.message : 'Failed to delete resource');
       return false;
     } finally {
       setIsDeleting(false);
     }
-  }, [fetchResources, showAlert]);
-
-  // review resource
-  const reviewResource = useCallback(async (id: number, data: ResourceReviewData): Promise<Resource | null> => {
-    if (!id) {
-      showAlert("Resource ID is required", "error");
-      return null;
-    }
-    
-    if (!isAdmin()) {
-      showAlert("Only administrators can review resources", "error");
-      return null;
-    }
-    
-    setIsUpdating(true);
-    setError(null);
-    
-    try {
-      const response = await resourceService.reviewResource(id, data);
-      
-      if (!response.ok) {
-        throw new Error(`Error reviewing resource: ${response.statusText}`);
-      }
-      
-      const reviewedResource = await response.json();
-      
-      await fetchResources();
-      
-      showAlert("Resource reviewed successfully", "success");
-      return reviewedResource;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to review resource #${id}`;
-      showAlert(message, "error");
-      return null;
-    } finally {
-      setIsUpdating(false);
-    }
-  }, [fetchResources, isAdmin, showAlert]);
+  }, [showAlert]);
 
   // get resource download URL
   const getResourceUrl = useCallback(async (id: number): Promise<string | null> => {
@@ -249,115 +241,141 @@ export function useResource() {
       return null;
     }
     
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const url = await resourceService.getResourceUrl(id);
-      return url;
+      return await resourceService.getResourceUrl(id);
     } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to get download URL for resource #${id}`;
-      showAlert(message, "error");
+      console.error("Error getting resource URL:", err);
+      setError(err instanceof Error ? err.message : 'Failed to get resource URL');
       return null;
-    } finally {
-      setIsLoading(false);
     }
   }, [showAlert]);
-
-  // activate/deactivate resource
-  const toggleResourceStatus = useCallback(async (id: number, activate: boolean): Promise<Resource | null> => {
-    if (!id) {
-      showAlert("Resource ID is required", "error");
-      return null;
-    }
-    
-    if (!isAdmin()) {
-      showAlert("Only administrators can change resource status", "error");
-      return null;
-    }
-    
-    setIsUpdating(true);
-    setError(null);
-    
-    try {
-      const response = activate 
-        ? await resourceService.reactivateResource(id)
-        : await resourceService.deactivateResource(id);
-      
-      if (!response.ok) {
-        throw new Error(`Error changing resource status: ${response.statusText}`);
-      }
-      
-      const updatedResource = await response.json();
-      
-      await fetchResources();
-      
-      const message = activate ? "Resource activated successfully" : "Resource deactivated successfully";
-      showAlert(message, "success");
-      return updatedResource;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to change status for resource #${id}`;
-      showAlert(message, "error");
-      return null;
-    } finally {
-      setIsUpdating(false);
-    }
-  }, [fetchResources, isAdmin, showAlert]);
 
   // download resource
-  const downloadResource = useCallback(async (id: number): Promise<void> => {
+  const downloadResource = useCallback(async (id: number): Promise<boolean> => {
     if (!id) {
       showAlert("Resource ID is required", "error");
-      return;
+      return false;
     }
     
-    setIsLoading(true);
-    setError(null);
+    try {
+      // 先尝试获取下载 URL
+      const url = await getResourceUrl(id);
+      if (url) {
+        // 如果获取到 URL，直接使用浏览器下载
+        window.open(url, '_blank');
+        return true;
+      }
+      
+      // 如果获取 URL 失败，尝试直接下载
+      const response = await resourceService.downloadResource(id);
+      
+      // 处理文件下载
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `resource-${id}`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+      
+      return true;
+    } catch (err) {
+      console.error("Error downloading resource:", err);
+      setError(err instanceof Error ? err.message : 'Failed to download resource');
+      showAlert("download failed, please check your permissions or try again later", "error");
+      return false;
+    }
+  }, [showAlert, getResourceUrl]);
+
+  // review resource
+  const reviewResource = useCallback(async (id: number, data: ResourceReviewData): Promise<boolean> => {
+    if (!id) {
+      showAlert("Resource ID is required", "error");
+      return false;
+    }
     
     try {
-      const response = await resourceService.downloadResource(id);
-      const blob = await response.blob();
+      const response = await resourceService.reviewResource(id, data);
       
-      // get filename from Content-Disposition
-      const contentDisposition = response.headers.get('content-disposition');
-      const filenameMatch = contentDisposition && contentDisposition.match(/filename="(.+)"/);
-      const filename = filenameMatch ? filenameMatch[1] : `resource-${id}`;
+      if (!response.ok) {
+        throw new Error(`Error reviewing resource: ${response.statusText}`);
+      }
       
-      // create download link
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
+      return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : `Failed to download resource ${id}`;
-      showAlert(message, "error");
-    } finally {
-      setIsLoading(false);
+      console.error("Error reviewing resource:", err);
+      setError(err instanceof Error ? err.message : 'Failed to review resource');
+      return false;
     }
   }, [showAlert]);
 
-  // initialize
-  useEffect(() => {
-    if (!isServer) {
-      console.log("Client-side initialization - single run");
+  // deactivate resource
+  const deactivateResource = useCallback(async (id: number): Promise<boolean> => {
+    if (!id) {
+      showAlert("Resource ID is required", "error");
+      return false;
+    }
+    
+    try {
+      const response = await resourceService.deactivateResource(id);
+      
+      if (!response.ok) {
+        throw new Error(`Error deactivating resource: ${response.statusText}`);
+      }
+      
+      return true;
+    } catch (err) {
+      console.error("Error deactivating resource:", err);
+      setError(err instanceof Error ? err.message : 'Failed to deactivate resource');
+      return false;
+    }
+  }, [showAlert]);
 
-      (async () => {
-        try {
-          await fetchActions();
-          await fetchResources();
-        } catch (err) {
-          console.error("Initialization error:", err);
-        }
-      })();
+  // reactivate resource
+  const reactivateResource = useCallback(async (id: number): Promise<boolean> => {
+    if (!id) {
+      showAlert("Resource ID is required", "error");
+      return false;
+    }
+    
+    try {
+      const response = await resourceService.reactivateResource(id);
+      
+      if (!response.ok) {
+        throw new Error(`Error reactivating resource: ${response.statusText}`);
+      }
+      
+      return true;
+    } catch (err) {
+      console.error("Error reactivating resource:", err);
+      setError(err instanceof Error ? err.message : 'Failed to reactivate resource');
+      return false;
+    }
+  }, [showAlert]);
+
+  // get user upload history
+  const getUserUploads = useCallback(async (limit: number = 10, offset: number = 0): Promise<ResourceListResponse> => {
+    try {
+      return await resourceService.getUserUploads(limit, offset);
+    } catch (err) {
+      console.error("Error getting user uploads:", err);
+      setError(err instanceof Error ? err.message : 'Failed to get user uploads');
+      return { items: [], total: 0 };
     }
   }, []);
 
-  
   return {
     resources,
     totalItems,
@@ -367,22 +385,18 @@ export function useResource() {
     isDeleting,
     error,
     actions,
-    
+    isAdmin,
     fetchResources,
+    fetchActions,
     getResource,
     createResource,
     updateResource,
     deleteResource,
-    reviewResource,
     getResourceUrl,
-    toggleResourceStatus,
     downloadResource,
-    
-    approveResource: (id: number, comment?: string) => 
-      reviewResource(id, { status: ResourceStatus.APPROVED, review_comment: comment }),
-    rejectResource: (id: number, comment?: string) => 
-      reviewResource(id, { status: ResourceStatus.REJECTED, review_comment: comment }),
-    activateResource: (id: number) => toggleResourceStatus(id, true),
-    deactivateResource: (id: number) => toggleResourceStatus(id, false),
+    reviewResource,
+    deactivateResource,
+    reactivateResource,
+    getUserUploads
   };
 }

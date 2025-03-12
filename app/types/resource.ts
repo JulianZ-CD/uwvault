@@ -28,17 +28,18 @@ export enum ResourceStatus {
     mime_type?: string;
     created_at: string;
     updated_at: string;
-    created_by: number;
-    updated_by: number;
+    created_by: string;
+    updated_by: string;
     status: ResourceStatus;
     storage_status: StorageStatus;
     is_active: boolean;
     review_comment?: string;
     reviewed_at?: string;
-    reviewed_by?: number;
+    reviewed_by?: string;
     last_sync_at?: string;
     sync_error?: string;
     retry_count?: number;
+    file_hash?: string;// Added to match backend model
   }
   
   // Resource list query params
@@ -75,6 +76,7 @@ export enum ResourceStatus {
   export interface ResourceReviewData {
     status: ResourceStatus;
     review_comment?: string;
+    reviewed_by?: string;
   }
   
   // Resource context type
@@ -124,4 +126,5 @@ export enum ResourceStatus {
     can_delete: boolean;
     can_review: boolean;
     can_manage_status: boolean;
+    can_see_all_statuses: boolean;
   }

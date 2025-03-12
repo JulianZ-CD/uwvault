@@ -8,6 +8,25 @@ import {
   ResourceActions
 } from "@/app/types/resource";
 
+// Add to resourceService.ts
+const getAuthHeaders = (): HeadersInit => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  const tokenStr = localStorage.getItem('token');
+  if (tokenStr) {
+    try {
+      const tokenData = JSON.parse(tokenStr);
+      headers['Authorization'] = `Bearer ${tokenData.access_token}`;
+    } catch (e) {
+      headers['Authorization'] = `Bearer ${tokenStr}`;
+    }
+  }
+  
+  return headers;
+};
+
 export const resourceService = {
   // get resource list
   async getAllResources(params?: ResourceListParams): Promise<ResourceListResponse> {
@@ -21,12 +40,18 @@ export const resourceService = {
       const queryString = queryParams.toString();
       const url = `/api/py/resources/${queryString ? `?${queryString}` : ''}`;
       
-      const response = await fetch(url, { redirect: 'follow' });
+      const response = await fetch(url, {
+        headers: getAuthHeaders(),
+      });
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch resources, status: ${response.status}`);
+        if (response.status === 401 || response.status === 403) {
+          console.warn("Authentication required for resources endpoint");
+          return { items: [], total: 0 };
+        }
+        throw new Error(`Failed to fetch resources: ${response.statusText}`);
       }
-
+      
       const data = await response.json();
       return {
         items: data.items,
@@ -40,11 +65,19 @@ export const resourceService = {
 
   // get single resource
   async getResource(id: number): Promise<Resource> {
-    const response = await fetch(`/api/py/resources/${id}/`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch resource with id ${id}`);
+    try {
+      const response = await fetch(`/api/py/resources/${id}/`, {
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch resource with id ${id}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error(`Error fetching resource ${id}:`, error);
+      throw error;
     }
-    return response.json();
   },
 
   // create resource
@@ -58,6 +91,7 @@ export const resourceService = {
     return await fetch('/api/py/resources/create/', {
       method: 'POST',
       body: formData,
+      headers: getAuthHeaders(),
     });
   },
 
@@ -71,6 +105,7 @@ export const resourceService = {
     return await fetch(`/api/py/resources/${id}/`, {
       method: 'PATCH',
       body: formData,
+      headers: getAuthHeaders(),
     });
   },
 
@@ -78,13 +113,16 @@ export const resourceService = {
   async deleteResource(id: number): Promise<Response> {
     return await fetch(`/api/py/resources/${id}/`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     });
   },
 
   // get resource download URL
   async getResourceUrl(id: number): Promise<string> {
     try {
-      const response = await fetch(`/api/py/resources/${id}/download/`);
+      const response = await fetch(`/api/py/resources/${id}/download/`, {
+        headers: getAuthHeaders(),
+      });
       
       if (!response.ok) {
         throw new Error(`Failed to get download URL for resource ${id}`);
@@ -104,8 +142,11 @@ export const resourceService = {
     }
   },
 
+  // download resource directly
   async downloadResource(id: number): Promise<Response> {
-    const response = await fetch(`/api/py/resources/${id}/download-file`);
+    const response = await fetch(`/api/py/resources/${id}/download-file/`, {
+      headers: getAuthHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to download resource ${id}`);
     }
@@ -116,8 +157,8 @@ export const resourceService = {
   async reviewResource(id: number, data: ResourceReviewData): Promise<Response> {
     return await fetch(`/api/py/resources/${id}/review/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+      headers: getAuthHeaders(),
     });
   },
 
@@ -125,6 +166,7 @@ export const resourceService = {
   async deactivateResource(id: number): Promise<Response> {
     return await fetch(`/api/py/resources/${id}/deactivate/`, {
       method: 'POST',
+      headers: getAuthHeaders(),
     });
   },
 
@@ -132,16 +174,59 @@ export const resourceService = {
   async reactivateResource(id: number): Promise<Response> {
     return await fetch(`/api/py/resources/${id}/reactivate/`, {
       method: 'POST',
+      headers: getAuthHeaders(),
     });
+  },
+
+  // get user upload history
+  async getUserUploads(limit: number = 10, offset: number = 0): Promise<ResourceListResponse> {
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.append('limit', limit.toString());
+      queryParams.append('offset', offset.toString());
+      
+      const response = await fetch(`/api/py/resources/history/uploads?${queryParams.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch upload history');
+      }
+      
+      const data = await response.json();
+      return {
+        items: data.items,
+        total: data.total
+      };
+    } catch (error) {
+      console.error("Error fetching upload history:", error);
+      return { items: [], total: 0 };
+    }
   },
 
   // get current user's resource actions
   async getResourceActions(): Promise<ResourceActions> {
     try {
       console.log("Fetching resource actions...");
-      const response = await fetch('/api/py/resources/actions/');
+      
+      const response = await fetch('/api/py/resources/actions', {
+        headers: getAuthHeaders(),
+      });
       
       console.log("Actions response status:", response.status);
+      
+      if (response.status === 401 || response.status === 403)  {
+        console.warn("Authentication required for actions endpoint");
+        return {
+          can_upload: false,
+          can_download: false,
+          can_update: false,
+          can_delete: false,
+          can_review: false,
+          can_manage_status: false,
+          can_see_all_statuses: false
+        };
+      }
       
       if (response.status === 422) {
         console.warn("Authentication issue with actions endpoint (422), using default permissions");
@@ -156,9 +241,10 @@ export const resourceService = {
           can_upload: true,
           can_download: true,
           can_update: true,
-          can_delete: true,
-          can_review: true,
-          can_manage_status: true
+          can_delete: false,
+          can_review: false,
+          can_manage_status: false,
+          can_see_all_statuses: false
         };
       }
       
@@ -178,7 +264,8 @@ export const resourceService = {
         can_update: true,
         can_delete: true,
         can_review: true,
-        can_manage_status: true
+        can_manage_status: true,
+        can_see_all_statuses: false
       };
     }
   }
