@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/app/hooks/useAuth';
-import { UserProfile } from '@/app/components/user/UserProfile';
+import { UserProfile } from '@/app/(user)/profile/components/UserProfile';
 import {
   Card,
   CardContent,

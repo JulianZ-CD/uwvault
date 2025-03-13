@@ -9,11 +9,12 @@ from api.tests.factories import (
 
 
 @pytest.mark.e2e
-def test_auth_flow(test_client):
+def test_auth_flow(test_client, cleanup_users):
     """Test complete authentication flow"""
     try:
         # 1. Register new user
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
         register_response = test_client.post(
             "/api/py/auth/register", json=user_data)
 
@@ -117,11 +118,14 @@ def test_auth_error_cases(test_client):
 
 
 @pytest.mark.e2e
-def test_admin_operations(test_client, admin_token):
+def test_admin_operations(test_client, admin_token, cleanup_users):
     """Test admin operations flow"""
     try:
+        cleanup_users.append(admin_token["email"])  # 添加admin邮箱到清理列表
+
         # 1. Create normal user
         user_data = UserCreateFactory().model_dump(mode='json')
+        cleanup_users.append(user_data["email"])
         register_response = test_client.post(
             "/api/py/auth/register", json=user_data)
 
@@ -134,7 +138,8 @@ def test_admin_operations(test_client, admin_token):
         # 2. List all users as admin
         users_response = test_client.get(
             "/api/py/auth/admin/users",
-            headers={"Authorization": f"Bearer {admin_token}"}
+            # 使用token字段
+            headers={"Authorization": f"Bearer {admin_token['token']}"}
         )
         assert users_response.status_code == status.HTTP_200_OK
         users = users_response.json()
@@ -144,14 +149,16 @@ def test_admin_operations(test_client, admin_token):
         role_response = test_client.put(
             f"/api/py/auth/admin/users/{user_id}/role",
             json={"role": "admin"},
-            headers={"Authorization": f"Bearer {admin_token}"}
+            # 使用token字段
+            headers={"Authorization": f"Bearer {admin_token['token']}"}
         )
         assert role_response.status_code == status.HTTP_200_OK
 
         # Verify the role change
         users_response = test_client.get(
             "/api/py/auth/admin/users",
-            headers={"Authorization": f"Bearer {admin_token}"}
+            # 使用token字段
+            headers={"Authorization": f"Bearer {admin_token['token']}"}
         )
         assert users_response.status_code == status.HTTP_200_OK
         users = users_response.json()
@@ -163,7 +170,8 @@ def test_admin_operations(test_client, admin_token):
         # 4. Delete user
         delete_response = test_client.delete(
             f"/api/py/auth/admin/users/{user_id}",
-            headers={"Authorization": f"Bearer {admin_token}"}
+            # 使用token字段
+            headers={"Authorization": f"Bearer {admin_token['token']}"}
         )
         assert delete_response.status_code == status.HTTP_200_OK
 
@@ -202,7 +210,10 @@ async def admin_token(test_client):
         })
         assert login_response.status_code == status.HTTP_200_OK
 
-        return login_response.json()["session"]["access_token"]
+        return {
+            "token": login_response.json()["session"]["access_token"],
+            "email": admin_data["email"]
+        }
 
     except Exception as e:
         pytest.fail(f"Unexpected error occurred in admin_token fixture: {e}")
