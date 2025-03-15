@@ -277,15 +277,7 @@ export function useResource() {
     }
     
     try {
-      // 先尝试获取下载 URL
-      const url = await getResourceUrl(id);
-      if (url) {
-        // 如果获取到 URL，直接使用浏览器下载
-        window.open(url, '_blank');
-        return true;
-      }
-      
-      // 如果获取 URL 失败，尝试直接下载
+      // 直接使用 resourceService.downloadResource 进行下载
       const response = await resourceService.downloadResource(id);
       
       // 处理文件下载
@@ -313,10 +305,10 @@ export function useResource() {
     } catch (err) {
       console.error("Error downloading resource:", err);
       setError(err instanceof Error ? err.message : 'Failed to download resource');
-      showAlert("download failed, please check your permissions or try again later", "error");
+      showAlert("Download failed, please check your permissions or try again later", "error");
       return false;
     }
-  }, [showAlert, getResourceUrl]);
+  }, [showAlert]);
 
   // review resource
   const reviewResource = useCallback(async (id: number, data: ResourceReviewData): Promise<boolean> => {

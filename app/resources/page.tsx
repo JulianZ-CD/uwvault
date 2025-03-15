@@ -9,11 +9,17 @@ import { useResource } from "@/app/hooks/useResource";
 
 export default function ResourceListPage() {
   const router = useRouter();
+  const { actions, fetchActions } = useResource();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   
   useEffect(() => {
-    // Check authentication status
-    const checkAuth = async () => {
+    // 添加调试日志
+    console.log("Authentication status:", isAuthenticated);
+    console.log("Actions object:", actions);
+    console.log("Can upload permission:", actions?.can_upload);
+    
+    // Check authentication status and fetch actions
+    const init = async () => {
       try {
         const response = await fetch('/api/py/resources/actions/', {
           credentials: 'include',
@@ -21,7 +27,16 @@ export default function ResourceListPage() {
             'Content-Type': 'application/json',
           },
         });
-        setIsAuthenticated(response.status !== 401 && response.status !== 403);
+        const isAuth = response.status !== 401 && response.status !== 403;
+        console.log("Auth check response status:", response.status);
+        console.log("Setting isAuthenticated to:", isAuth);
+        setIsAuthenticated(isAuth);
+        
+        // 如果认证成功，获取权限
+        if (isAuth) {
+          const actionsData = await fetchActions();
+          console.log("Fetched actions data:", actionsData);
+        }
       } catch (error) {
         console.error("Error checking auth:", error);
         // 网络错误不应该导致认为用户未登录
@@ -29,8 +44,8 @@ export default function ResourceListPage() {
       }
     };
     
-    checkAuth();
-  }, []);
+    init();
+  }, [fetchActions]);
   
   if (isAuthenticated === null) {
     return (
@@ -47,7 +62,7 @@ export default function ResourceListPage() {
       <div className="container py-8">
         <div className="flex justify-between items-center mb-8 px-6">
           <h1 className="text-3xl font-bold">Resources</h1>
-          {isAuthenticated && (
+          {isAuthenticated && actions?.can_upload && (
             <Button 
               onClick={() => router.push("/resources/upload")}
               className="gap-2"

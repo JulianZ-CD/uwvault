@@ -18,6 +18,7 @@ export function ResourceList() {
   const [viewLoading, setViewLoading] = useState<number | null>(null);
   const [authError, setAuthError] = useState(false);
   const pageSize = 10;
+  const { toast } = useToast();
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -56,14 +57,18 @@ export function ResourceList() {
     try {
       const success = await downloadResource(id);
       if (!success) {
-        console.warn("Download failed but no exception was thrown");
+        toast({
+          variant: "destructive",
+          title: "Download failed",
+          description: "Please check your permissions or try again later",
+        });
       }
     } catch (error) {
       console.error("Error downloading resource:", error);
-      useToast().toast({
+      toast({
         variant: "destructive",
-        title: "download failed",
-        description: "please check your permissions or try again later",
+        title: "Download failed",
+        description: "Please check your permissions or try again later",
       });
     } finally {
       setDownloading(null);
