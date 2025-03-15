@@ -52,7 +52,6 @@ def todo_service(mocker):
     mocker.patch.object(service, 'supabase')
     return service
 
-<<<<<<< HEAD
 TEST_USER = {
     "email": settings.USER_EMAIL,
     "password": settings.USER_PASSWORD
@@ -271,7 +270,6 @@ def require_admin():
             is_admin=True
         )
     return _require_admin
-=======
 
 @pytest.fixture
 async def admin_token(test_client):
@@ -301,4 +299,3 @@ async def cleanup_users(admin_token):
                 print(f"Successfully deleted user: {user['email']}")
             except Exception as e:
                 print(f"Failed to delete test user {user['email']}: {e}")
->>>>>>> main
