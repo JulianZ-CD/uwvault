@@ -65,7 +65,7 @@ export function useResource() {
       // 设置默认权限
       const defaultActions = {
         can_upload: false,
-        can_download: true,
+        can_download: false,
         can_update: false,
         can_delete: false,
         can_review: false,
@@ -98,47 +98,58 @@ export function useResource() {
     }
   }, [user, isAdmin]);
 
-  const fetchResources = useCallback(async (params?: ResourceListParams): Promise<ResourceListResponse> => {
-    if (!user) {
-      console.warn("User not authenticated, skipping resource fetch");
-      return { items: [], total: 0 };
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // 添加重试逻辑
-      let retries = 0;
-      const maxRetries = 2;
+const fetchResources = useCallback(async (params?: ResourceListParams): Promise<ResourceListResponse> => {
+  if (!user) {
+    console.warn("User not authenticated, skipping resource fetch");
+    return { items: [], total: 0 };
+  }
+  
+  setIsLoading(true);
+  setError(null);
+  
+  try {
+    // 添加更智能的重试逻辑
+    let retries = 0;
+    const maxRetries = 2;
+    let lastError: any = null;
 
-      while (retries < maxRetries) {
-        try { 
-          const result = await resourceService.getAllResources(params);
-          setResources(result.items);
-          setTotalItems(result.total);
-          return result;
-        } catch (err) {
-          retries++;
-          console.log(`try to fetch resources for the ${retries} time`);
-          
-          if (retries >= maxRetries) {
-            throw err;
-          }
-          // 否则等待一段时间后重试
-          await new Promise(resolve => setTimeout(resolve, 500));
+    while (retries <= maxRetries) {
+      try { 
+        const result = await resourceService.getAllResources(params);
+        setResources(result.items);
+        setTotalItems(result.total);
+        return result;
+      } catch (err: any) {
+        lastError = err;
+        
+        // 对401/403错误不重试，直接抛出
+        if (err.status === 401 || err.status === 403) {
+          console.error("Authentication error, not retrying:", err);
+          break;
         }
+        
+        retries++;
+        console.log(`Trying to fetch resources (Attempt ${retries}/${maxRetries})`);
+        
+        if (retries > maxRetries) {
+          break;
+        }
+        
+        // 增加指数退避重试延迟
+        const delay = Math.min(1000 * Math.pow(2, retries - 1), 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      return { items: [], total: 0 };
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      setError(error.message);
-      throw error;
-    } finally {
-      setIsLoading(false);
     }
-  }, [user]);
+
+    throw lastError || new Error("Failed to fetch resources after retries");
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    setError(error.message);
+    throw error;
+  } finally {
+    setIsLoading(false);
+  }
+}, [user]);
 
   // 初始化时获取权限
   useEffect(() => {

@@ -6,48 +6,39 @@ import { Button } from "@/app/components/ui/button";
 import { Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useResource } from "@/app/hooks/useResource";
+import { useAuth } from "@/app/hooks/useAuth"; // 使用统一的auth hook
 
 export default function ResourceListPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth(); // 使用统一的auth hook
   const { actions, fetchActions } = useResource();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [initializing, setInitializing] = useState(true);
   
   useEffect(() => {
-    // 添加调试日志
-    console.log("Authentication status:", isAuthenticated);
-    console.log("Actions object:", actions);
-    console.log("Can upload permission:", actions?.can_upload);
-    
-    // Check authentication status and fetch actions
+    // 统一认证状态检查
     const init = async () => {
-      try {
-        const response = await fetch('/api/py/resources/actions/', {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        const isAuth = response.status !== 401 && response.status !== 403;
-        console.log("Auth check response status:", response.status);
-        console.log("Setting isAuthenticated to:", isAuth);
-        setIsAuthenticated(isAuth);
-        
-        // 如果认证成功，获取权限
-        if (isAuth) {
-          const actionsData = await fetchActions();
-          console.log("Fetched actions data:", actionsData);
-        }
-      } catch (error) {
-        console.error("Error checking auth:", error);
-        // 网络错误不应该导致认为用户未登录
-        setIsAuthenticated(true);
+      if (authLoading) {
+        // 等待认证状态加载
+        return;
       }
+      
+      if (user) {
+        // 用户已登录，获取权限
+        try {
+          await fetchActions();
+        } catch (error) {
+          console.error("Error fetching actions:", error);
+        }
+      }
+      
+      setInitializing(false);
     };
     
     init();
-  }, [fetchActions]);
+  }, [authLoading, user, fetchActions]);
   
-  if (isAuthenticated === null) {
+  // 显示加载状态
+  if (authLoading || initializing) {
     return (
       <main className="min-h-screen">
         <div className="container py-8 flex justify-center items-center">
@@ -62,7 +53,7 @@ export default function ResourceListPage() {
       <div className="container py-8">
         <div className="flex justify-between items-center mb-8 px-6">
           <h1 className="text-3xl font-bold">Resources</h1>
-          {isAuthenticated && actions?.can_upload && (
+          {user && actions?.can_upload && (
             <Button 
               onClick={() => router.push("/resources/upload")}
               className="gap-2"
@@ -77,4 +68,4 @@ export default function ResourceListPage() {
       </div>
     </main>
   );
-} 
+}

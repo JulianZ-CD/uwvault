@@ -11,7 +11,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { useToast } from "@/app/hooks/use-toast";
 
 export function ResourceList() {
-  const { user, isLoading: authLoading } = useAuth(); // 添加这一行
+  const { user, isLoading: authLoading } = useAuth();
   const { resources, totalItems, isLoading, fetchResources, getResourceUrl, downloadResource } = useResource();
   const [page, setPage] = useState(1);
   const [downloading, setDownloading] = useState<number | null>(null);
@@ -19,38 +19,54 @@ export function ResourceList() {
   const [authError, setAuthError] = useState(false);
   const pageSize = 10;
   const { toast } = useToast();
+  const [resourcesFetched, setResourcesFetched] = useState(false);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
   };
 
+  // 当认证状态改变时，重置状态
   useEffect(() => {
-    if (authLoading) {
-      console.log("waiting for authentication...");
-      return;
-    }
-
-    // 先检查认证状态
-    if (!user) {
-      console.log("waiting for authentication...");
+    if (!authLoading && !user) {
       setAuthError(true);
+    } else {
+      setAuthError(false);
+    }
+  }, [user, authLoading]);
+
+  // 分离资源获取逻辑
+  useEffect(() => {
+    // 仅在认证完成且用户已登录的情况下获取资源
+    if (authLoading || !user) {
       return;
     }
 
-    // 用户已登录，获取资源
-    console.log("user is logged in, fetching resources...");
-    const timer = setTimeout(() => {
-      fetchResources({ limit: pageSize, offset: (page - 1) * pageSize })
-        .catch(error => {
-          console.error("Error fetching resources:", error);
-          if (error.status === 401 || error.status === 403) {
-            setAuthError(true);
-          }
-        });
-    }, 300);
+    // 避免重复获取资源
+    if (resourcesFetched && resources.length > 0) {
+      return;
+    }
+    
+    console.log("User is logged in, fetching resources...");
+    setResourcesFetched(true);
+    
+    fetchResources({ limit: pageSize, offset: (page - 1) * pageSize })
+      .catch(error => {
+        console.error("Error fetching resources:", error);
+        if (error.status === 401 || error.status === 403) {
+          setAuthError(true);
+        }
+      });
+  }, [user, authLoading, page, resourcesFetched, fetchResources, pageSize, resources.length]);
 
-    return () => clearTimeout(timer);
-  }, [fetchResources, page, pageSize, user, authLoading]);
+  // 当页码变化时获取新资源
+  useEffect(() => {
+    if (!user || authLoading) return;
+    
+    fetchResources({ limit: pageSize, offset: (page - 1) * pageSize })
+      .catch(error => {
+        console.error("Error fetching resources after page change:", error);
+      });
+  }, [page]);
 
   const handleDownload = async (id: number) => {
     setDownloading(id);
@@ -106,7 +122,7 @@ export function ResourceList() {
     );
   }
 
-  if (isLoading && !resources.length) {
+  if (isLoading || (authLoading && !resources.length)) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
