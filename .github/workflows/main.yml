@@ -10,13 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Setup GCP
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
-
       # Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
