@@ -8,7 +8,7 @@ import { Input } from '@/app/components/ui/input';
 import { useToast } from '@/app/hooks/use-toast';
 import { Label } from '@/app/components/ui/label';
 import { useAuth } from '@/app/hooks/useAuth';
-import { useUser } from '@/app/components/user/UserProvider';
+import { useUser } from '@/app/(user)/profile/components/UserProvider';
 import { UserProfileProps } from '@/app/types/user';
 
 export function UserProfile({ user }: UserProfileProps) {
