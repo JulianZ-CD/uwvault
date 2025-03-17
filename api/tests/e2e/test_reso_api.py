@@ -434,3 +434,198 @@ class TestResourceErrorHandling(BaseResourceTest):
         except Exception as e:
             test_logger.error(f"Test failed: {str(e)}")
             raise
+
+@pytest.mark.e2e
+class TestResourceRatingAPI(BaseResourceTest):
+    """资源评分API测试"""
+    
+    async def test_resource_rating_operations(self, test_client, regular_user_headers, admin_user_headers):
+        """测试资源评分操作"""
+        try:
+            admin_headers, admin_id = admin_user_headers
+            user_headers, user_id = regular_user_headers
+            
+            # 1. 获取已有的资源列表
+            list_response = test_client.get(
+                f"{RESOURCES_PATH}/",
+                headers=admin_headers
+            )
+            assert list_response.status_code == status.HTTP_200_OK
+            
+            resources = list_response.json()["items"]
+            assert len(resources) > 0, "need at least one existing resource for testing"
+            
+            # 选择第一个已批准的资源进行评分
+            approved_resources = [r for r in resources if r["status"] == ResourceStatus.APPROVED.value]
+            assert len(approved_resources) > 0, "need at least one approved resource for testing"
+            
+            resource_id = approved_resources[0]["id"]
+            
+            # 2. 用户对资源进行评分
+            rating_data = {"rating": 4.5}
+            rate_response = test_client.post(
+                f"{RESOURCES_PATH}/{resource_id}/rating",
+                json=rating_data,
+                headers=user_headers
+            )
+            
+            assert rate_response.status_code == status.HTTP_200_OK
+            rating_result = rate_response.json()
+            
+            # 修改这里：检查user_rating字段而不是rating字段
+            assert "user_rating" in rating_result
+            assert rating_result["user_rating"] == 4.5
+            assert "average_rating" in rating_result
+            assert "rating_count" in rating_result
+            
+            # 3. 获取用户评分
+            get_rating_response = test_client.get(
+                f"{RESOURCES_PATH}/{resource_id}/rating",
+                headers=user_headers
+            )
+            
+            assert get_rating_response.status_code == status.HTTP_200_OK
+            user_rating = get_rating_response.json()
+            
+            # 这里也需要修改：检查user_rating字段
+            assert "user_rating" in user_rating
+            assert user_rating["user_rating"] == 4.5
+            
+            # 4. 更新用户评分
+            update_rating = {"rating": 3.5}
+            update_response = test_client.post(
+                f"{RESOURCES_PATH}/{resource_id}/rating",
+                json=update_rating,
+                headers=user_headers
+            )
+            
+            assert update_response.status_code == status.HTTP_200_OK
+            updated_rating = update_response.json()
+            
+            # 这里也需要修改：检查user_rating字段
+            assert "user_rating" in updated_rating
+            assert updated_rating["user_rating"] == 3.5
+            
+            # 5. 验证资源详情中包含评分信息
+            get_resource_response = test_client.get(
+                f"{RESOURCES_PATH}/{resource_id}",
+                headers=user_headers
+            )
+            
+            assert get_resource_response.status_code == status.HTTP_200_OK
+            resource_data = get_resource_response.json()
+            assert "average_rating" in resource_data
+            assert "rating_count" in resource_data
+            assert resource_data["rating_count"] >= 1
+            
+        except Exception as e:
+            test_logger.error(f"Test failed: {str(e)}")
+            raise
+    
+    async def test_rating_validation(self, test_client, regular_user_headers, admin_user_headers):
+        """测试评分验证"""
+        try:
+            user_headers, user_id = regular_user_headers
+            
+            # 1. 获取已有的资源列表
+            list_response = test_client.get(
+                f"{RESOURCES_PATH}/",
+                headers=admin_user_headers[0]  # 使用管理员权限获取所有资源
+            )
+            
+            resources = list_response.json()["items"]
+            assert len(resources) > 0, "need at least one existing resource for testing"
+            
+            # 选择第一个已批准的资源进行评分
+            approved_resources = [r for r in resources if r["status"] == ResourceStatus.APPROVED.value]
+            assert len(approved_resources) > 0, "need at least one approved resource for testing"
+            
+            resource_id = approved_resources[0]["id"]
+            
+            # 2. 测试无效评分值 - 低于最小值
+            invalid_low_response = test_client.post(
+                f"{RESOURCES_PATH}/{resource_id}/rating",
+                json={"rating": 0.5},  # 低于最小值1.0
+                headers=user_headers
+            )
+            
+            assert invalid_low_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+            
+            # 3. 测试无效评分值 - 高于最大值
+            invalid_high_response = test_client.post(
+                f"{RESOURCES_PATH}/{resource_id}/rating",
+                json={"rating": 5.5},  # 高于最大值5.0
+                headers=user_headers
+            )
+            
+            assert invalid_high_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+            
+            # 4. 测试对不存在的资源进行评分
+            nonexistent_response = test_client.post(
+                f"{RESOURCES_PATH}/99999/rating",
+                json={"rating": 4.0},
+                headers=user_headers
+            )
+            
+            assert nonexistent_response.status_code == status.HTTP_404_NOT_FOUND
+            
+        except Exception as e:
+            test_logger.error(f"Test failed: {str(e)}")
+            raise
+    
+    async def test_multiple_user_ratings(self, test_client, regular_user_headers, admin_user_headers):
+        """测试多用户评分"""
+        try:
+            admin_headers, admin_id = admin_user_headers
+            user_headers, user_id = regular_user_headers
+            
+            # 1. 获取已有的资源列表
+            list_response = test_client.get(
+                f"{RESOURCES_PATH}/",
+                headers=admin_headers
+            )
+            
+            resources = list_response.json()["items"]
+            assert len(resources) > 0, "need at least one existing resource for testing"
+            
+            # 选择第一个已批准的资源进行评分
+            approved_resources = [r for r in resources if r["status"] == ResourceStatus.APPROVED.value]
+            assert len(approved_resources) > 0, "need at least one approved resource for testing"
+            
+            resource_id = approved_resources[0]["id"]
+            
+            # 2. 管理员用户评分
+            admin_rate_response = test_client.post(
+                f"{RESOURCES_PATH}/{resource_id}/rating",
+                json={"rating": 5.0},
+                headers=admin_headers
+            )
+            
+            assert admin_rate_response.status_code == status.HTTP_200_OK
+            
+            # 3. 普通用户评分
+            user_rate_response = test_client.post(
+                f"{RESOURCES_PATH}/{resource_id}/rating",
+                json={"rating": 4.0},
+                headers=user_headers
+            )
+            
+            assert user_rate_response.status_code == status.HTTP_200_OK
+            
+            # 4. 验证资源评分统计
+            get_resource_response = test_client.get(
+                f"{RESOURCES_PATH}/{resource_id}",
+                headers=user_headers
+            )
+            
+            assert get_resource_response.status_code == status.HTTP_200_OK
+            resource_data = get_resource_response.json()
+            
+            # 验证评分计数和平均分
+            assert resource_data["rating_count"] >= 2
+            # 不能精确断言平均分，因为可能有其他用户也对此资源进行了评分
+            assert "average_rating" in resource_data
+            
+        except Exception as e:
+            test_logger.error(f"Test failed: {str(e)}")
+            raise

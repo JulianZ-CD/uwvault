@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     # Test User Credentials
     USER_EMAIL: str
     USER_PASSWORD: str
+    
+    # Admin User Credentials
+    ADMIN_EMAIL: str
+    ADMIN_PASSWORD: str
+    
+    # Testing flag
+    TESTING: bool = False
 
     model_config = ConfigDict(
         env_file=".env.dev",
