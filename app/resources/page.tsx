@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ResourceList } from "@/app/resources/components/ResourceList";
 import { Button } from "@/app/components/ui/button";
 import { Upload } from "lucide-react";
@@ -13,7 +13,8 @@ export default function ResourceListPage() {
   const { user, isLoading: authLoading } = useAuth(); // 使用统一的auth hook
   const { actions, fetchActions } = useResource();
   const [initializing, setInitializing] = useState(true);
-  
+  const pageInitialized = useRef(false);
+
   useEffect(() => {
     // 统一认证状态检查
     const init = async () => {
@@ -22,9 +23,12 @@ export default function ResourceListPage() {
         return;
       }
       
-      if (user) {
-        // 用户已登录，获取权限
+      if (user && !pageInitialized.current) {
+        pageInitialized.current = true; // 标记页面已初始化
+        
+        // 用户已登录，获取权限（仅在首次加载时执行）
         try {
+          console.log("Initializing page and fetching actions...");
           await fetchActions();
         } catch (error) {
           console.error("Error fetching actions:", error);

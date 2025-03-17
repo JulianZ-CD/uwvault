@@ -8,6 +8,11 @@ import {
   ResourceActions
 } from "@/app/types/resource";
 
+
+let cachedActions: ResourceActions | null = null;
+let lastActionsFetchTime = 0;
+const CACHE_TTL = 60000; // 缓存有效期1分钟
+
 // Add to resourceService.ts
 const getAuthHeaders = (): HeadersInit => {
   const headers: HeadersInit = {
@@ -207,6 +212,13 @@ export const resourceService = {
   // get current user's resource actions
   async getResourceActions(): Promise<ResourceActions> {
     try {
+      // 检查缓存是否有效
+      const now = Date.now();
+      if (cachedActions && (now - lastActionsFetchTime < CACHE_TTL)) {
+        console.log("Using cached actions data from service");
+        return cachedActions;
+      }
+
       console.log("Fetching resource actions...");
       
       const response = await fetch('/api/py/resources/actions', {
@@ -255,6 +267,11 @@ export const resourceService = {
       
       const data = await response.json();
       console.log("Actions data received:", data);
+      
+      // 更新缓存
+      cachedActions = data;
+      lastActionsFetchTime = now;
+      
       return data;
     } catch (error) {
       console.error("Error fetching actions:", error);

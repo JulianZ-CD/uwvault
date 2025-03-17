@@ -29,7 +29,7 @@ export function ResourceList() {
   useEffect(() => {
     if (!authLoading && !user) {
       setAuthError(true);
-    } else {
+    } else if (user) {
       setAuthError(false);
     }
   }, [user, authLoading]);
@@ -42,7 +42,7 @@ export function ResourceList() {
     }
 
     // 避免重复获取资源
-    if (resourcesFetched && resources.length > 0) {
+    if (resourcesFetched) {
       return;
     }
     
@@ -56,17 +56,18 @@ export function ResourceList() {
           setAuthError(true);
         }
       });
-  }, [user, authLoading, page, resourcesFetched, fetchResources, pageSize, resources.length]);
+  }, [user, authLoading, fetchResources, pageSize, page, resourcesFetched]);
 
   // 当页码变化时获取新资源
   useEffect(() => {
-    if (!user || authLoading) return;
-    
+    if (!user || authLoading || !resourcesFetched) return;
+
+    console.log(`Fetching resources for page ${page}...`);
     fetchResources({ limit: pageSize, offset: (page - 1) * pageSize })
       .catch(error => {
         console.error("Error fetching resources after page change:", error);
       });
-  }, [page]);
+  }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize]);
 
   const handleDownload = async (id: number) => {
     setDownloading(id);

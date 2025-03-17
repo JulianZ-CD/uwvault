@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 import { 
   Resource, 
@@ -16,6 +16,7 @@ import { useToast } from "@/app/hooks/use-toast";
 const isServer = typeof window === 'undefined';
 
 export function useResource() {
+  const actionsLoaded = useRef(false);
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
@@ -60,6 +61,12 @@ export function useResource() {
   }, [user]);
 
   const fetchActions = useCallback(async () => {
+    // 如果actions已经加载过且用户存在，则直接返回
+    if (actionsLoaded.current && user) {
+      console.log("Using cached actions data");
+      return actions;
+    }
+
     if (!user) {
       console.warn("User not authenticated, using default permissions");
       // 设置默认权限
@@ -96,7 +103,7 @@ export function useResource() {
       setActions(defaultActions);
       return defaultActions;
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, actions]);
 
 const fetchResources = useCallback(async (params?: ResourceListParams): Promise<ResourceListResponse> => {
   if (!user) {
@@ -153,7 +160,7 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
 
   // 初始化时获取权限
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && !actionsLoaded.current) {
       fetchActions();
     }
   }, [user, authLoading, fetchActions]);
