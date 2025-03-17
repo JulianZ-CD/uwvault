@@ -3,7 +3,8 @@ from typing import Optional, Dict, List, Tuple, BinaryIO, Union
 from fastapi import UploadFile
 from api.models.resource import (
     ResourceCreate, ResourceUpdate, ResourceInDB, 
-    ResourceStatus, ResourceReview, StorageStatus, StorageOperation
+    ResourceStatus, ResourceReview, StorageStatus, StorageOperation,
+    ResourceRating, ResourceRatingCreate
 )
 from api.core.exceptions import (
     NotFoundError, ValidationError, StorageError, StorageConnectionError, StorageOperationError
@@ -36,12 +37,13 @@ class ResourceType(Enum):
     RESOURCE_FILE = "resource-files"
 
 class ResourceService:
-    def __init__(self, supabase_client: Optional[Client] = None, table_name: str = 'resources'):
+    def __init__(self, supabase_client: Optional[Client] = None, table_name: str = 'resources', ratings_table: str = 'resource_ratings'):
         """
         Initialize resource service
         Args:
             supabase_client: Optional Supabase client instance
             table_name: Table name, defaults to 'resources'
+            ratings_table: Ratings table name, defaults to 'resource_ratings'
         """
         settings = get_settings()
         self.supabase = supabase_client or create_client(
@@ -49,6 +51,7 @@ class ResourceService:
             settings.SUPABASE_KEY
         )
         self.table_name = table_name
+        self.ratings_table = ratings_table
         self.logger = setup_logger("resource_service", "resource_service.log")
         self.MAX_ERROR_LENGTH = 500
         
@@ -635,4 +638,174 @@ class ResourceService:
         except Exception as e:
             self.logger.error(f"Error while getting resource list: {str(e)}")
             # 返回空列表而不是抛出异常
-            return [], 0 
+            return [], 0
+
+    async def rate_resource(self, resource_id: int, user_id: str, rating_data: ResourceRatingCreate) -> Dict:
+        """对资源进行评分或更新评分
+        
+        Args:
+            resource_id: 资源ID
+            user_id: 用户ID
+            rating_data: 评分数据
+            
+        Returns:
+            包含评分信息的字典
+        """
+        try:
+            self.logger.info(f"Rating resource {resource_id} by user {user_id} with rating {rating_data.rating}")
+            
+            # 1. 验证资源存在且状态为 APPROVED
+            resource = await self.get_resource_by_id(resource_id)
+            if resource.status != ResourceStatus.APPROVED:
+                raise ValidationError("only approved resources can be rated")
+                
+            # 2. 检查用户是否已评分
+            existing_rating = await self._get_user_rating(resource_id, user_id)
+            current_time = datetime.now().isoformat()
+            
+            if existing_rating:
+                # 更新现有评分
+                rating_update = {
+                    "rating": rating_data.rating,
+                    "updated_at": current_time
+                }
+                
+                response = self.supabase.table(self.ratings_table).update(
+                    rating_update
+                ).eq("resource_id", resource_id).eq("user_id", user_id).execute()
+                
+                if not response.data:
+                    raise Exception("Failed to update rating")
+                    
+                self.logger.info(f"Updated rating for resource {resource_id} by user {user_id}")
+            else:
+                # 创建新评分
+                new_rating = {
+                    "resource_id": resource_id,
+                    "user_id": user_id,
+                    "rating": rating_data.rating,
+                    "created_at": current_time,
+                    "updated_at": current_time
+                }
+                
+                response = self.supabase.table(self.ratings_table).insert(new_rating).execute()
+                
+                if not response.data:
+                    raise Exception("Failed to create rating")
+                    
+                self.logger.info(f"Created new rating for resource {resource_id} by user {user_id}")
+            
+            # 3. 更新资源的评分统计
+            await self._update_resource_rating_stats(resource_id)
+            
+            # 4. 获取更新后的评分统计
+            updated_stats = await self._get_resource_rating_stats(resource_id)
+            
+            return {
+                "resource_id": resource_id,
+                "user_rating": rating_data.rating,
+                "average_rating": updated_stats.get("average_rating", 0),
+                "rating_count": updated_stats.get("rating_count", 0)
+            }
+            
+        except NotFoundError:
+            raise
+        except ValidationError:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error rating resource {resource_id}: {str(e)}")
+            raise
+    
+    async def get_user_rating(self, resource_id: int, user_id: str) -> Dict:
+        """获取用户对资源的评分
+        
+        Args:
+            resource_id: 资源ID
+            user_id: 用户ID
+            
+        Returns:
+            包含用户评分信息的字典
+        """
+        try:
+            rating = await self._get_user_rating(resource_id, user_id)
+            stats = await self._get_resource_rating_stats(resource_id)
+            
+            return {
+                "resource_id": resource_id,
+                "user_rating": rating.get("rating", 0) if rating else 0,
+                "average_rating": stats.get("average_rating", 0),
+                "rating_count": stats.get("rating_count", 0)
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting user rating for resource {resource_id}: {str(e)}")
+            return {
+                "resource_id": resource_id,
+                "user_rating": 0,
+                "average_rating": 0,
+                "rating_count": 0
+            }
+    
+    # 私有辅助方法
+    async def _get_user_rating(self, resource_id: int, user_id: str) -> Optional[Dict]:
+        """获取用户对资源的评分记录"""
+        try:
+            response = self.supabase.table(self.ratings_table).select(
+                "*"
+            ).eq("resource_id", resource_id).eq("user_id", user_id).execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting user rating: {str(e)}")
+            return None
+    
+    async def _get_resource_rating_stats(self, resource_id: int) -> Dict:
+        """获取资源的评分统计"""
+        try:
+            response = self.supabase.table(self.table_name).select(
+                "average_rating, rating_count"
+            ).eq("id", resource_id).execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return {"average_rating": 0, "rating_count": 0}
+        except Exception as e:
+            self.logger.error(f"Error getting resource rating stats: {str(e)}")
+            return {"average_rating": 0, "rating_count": 0}
+    
+    async def _update_resource_rating_stats(self, resource_id: int) -> None:
+        """更新资源的评分统计"""
+        try:
+            # 获取所有评分
+            response = self.supabase.table(self.ratings_table).select(
+                "rating"
+            ).eq("resource_id", resource_id).execute()
+            
+            if not response.data:
+                # 没有评分，设置为默认值
+                update_data = {
+                    "average_rating": 0,
+                    "rating_count": 0,
+                    "updated_at": datetime.now().isoformat()
+                }
+            else:
+                # 计算平均分和评分数
+                ratings = [item.get("rating", 0) for item in response.data]
+                average = sum(ratings) / len(ratings) if ratings else 0
+                
+                update_data = {
+                    "average_rating": round(average, 1),  # 保留一位小数
+                    "rating_count": len(ratings),
+                    "updated_at": datetime.now().isoformat()
+                }
+            
+            # 更新资源记录
+            self.supabase.table(self.table_name).update(
+                update_data
+            ).eq("id", resource_id).execute()
+            
+            self.logger.info(f"Updated rating stats for resource {resource_id}")
+        except Exception as e:
+            self.logger.error(f"Error updating resource rating stats: {str(e)}")
+            raise 

@@ -90,6 +90,26 @@ class ResourceSyncOperation(BaseModel):
     retry_count: int = Field(default=0)
 
 
+class ResourceRating(BaseModel):
+    """user rating for resource"""
+    resource_id: int = Field(..., description="resource ID")
+    user_id: str = Field(..., description="user ID")
+    rating: float = Field(..., ge=1.0, le=5.0, description="rating value 1-5")
+    created_at: datetime = Field(default_factory=datetime.now, description="created timestamp")
+    updated_at: datetime = Field(default_factory=datetime.now, description="updated timestamp")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        table_name="resource_ratings",
+        schema_name="public"
+    )
+
+
+class ResourceRatingCreate(BaseModel):
+    """create rating request model"""
+    rating: float = Field(..., ge=1.0, le=5.0, description="rating value 1-5")
+
+
 class ResourceInDB(ResourceBase):
     """database resource model"""
     id: int = Field(..., description="Resource ID")
@@ -120,6 +140,8 @@ class ResourceInDB(ResourceBase):
     storage_path: Optional[str] = Field(None, description="Storage path in cloud storage")
     mime_type: Optional[str] = Field(None, description="MIME type of the file")
     file_hash: Optional[str] = Field(None, description="File content hash")
+    average_rating: float = Field(default=0.0, ge=0.0, le=5.0, description="average rating")
+    rating_count: int = Field(default=0, ge=0, description="rating count")
 
     model_config = ConfigDict(
         from_attributes=True,
