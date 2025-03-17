@@ -135,6 +135,35 @@ class ResourceService:
             
         return sha256_hash.hexdigest()
 
+    async def _filter_query(self, table_name, conditions, limit=None, offset=None, order_by=None, order_desc=True):
+        """通用查询方法，使用基础select和Python过滤"""
+        try:
+            query = self.supabase.table(table_name).select("*")
+            response = query.execute()
+            
+            if not response.data:
+                return []
+                
+            # 在Python中进行过滤
+            filtered_data = response.data
+            for field, value in conditions.items():
+                filtered_data = [item for item in filtered_data if item[field] == value]
+                
+            # 排序
+            if order_by:
+                reverse = order_desc
+                filtered_data = sorted(filtered_data, key=lambda x: x.get(order_by, ''), reverse=reverse)
+                
+            # 分页
+            if limit is not None:
+                start = offset if offset is not None else 0
+                filtered_data = filtered_data[start:start + limit]
+                
+            return filtered_data
+        except Exception as e:
+            self.logger.error(f"Error in filter query: {str(e)}")
+            return []
+
     # Storage related methods
     async def _ensure_storage_initialized(self) -> None:
         """Ensure storage connection is initialized"""
@@ -611,32 +640,35 @@ class ResourceService:
         try:
             self.logger.info(f"Getting resource list: limit={limit}, offset={offset}, include_pending={include_pending}")
             
-            # 基础查询
-            base_query = self.supabase.table(self.table_name)
+            # 使用SQL函数
+            if include_pending:
+                response = self.supabase.rpc('get_all_resources', {
+                    'limit_val': limit, 
+                    'offset_val': offset
+                }).execute()
+                count_response = self.supabase.rpc('count_all_resources').execute()
+            else:
+                response = self.supabase.rpc('get_approved_resources', {
+                    'limit_val': limit, 
+                    'offset_val': offset
+                }).execute()
+                count_response = self.supabase.rpc('count_approved_resources').execute()
             
-            # 如果不包括待审核资源，只显示已批准的资源
-            if not include_pending:
-                base_query = base_query.eq('status', ResourceStatus.APPROVED)
-            
-            # 获取总数
-            count_query = base_query.select("*", count='exact')
-            count_response = count_query.execute()
-            total_count = count_response.count
-
-            # 获取资源列表
-            query = base_query.select("*").order('created_at', desc=True).limit(limit).offset(offset)
-            response = query.execute()
-            
-            # 添加错误处理
+            # 处理结果
             if not response.data:
                 return [], 0
             
             resources = [ResourceInDB(**item) for item in response.data]
-            self.logger.info(f"Successfully retrieved {len(resources)} resources")
+            total_count = count_response.data[0]['count'] if count_response.data else 0
+            
+            self.logger.info(f"Successfully retrieved {len(resources)} resources from {total_count} total")
             
             return resources, total_count
         except Exception as e:
+            import traceback
+            stack_trace = traceback.format_exc()
             self.logger.error(f"Error while getting resource list: {str(e)}")
+            self.logger.error(f"Stack trace: {stack_trace}")
             # 返回空列表而不是抛出异常
             return [], 0
 
