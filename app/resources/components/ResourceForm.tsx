@@ -14,6 +14,13 @@ import { Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Label } from "@/app/components/ui/label";
 import { useWatch } from "react-hook-form";
+import { useAuth } from "@/app/hooks/useAuth";
+
+// 定义API错误类型
+interface ApiError {
+  status?: number;
+  message?: string;
+}
 
 interface ResourceFormProps {
   courseId?: string;
@@ -24,7 +31,8 @@ interface ResourceFormProps {
 }
 
 export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false, initialData }: ResourceFormProps) {
-  const { createResource, isCreating } = useResource();
+  const { createResource, isCreating, actions, fetchActions } = useResource();
+  const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -32,27 +40,31 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
   const [authError, setAuthError] = useState(false);
   
   useEffect(() => {
-    // 检查认证状态
     const checkAuth = async () => {
+      if (authLoading) {
+        return;
+      }
+      
+      if (!user) {
+        setAuthError(true);
+        return;
+      }
+      
       try {
-        const response = await fetch('/api/py/resources/actions/', {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        if (response.status === 401 || response.status === 403) {
+        await fetchActions();
+        setAuthError(false);
+      } catch (error) {
+        console.error("Error fetching actions:", error);
+        // 使用类型断言
+        const apiError = error as ApiError;
+        if (apiError.status === 401 || apiError.status === 403) {
           setAuthError(true);
         }
-      } catch (error) {
-        console.error("Error checking auth:", error);
-        // 网络错误不应该导致认为用户未登录
-        setAuthError(false);
       }
     };
     
     checkAuth();
-  }, []);
+  }, [user, authLoading, fetchActions]);
   
   const form = useForm<ResourceCreateData>({
     defaultValues: {
@@ -83,7 +95,6 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
 
   const clearFile = () => {
     setFile(null);
-    // Reset the file input
     const fileInput = document.getElementById("file-upload") as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
@@ -116,39 +127,36 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
             description: "Resource uploaded successfully",
           });
           
-          form.reset();
-          setFile(null);
-          
           if (onSuccess) {
             onSuccess();
+          } else {
+            router.push("/resources");
           }
         }
       }
     } catch (error) {
-      console.error("Upload failed:", error);
+      console.error("Error uploading resource:", error);
+      // 使用类型断言
+      const apiError = error as ApiError;
       toast({
         variant: "destructive",
         title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload resource",
+        description: apiError.message || "An error occurred while uploading the resource",
       });
     }
   };
 
-  const fileValue = form.watch("file") as unknown as FileList;
-
   if (authError) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Authentication Required</CardTitle>
-        </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center p-4 text-center">
+            <div className="text-destructive text-xl mb-4">Authentication Required</div>
             <p className="text-muted-foreground mb-6">
               You need to be logged in to upload resources. Please sign in to continue.
             </p>
             <Button 
-              onClick={() => window.location.href = '/login'} 
+              onClick={() => router.push('/login')} 
               variant="default"
             >
               Sign In
@@ -164,13 +172,12 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
       <CardHeader>
         <CardTitle>Upload Resource</CardTitle>
       </CardHeader>
-      <CardContent className="pt-6">
+      <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="title"
-              rules={{ required: "Title is required" }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Title</FormLabel>
@@ -190,9 +197,9 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder="Describe this resource (optional)" 
-                      className="resize-none" 
+                      placeholder="Describe the resource" 
                       {...field} 
+                      rows={4}
                     />
                   </FormControl>
                   <FormMessage />
