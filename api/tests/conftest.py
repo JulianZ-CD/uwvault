@@ -16,7 +16,7 @@ from io import BytesIO
 
 import uuid
 from api.services.auth_service import AuthService
-from api.tests.factories import UserCreateFactory, AdminUserCreateFactory
+# from api.tests.factories import UserCreateFactory, AdminUserCreateFactory
 import json
 import jwt
 from datetime import datetime, timedelta
@@ -52,19 +52,22 @@ def todo_service(mocker):
     mocker.patch.object(service, 'supabase')
     return service
 
-TEST_USER = {
-    "email": settings.USER_EMAIL,
-    "password": settings.USER_PASSWORD
-}
+# 定义 MockUser 类放在文件前面
+class MockUser(BaseModel):
+    """Mock user model for testing"""
+    id: int
+    username: str
+    is_admin: bool = False
 
 @pytest.fixture
 async def regular_user_headers(test_client):
     """获取普通用户的认证头"""
     try:
-        # 使用已存在的普通用户账户
+        # 使用环境变量中的普通用户账户
+        settings = get_settings()
         login_response = test_client.post("/api/py/auth/login", json={
-            "email": "ljytest@gmail.com",  # 替换为实际的普通用户邮箱
-            "password": "12345678"   # 替换为实际的普通用户密码
+            "email": settings.USER_EMAIL,  # 使用环境变量
+            "password": settings.USER_PASSWORD  # 使用环境变量
         })
         assert login_response.status_code == status.HTTP_200_OK
         
@@ -80,10 +83,11 @@ async def regular_user_headers(test_client):
 async def admin_user_headers(test_client):
     """获取管理员用户的认证头"""
     try:
-        # 使用已存在的管理员账户
+        # 使用环境变量中的管理员账户
+        settings = get_settings()
         login_response = test_client.post("/api/py/auth/login", json={
-            "email": "ziyuwangca123456@gmail.com",  # 替换为实际的管理员邮箱
-            "password": "12345678"   # 替换为实际的管理员密码
+            "email": settings.ADMIN_EMAIL,  # 使用环境变量
+            "password": settings.ADMIN_PASSWORD  # 使用环境变量
         })
         assert login_response.status_code == status.HTTP_200_OK
         
@@ -110,9 +114,9 @@ async def test_db():
 
 @pytest.fixture
 def resource_service():
-    """create resource service instance for testing"""
+    """Create a real ResourceService"""
     service = ResourceService()
-    service.table_name = 'resources'
+    service.ratings_table = 'resource_ratings'  # 添加评分表名称
     return service
 
 @pytest.fixture
@@ -224,13 +228,6 @@ def mock_gcp_storage(mocker):
         "blob": mock_blob
     }
 
-# Mock User for testing
-class MockUser(BaseModel):
-    """Mock user model for testing"""
-    id: int
-    username: str
-    is_admin: bool = False
-
 @pytest.fixture
 def mock_normal_user():
     """Mock normal user for testing"""
@@ -299,3 +296,26 @@ async def cleanup_users(admin_token):
                 print(f"Successfully deleted user: {user['email']}")
             except Exception as e:
                 print(f"Failed to delete test user {user['email']}: {e}")
+
+@pytest.fixture
+def mock_resource_rating_response():
+    """创建模拟的资源评分响应"""
+    return {
+        "resource_id": 1,
+        "user_id": "test-user",
+        "rating": 4.5,
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat()
+    }
+
+@pytest.fixture
+def mock_resource_with_ratings():
+    """创建带有评分的模拟资源"""
+    return {
+        "id": 1,
+        "title": "Test Resource",
+        "description": "Test Description",
+        "status": "approved",
+        "average_rating": 4.2,
+        "rating_count": 5
+    }

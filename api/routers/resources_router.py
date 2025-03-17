@@ -6,7 +6,8 @@ from fastapi.responses import StreamingResponse
 import httpx
 from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, 
-    ResourceInDB, ResourceReview, ResourceStatus
+    ResourceInDB, ResourceReview, ResourceStatus,
+    ResourceRatingCreate
 )
 from api.services.resource_service import ResourceService
 from api.routers.auth_router import get_auth_service, require_admin, security
@@ -44,10 +45,11 @@ async def get_available_actions(
             "can_upload": True,  # 所有用户都可以上传
             "can_download": True,  # 所有用户都可以下载
             "can_update": True,  # 普通用户只能更新非APPROVED状态的自己的资源
+            "can_rate": True,  # 所有用户都可以评分
             "can_delete": is_admin,  # 只有管理员可以删除
             "can_review": is_admin,  # 只有管理员可以审核
             "can_manage_status": is_admin,  # 只有管理员可以管理状态
-            "can_see_all_statuses": is_admin  # 只有管理员可以看到所有状态
+            "can_see_all_statuses": is_admin,  # 只有管理员可以看到所有状态
         }
         
         return actions
@@ -56,12 +58,13 @@ async def get_available_actions(
         # Return default permissions for unauthenticated users
         return {
             "can_upload": False,
-            "can_download": True,
+            "can_download": False,
             "can_update": False,
             "can_delete": False,
             "can_review": False,
+            "can_rate": False,
             "can_manage_status": False,
-            "can_see_all_statuses": False
+            "can_see_all_statuses": False,
         }
 
 @router.post("/create", response_model=ResourceInDB)
@@ -382,3 +385,52 @@ async def download_resource(
     except Exception as e:
         logger.error(f"Error downloading resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to download resource")
+
+@router.post("/{id}/rating")
+async def rate_resource(
+    id: int,
+    rating_data: ResourceRatingCreate,
+    current_user = Depends(get_current_user)
+):
+    """对资源进行评分
+    
+    Args:
+        id: 资源ID
+        rating_data: 评分数据 (包含1-5的rating字段)
+        current_user: 当前用户
+        
+    Returns:
+        评分结果
+    """
+    try:
+        result = await resource_service.rate_resource(id, current_user.get("id"), rating_data)
+        return result
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error rating resource {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to rate resource")
+
+@router.get("/{id}/rating")
+async def get_user_rating(
+    id: int,
+    current_user = Depends(get_current_user)
+):
+    """获取当前用户对资源的评分
+    
+    Args:
+        id: 资源ID
+        current_user: 当前用户
+        
+    Returns:
+        用户评分信息
+    """
+    try:
+        return await resource_service.get_user_rating(id, current_user.get("id"))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting user rating for resource {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get rating")
