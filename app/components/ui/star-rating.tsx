@@ -2,9 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { Star } from "lucide-react";
+import { Star, StarHalf } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
+import { Button } from "@/app/components/ui/button";
 
 interface StarRatingProps {
   rating: number;
@@ -15,7 +16,22 @@ interface StarRatingProps {
   userRating?: number;
   ratingCount?: number;
   className?: string;
+  buttonMode?: boolean;
+  showOnHover?: boolean;
 }
+
+// 自定义星级计算函数
+const calculateStarFill = (rating: number, position: number): "full" | "half" | "empty" => {
+  const difference = rating - position + 1;
+  
+  if (difference >= 0.75) {
+    return "full";
+  } else if (difference >= 0.25) {
+    return "half";
+  } else {
+    return "empty";
+  }
+};
 
 export function StarRating({
   rating,
@@ -26,56 +42,102 @@ export function StarRating({
   userRating = 0,
   ratingCount = 0,
   className,
+  buttonMode = false,
+  showOnHover = false,
 }: StarRatingProps) {
   const [hoverRating, setHoverRating] = useState(0);
+  const [showStars, setShowStars] = useState(!showOnHover);
 
-  return (
-    <div className={cn("flex items-center gap-1", className)}>
-      <div className="flex">
-        {Array.from({ length: maxRating }).map((_, i) => {
-          const value = i + 1;
-          const filled = readOnly
-            ? value <= Math.round(rating)
-            : value <= (hoverRating || userRating);
+  // 渲染星星
+  const renderStars = () => (
+    <div className="flex">
+      {Array.from({ length: maxRating }).map((_, i) => {
+        const position = i + 1;
+        let fillType: "full" | "half" | "empty";
+        
+        if (readOnly) {
+          fillType = calculateStarFill(rating, position);
+        } else {
+          if (hoverRating > 0) {
+            fillType = position <= hoverRating ? "full" : "empty";
+          } else {
+            fillType = calculateStarFill(userRating, position);
+          }
+        }
 
-          return (
-            <TooltipProvider key={i} delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "p-0.5 focus:outline-none transition-colors",
-                      readOnly ? "cursor-default" : "cursor-pointer"
-                    )}
-                    onClick={() => !readOnly && onRate?.(value)}
-                    onMouseEnter={() => !readOnly && setHoverRating(value)}
-                    onMouseLeave={() => !readOnly && setHoverRating(0)}
-                    disabled={readOnly}
-                  >
+        return (
+          <TooltipProvider key={i} delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "p-0.5 focus:outline-none transition-colors",
+                    readOnly ? "cursor-default" : "cursor-pointer"
+                  )}
+                  onClick={() => !readOnly && onRate?.(position)}
+                  onMouseEnter={() => !readOnly && setHoverRating(position)}
+                  onMouseLeave={() => !readOnly && setHoverRating(0)}
+                  disabled={readOnly}
+                >
+                  {fillType === "full" ? (
                     <Star
                       size={size}
-                      className={cn(
-                        "transition-colors",
-                        filled ? "fill-yellow-400 text-yellow-400" : "fill-none text-muted-foreground"
-                      )}
+                      className="fill-yellow-400 text-yellow-400 transition-colors"
                     />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {readOnly ? `${rating.toFixed(1)} out of ${maxRating}` : `Rate ${value} out of ${maxRating}`}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          );
-        })}
-      </div>
+                  ) : fillType === "half" ? (
+                    <StarHalf
+                      size={size}
+                      className="fill-yellow-400 text-yellow-400 transition-colors"
+                    />
+                  ) : (
+                    <Star
+                      size={size}
+                      className="fill-none text-muted-foreground transition-colors"
+                    />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {readOnly 
+                  ? `${rating.toFixed(1)} out of ${maxRating}` 
+                  : `Rate ${position} out of ${maxRating}`}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      })}
+    </div>
+  );
+
+  // 按钮模式
+  if (buttonMode && !readOnly && !showStars) {
+    return (
+      <Button 
+        variant="outline" 
+        size="sm"
+        className={className}
+        onMouseEnter={() => setShowStars(true)}
+      >
+        Rate
+      </Button>
+    );
+  }
+
+  return (
+    <div 
+      className={cn("flex items-center gap-1", className)}
+      onMouseLeave={() => showOnHover && setShowStars(false)}
+    >
+      {renderStars()}
+      
       {readOnly && ratingCount > 0 && (
         <span className="text-xs text-muted-foreground ml-1">
-          ({ratingCount})
+          ({ratingCount} rated)
         </span>
       )}
-      {!readOnly && userRating > 0 && (
+      
+      {!readOnly && !buttonMode && userRating > 0 && (
         <span className="text-xs text-muted-foreground ml-1">
           (Your rating: {userRating})
         </span>

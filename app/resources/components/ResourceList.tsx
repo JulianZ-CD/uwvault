@@ -185,55 +185,92 @@ export function ResourceList() {
       <div className="grid gap-4">
         {resources.map((resource) => (
           <Card key={resource.id} className="hover:bg-accent/5 transition-colors">
-            <CardHeader className="flex flex-row justify-between items-start space-y-0 pb-2 px-6">
-              <div className="space-y-1.5">
-                <CardTitle className="text-xl">
-                  <span className="text-primary/80">{resource.course_id || 'N/A'}</span>
-                  <span className="mx-2 text-muted-foreground">|</span>
-                  <span>{resource.title}</span>
-                </CardTitle>
-                <p className="text-muted-foreground text-sm pl-[2px]">
-                  {resource.description || "No description provided"}
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 items-end">
-                <ResourceActions 
-                  resourceId={resource.id}
-                  fileType={resource.file_type}
-                />
-                <p className="text-muted-foreground text-xs font-medium">
-                  {new Date(resource.created_at).toLocaleDateString('en-CA', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                  }).replace(/\//g, '-')}
-                </p>
-              </div>
-            </CardHeader>
-            <CardFooter className="px-6 pt-0 pb-4 flex justify-between items-center">
-              <div className="flex items-center gap-4">
+            <CardHeader className="flex flex-row items-start space-y-0 pb-2 px-6">
+              <div className="space-y-1.5 flex-1">
                 <div className="flex items-center">
-                  <StarRating 
-                    rating={resource.average_rating} 
-                    readOnly={true}
-                    ratingCount={resource.rating_count}
-                  />
-                </div>
-                {ratingLoading === resource.id ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Rate:</span>
-                    <StarRating
-                      rating={0}
-                      userRating={userRatings[resource.id]?.user_rating || 0}
-                      onRate={(rating) => handleRate(resource.id, rating)}
-                      size={14}
+                  <CardTitle className="text-xl max-w-[50%]">
+                    <span className="text-primary/80">{resource.course_id || 'N/A'}</span>
+                    <span className="mx-2 text-muted-foreground">|</span>
+                    <span>{resource.title}</span>
+                  </CardTitle>
+                  
+                  <div className="flex-1 flex justify-end pr-8">
+                    <StarRating 
+                      rating={resource.average_rating} 
+                      readOnly={true}
+                      size={20}
+                      ratingCount={resource.rating_count}
                     />
                   </div>
-                )}
+                  
+                  <ResourceActions 
+                    resourceId={resource.id}
+                    fileType={resource.file_type}
+                  />
+                </div>
+                
+                <div className="flex items-center">
+                  <p className="text-muted-foreground text-sm pl-[2px] max-w-[50%]">
+                    {resource.description || "No description provided"}
+                  </p>
+                  
+                  <div className="flex-1 flex justify-end pr-8">
+                    {ratingLoading === resource.id ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
+                    ) : (
+                      userRatings[resource.id]?.user_rating > 0 ? (
+                        <div className="flex items-center">
+                          <span className="text-xs text-muted-foreground mr-2">Your rating:</span>
+                          <StarRating
+                            rating={userRatings[resource.id]?.user_rating || 0}
+                            readOnly={true}
+                            size={16}
+                          />
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <span 
+                            className="text-sm text-primary cursor-pointer hover:underline"
+                            onClick={() => {}}
+                            onMouseEnter={(e) => {
+                              const target = e.currentTarget;
+                              const ratingElement = target.nextElementSibling;
+                              if (ratingElement) {
+                                ratingElement.classList.remove('hidden');
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              const target = e.currentTarget;
+                              const ratingElement = target.nextElementSibling;
+                              if (ratingElement) {
+                                ratingElement.classList.add('hidden');
+                              }
+                            }}
+                          >
+                            Rate
+                          </span>
+                          <div className="rating-hover hidden absolute top-full mt-1 bg-background border rounded p-1 shadow-md z-10">
+                            <StarRating
+                              rating={0}
+                              onRate={(rating) => handleRate(resource.id, rating)}
+                              size={16}
+                            />
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                  
+                  <p className="text-muted-foreground text-xs font-medium">
+                    {new Date(resource.created_at).toLocaleDateString('en-CA', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    }).replace(/\//g, '-')}
+                  </p>
+                </div>
               </div>
-            </CardFooter>
+            </CardHeader>
           </Card>
         ))}
       </div>
