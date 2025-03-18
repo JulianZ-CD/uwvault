@@ -195,14 +195,21 @@ class ResourceService:
         """
         try:
             self.logger.info(f"Getting resource with ID {id}")
-            query = self.supabase.table(self.table_name).select("*").eq('id', id)
+            # query = self.supabase.table(self.table_name).select("*").eq('id', id)
                 
-            response = query.single().execute()
+            # response = query.single().execute()
 
-            if not response.data:
+            # if not response.data:
+            #     raise NotFoundError(f"Resource with id {id} not found")
+
+            # resource = ResourceInDB(**response.data)
+
+            results = await self._filter_query(self.table_name, {"id": id})
+            if not results:
                 raise NotFoundError(f"Resource with id {id} not found")
+                
+            resource = ResourceInDB(**results[0])
 
-            resource = ResourceInDB(**response.data)
             self.logger.info(f"Successfully fetched resource with id: {id}")
             return resource
         except Exception as e:
@@ -332,20 +339,36 @@ class ResourceService:
     async def get_user_uploads(self, user_id: str, limit: int = 10, offset: int = 0):
         """Get resources uploaded by a specific user"""
         try:
-            base_query = self.supabase.table(self.table_name).eq("created_by", user_id)
+            self.logger.info(f"Getting uploads for user {user_id}: limit={limit}, offset={offset}")
             
-            # 获取总数
-            count_response = base_query.select("*", count='exact').execute()
-            total_count = count_response.count
+            # 使用SQL函数
+            response = self.supabase.rpc('get_user_uploads', {
+                'user_id': user_id,
+                'limit_val': limit, 
+                'offset_val': offset
+            }).execute()
             
-            # 获取资源列表
-            response = base_query.select("*").order('created_at', desc=True).limit(limit).offset(offset).execute()
+            count_response = self.supabase.rpc('count_user_uploads', {
+                'user_id': user_id
+            }).execute()
+            
+            # 处理结果
+            if not response.data:
+                return [], 0
+            
             resources = [ResourceInDB(**item) for item in response.data]
+            total_count = count_response.data[0]['count'] if count_response.data else 0
+            
+            self.logger.info(f"Successfully retrieved {len(resources)} resources from {total_count} total")
             
             return resources, total_count
         except Exception as e:
+            import traceback
+            stack_trace = traceback.format_exc()
             self.logger.error(f"Error getting user uploads: {str(e)}")
-            raise
+            self.logger.error(f"Stack trace: {stack_trace}")
+            # 返回空列表而不是抛出异常
+            return [], 0
 
     async def verify_resource_sync(self, resource_id: int) -> dict:
         """Verify resource synchronization status"""
