@@ -90,6 +90,12 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
       }
       
       setFile(selectedFile);
+
+      console.log("File selected:", {
+        name: selectedFile.name,
+        type: selectedFile.type,
+        size: selectedFile.size
+      }); 
     }
   };
 

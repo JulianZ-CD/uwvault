@@ -14,18 +14,21 @@ let lastActionsFetchTime = 0;
 const CACHE_TTL = 60000; // 缓存有效期1分钟
 
 // Add to resourceService.ts
-const getAuthHeaders = (): HeadersInit => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+const getAuthHeaders = (isFileUpload = false): HeadersInit => {
+  const headers: HeadersInit = {};
+  
+  // 只有在不是文件上传时才设置 Content-Type
+  if (!isFileUpload) {
+    headers["Content-Type"] = 'application/json';
+  }
   
   const tokenStr = localStorage.getItem('token');
   if (tokenStr) {
     try {
       const tokenData = JSON.parse(tokenStr);
-      headers['Authorization'] = `Bearer ${tokenData.access_token}`;
+      headers["Authorization"] = `Bearer ${tokenData.access_token}`;
     } catch (e) {
-      headers['Authorization'] = `Bearer ${tokenStr}`;
+      headers["Authorization"] = `Bearer ${tokenStr}`;
     }
   }
   
@@ -91,12 +94,37 @@ export const resourceService = {
     formData.append('title', data.title);
     if (data.description) formData.append('description', data.description);
     if (data.course_id) formData.append('course_id', data.course_id);
-    formData.append('file', data.file);
+    // formData.append('file', data.file);
+
+    // 正确地添加文件，确保包含文件名
+    formData.append('file', data.file, data.file.name);
+    
+    // 获取认证头，但避免设置Content-Type
+    const authHeaders = getAuthHeaders();
+    // 创建新的headers对象，只包含授权信息
+    const headers: HeadersInit = {};
+
+    // 只复制Authorization头
+    if ('Authorization' in authHeaders) {
+      headers['Authorization'] = authHeaders['Authorization'];
+    }
+
+    console.log("Sending form data:", {
+      title: data.title,
+      description: data.description,
+      course_id: data.course_id,
+      file: {
+        name: data.file.name,
+        type: data.file.type,
+        size: data.file.size
+      }
+    });
 
     return await fetch('/api/py/resources/create/', {
       method: 'POST',
       body: formData,
-      headers: getAuthHeaders(),
+      // headers: getAuthHeaders(),
+      headers: getAuthHeaders(true),
     });
   },
 
