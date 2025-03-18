@@ -3,40 +3,33 @@
 import { ResourceForm } from "@/app/resources/components/ResourceForm";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/hooks/useAuth";
-import { useResource } from "@/app/hooks/useResource";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { useToast } from "@/app/hooks/use-toast";
 
 export default function ResourceUploadPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const { actions, fetchActions } = useResource();
   const [initializing, setInitializing] = useState(true);
+  const { toast } = useToast();
   
-  // 初始化页面，获取权限
+  // 初始化页面，只检查用户是否登录
   useEffect(() => {
-    const init = async () => {
-      if (authLoading) {
-        return; // 等待认证状态加载
-      }
-      
+    if (!authLoading) {
       if (!user) {
         // 未登录，重定向到登录页面
+        toast({
+          variant: "destructive",
+          title: "Authentication required",
+          description: "Please login to upload resources",
+        });
         router.push("/login");
         return;
       }
       
-      try {
-        // 获取权限
-        await fetchActions();
-        setInitializing(false);
-      } catch (error) {
-        console.error("Error initializing upload page:", error);
-        setInitializing(false);
-      }
-    };
-    
-    init();
-  }, [user, authLoading, fetchActions, router]);
+      // 用户已登录，可以上传
+      setInitializing(false);
+    }
+  }, [user, authLoading, router, toast]);
   
   // 显示加载状态
   if (initializing || authLoading) {

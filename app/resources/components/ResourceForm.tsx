@@ -50,21 +50,11 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
         return;
       }
       
-      try {
-        await fetchActions();
-        setAuthError(false);
-      } catch (error) {
-        console.error("Error fetching actions:", error);
-        // 使用类型断言
-        const apiError = error as ApiError;
-        if (apiError.status === 401 || apiError.status === 403) {
-          setAuthError(true);
-        }
-      }
+      setAuthError(false);
     };
     
     checkAuth();
-  }, [user, authLoading, fetchActions]);
+  }, [user, authLoading]);
   
   const form = useForm<ResourceCreateData>({
     defaultValues: {

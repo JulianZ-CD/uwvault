@@ -9,13 +9,12 @@ import { Button } from "@/app/components/ui/button";
 import { Download } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/app/components/ui/pagination";
 import { useToast } from "@/app/hooks/use-toast";
+import { ResourceActions } from "@/app/resources/components/ResourceActions";
 
 export function ResourceList() {
   const { user, isLoading: authLoading } = useAuth();
   const { resources, totalItems, isLoading, fetchResources, getResourceUrl, downloadResource } = useResource();
   const [page, setPage] = useState(1);
-  const [downloading, setDownloading] = useState<number | null>(null);
-  const [viewLoading, setViewLoading] = useState<number | null>(null);
   const [authError, setAuthError] = useState(false);
   const pageSize = 10;
   const { toast } = useToast();
@@ -69,43 +68,6 @@ export function ResourceList() {
       });
   }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize]);
 
-  const handleDownload = async (id: number) => {
-    setDownloading(id);
-    try {
-      const success = await downloadResource(id);
-      if (!success) {
-        toast({
-          variant: "destructive",
-          title: "Download failed",
-          description: "Please check your permissions or try again later",
-        });
-      }
-    } catch (error) {
-      console.error("Error downloading resource:", error);
-      toast({
-        variant: "destructive",
-        title: "Download failed",
-        description: "Please check your permissions or try again later",
-      });
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-  const handleViewDetails = async (id: number, fileType: string) => {
-    setViewLoading(id);
-    try {
-      const url = await getResourceUrl(id);
-      if (url) {
-        window.open(url, '_blank');
-      }
-    } catch (error) {
-      console.error("Error viewing resource:", error);
-    } finally {
-      setViewLoading(null);
-    }
-  };
-
   if (authError) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -150,32 +112,10 @@ export function ResourceList() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 items-end">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleViewDetails(resource.id, resource.file_type)}
-                    disabled={viewLoading === resource.id}
-                  >
-                    {viewLoading === resource.id ? (
-                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                    ) : (
-                      "View Details"
-                    )}
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleDownload(resource.id)}
-                    disabled={downloading === resource.id}
-                  >
-                    {downloading === resource.id ? (
-                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <ResourceActions 
+                  resourceId={resource.id}
+                  fileType={resource.file_type}
+                />
                 <p className="text-muted-foreground text-xs font-medium">
                   {new Date(resource.created_at).toLocaleDateString('en-CA', {
                     year: 'numeric',
