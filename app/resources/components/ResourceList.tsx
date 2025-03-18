@@ -3,22 +3,33 @@
 import { useState, useEffect } from "react";
 import { useResource } from "@/app/hooks/useResource";
 import { useAuth } from "@/app/hooks/useAuth";
-import { ResourceListParams } from "@/app/types/resource";
-import { Card, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { ResourceListParams, ResourceRating } from "@/app/types/resource";
+import { Card, CardHeader, CardTitle, CardFooter } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Download } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/app/components/ui/pagination";
 import { useToast } from "@/app/hooks/use-toast";
 import { ResourceActions } from "@/app/resources/components/ResourceActions";
+import { StarRating } from "@/app/components/ui/star-rating";
 
 export function ResourceList() {
   const { user, isLoading: authLoading } = useAuth();
-  const { resources, totalItems, isLoading, fetchResources, getResourceUrl, downloadResource } = useResource();
+  const { 
+    resources, 
+    totalItems, 
+    isLoading, 
+    fetchResources, 
+    rateResource, 
+    getUserRating 
+  } = useResource();
+  
   const [page, setPage] = useState(1);
   const [authError, setAuthError] = useState(false);
   const pageSize = 10;
   const { toast } = useToast();
   const [resourcesFetched, setResourcesFetched] = useState(false);
+  const [userRatings, setUserRatings] = useState<Record<number, ResourceRating>>({});
+  const [ratingLoading, setRatingLoading] = useState<number | null>(null);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -67,6 +78,80 @@ export function ResourceList() {
         console.error("Error fetching resources after page change:", error);
       });
   }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize]);
+
+  // 获取用户对资源的评分
+  useEffect(() => {
+    if (!user || resources.length === 0) return;
+
+    const fetchRatings = async () => {
+      const ratings: Record<number, ResourceRating> = {};
+      
+      for (const resource of resources) {
+        try {
+          const rating = await getUserRating(resource.id);
+          if (rating) {
+            ratings[resource.id] = rating;
+          }
+        } catch (error) {
+          console.error(`Error fetching rating for resource ${resource.id}:`, error);
+        }
+      }
+      
+      setUserRatings(ratings);
+    };
+
+    fetchRatings();
+  }, [resources, getUserRating, user]);
+
+  // 处理评分
+  const handleRate = async (resourceId: number, rating: number) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "You need to be logged in to rate resources."
+      });
+      return;
+    }
+
+    setRatingLoading(resourceId);
+    
+    try {
+      const result = await rateResource(resourceId, rating);
+      if (result) {
+        setUserRatings(prev => ({
+          ...prev,
+          [resourceId]: result
+        }));
+        
+        // 更新资源列表中的评分信息
+        const updatedResources = resources.map(resource => 
+          resource.id === resourceId 
+            ? { 
+                ...resource, 
+                average_rating: result.average_rating, 
+                rating_count: result.rating_count 
+              } 
+            : resource
+        );
+        
+        toast({
+          title: "Rating Submitted",
+          description: "Thank you for rating this resource!",
+          className: "border-green-500 text-green-700",
+        });
+      }
+    } catch (error) {
+      console.error("Error rating resource:", error);
+      toast({
+        variant: "destructive",
+        title: "Rating Failed",
+        description: "Failed to submit your rating. Please try again."
+      });
+    } finally {
+      setRatingLoading(null);
+    }
+  };
 
   if (authError) {
     return (
@@ -125,6 +210,30 @@ export function ResourceList() {
                 </p>
               </div>
             </CardHeader>
+            <CardFooter className="px-6 pt-0 pb-4 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center">
+                  <StarRating 
+                    rating={resource.average_rating} 
+                    readOnly={true}
+                    ratingCount={resource.rating_count}
+                  />
+                </div>
+                {ratingLoading === resource.id ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Rate:</span>
+                    <StarRating
+                      rating={0}
+                      userRating={userRatings[resource.id]?.user_rating || 0}
+                      onRate={(rating) => handleRate(resource.id, rating)}
+                      size={14}
+                    />
+                  </div>
+                )}
+              </div>
+            </CardFooter>
           </Card>
         ))}
       </div>

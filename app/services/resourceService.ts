@@ -5,7 +5,9 @@ import {
   ResourceReviewData, 
   ResourceListParams, 
   ResourceListResponse,
-  ResourceActions
+  ResourceActions,
+  ResourceRating,
+  ResourceRatingCreate
 } from "@/app/types/resource";
 
 
@@ -263,6 +265,7 @@ export const resourceService = {
           can_update: false,
           can_delete: false,
           can_review: false,
+          can_rate: false,
           can_manage_status: false,
           can_see_all_statuses: false
         };
@@ -283,6 +286,7 @@ export const resourceService = {
           can_update: true,
           can_delete: false,
           can_review: false,
+          can_rate: true,
           can_manage_status: false,
           can_see_all_statuses: false
         };
@@ -309,9 +313,67 @@ export const resourceService = {
         can_update: true,
         can_delete: true,
         can_review: true,
+        can_rate: true,
         can_manage_status: true,
-        can_see_all_statuses: false
+        can_see_all_statuses: true
       };
     }
-  }
+  },
+
+  // 对资源进行评分
+  async rateResource(id: number, rating: number): Promise<ResourceRating> {
+    try {
+      const ratingData: ResourceRatingCreate = {
+        rating: rating
+      };
+
+      const response = await fetch(`/api/py/resources/${id}/rating`, {
+        method: 'POST',
+        body: JSON.stringify(ratingData),
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to rate resource ${id}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Error rating resource ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // 获取用户对资源的评分
+  async getUserRating(id: number): Promise<ResourceRating> {
+    try {
+      const response = await fetch(`/api/py/resources/${id}/rating`, {
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          // 用户未对该资源评分，返回默认值
+          return {
+            resource_id: id,
+            user_rating: 0,
+            average_rating: 0,
+            rating_count: 0
+          };
+        }
+        throw new Error(`Failed to get user rating for resource ${id}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Error getting user rating for resource ${id}:`, error);
+      // 出错时返回默认值
+      return {
+        resource_id: id,
+        user_rating: 0,
+        average_rating: 0,
+        rating_count: 0
+      };
+    }
+  },
 }; 

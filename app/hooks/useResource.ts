@@ -8,7 +8,8 @@ import {
   ResourceListParams,
   ResourceListResponse,
   ResourceActions,
-  ResourceStatus
+  ResourceStatus,
+  ResourceRating
 } from "@/app/types/resource";
 import { resourceService } from "@/app/services/resourceService";
 import { useToast } from "@/app/hooks/use-toast";
@@ -34,6 +35,7 @@ export function useResource() {
     can_update: false,
     can_delete: false,
     can_review: false,
+    can_rate: false,
     can_manage_status: false,
     can_see_all_statuses: false
   });
@@ -76,6 +78,7 @@ export function useResource() {
         can_update: false,
         can_delete: false,
         can_review: false,
+        can_rate: false,
         can_manage_status: false,
         can_see_all_statuses: false
       };
@@ -95,6 +98,7 @@ export function useResource() {
         can_upload: true,
         can_download: true,
         can_update: true,
+        can_rate: true,
         can_delete: isAdmin(),
         can_review: isAdmin(),
         can_manage_status: isAdmin(),
@@ -405,6 +409,49 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
     }
   }, []);
 
+  // rate resource
+  const rateResource = useCallback(async (id: number, rating: number): Promise<ResourceRating | null> => {
+    if (!id) {
+      showAlert("Resource ID is required", "error");
+      return null;
+    }
+    
+    if (rating < 1 || rating > 5) {
+      showAlert("Rating must be between 1 and 5", "error");
+      return null;
+    }
+    
+    setError(null);
+    
+    try {
+      const result = await resourceService.rateResource(id, rating);
+      return result;
+    } catch (err) {
+      console.error("Error rating resource:", err);
+      setError(err instanceof Error ? err.message : 'Failed to rate resource');
+      return null;
+    }
+  }, [showAlert]);
+
+  // get user rating for resource
+  const getUserRating = useCallback(async (id: number): Promise<ResourceRating | null> => {
+    if (!id) {
+      showAlert("Resource ID is required", "error");
+      return null;
+    }
+    
+    setError(null);
+    
+    try {
+      const result = await resourceService.getUserRating(id);
+      return result;
+    } catch (err) {
+      console.error("Error getting user rating:", err);
+      setError(err instanceof Error ? err.message : 'Failed to get user rating');
+      return null;
+    }
+  }, [showAlert]);
+
   return {
     resources,
     totalItems,
@@ -426,6 +473,8 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
     reviewResource,
     deactivateResource,
     reactivateResource,
-    getUserUploads
+    getUserUploads,
+    rateResource,
+    getUserRating
   };
 }

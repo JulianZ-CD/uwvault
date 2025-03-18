@@ -39,7 +39,22 @@ export enum ResourceStatus {
     last_sync_at?: string;
     sync_error?: string;
     retry_count?: number;
-    file_hash?: string;// Added to match backend model
+    file_hash?: string;
+    average_rating: number;
+    rating_count: number;
+  }
+  
+  // Resource rating data
+  export interface ResourceRating {
+    resource_id: number;
+    user_rating: number;
+    average_rating: number;
+    rating_count: number;
+  }
+  
+  // Resource rating create data
+  export interface ResourceRatingCreate {
+    rating: number;
   }
   
   // Resource list query params
@@ -92,6 +107,8 @@ export enum ResourceStatus {
     reviewResource: (id: number, data: ResourceReviewData) => Promise<Resource | null>;
     getResourceUrl: (id: number) => Promise<string | null>;
     downloadResource: (id: number) => Promise<void>;
+    rateResource: (id: number, rating: number) => Promise<ResourceRating>;
+    getUserRating: (id: number) => Promise<ResourceRating>;
   }
   
   // Resource list props
@@ -125,6 +142,7 @@ export enum ResourceStatus {
     can_update: boolean;
     can_delete: boolean;
     can_review: boolean;
+    can_rate: boolean;
     can_manage_status: boolean;
     can_see_all_statuses: boolean;
   }
