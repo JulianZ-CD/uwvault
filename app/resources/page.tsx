@@ -2,18 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ResourceList } from "@/app/resources/components/ResourceList";
+import { MyUploadsList } from "@/app/resources/components/MyUploadsList";
+import { ResourceTabs } from "@/app/resources/components/ResourceTabs";
 import { Button } from "@/app/components/ui/button";
 import { Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useResource } from "@/app/hooks/useResource";
-import { useAuth } from "@/app/hooks/useAuth"; // 使用统一的auth hook
+import { useAuth } from "@/app/hooks/useAuth";
 
 export default function ResourceListPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth(); // 使用统一的auth hook
+  const { user, isLoading: authLoading } = useAuth();
   const { actions, fetchActions } = useResource();
   const [initializing, setInitializing] = useState(true);
   const pageInitialized = useRef(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'myUploads'>('all');
 
   useEffect(() => {
     // 统一认证状态检查
@@ -40,6 +43,11 @@ export default function ResourceListPage() {
     
     init();
   }, [authLoading, user, fetchActions]);
+  
+  // 处理标签切换
+  const handleTabChange = (tab: 'all' | 'myUploads') => {
+    setActiveTab(tab);
+  };
   
   // 显示加载状态
   if (authLoading || initializing) {
@@ -68,7 +76,15 @@ export default function ResourceListPage() {
           )}
         </div>
 
-        <ResourceList />
+        {user && (
+          <ResourceTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        )}
+
+        {activeTab === 'all' ? (
+          <ResourceList />
+        ) : (
+          <MyUploadsList />
+        )}
       </div>
     </main>
   );

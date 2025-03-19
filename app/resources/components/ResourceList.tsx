@@ -3,14 +3,11 @@
 import { useState, useEffect } from "react";
 import { useResource } from "@/app/hooks/useResource";
 import { useAuth } from "@/app/hooks/useAuth";
-import { ResourceListParams, ResourceRating } from "@/app/types/resource";
-import { Card, CardHeader, CardTitle, CardFooter } from "@/app/components/ui/card";
+import { ResourceListParams } from "@/app/types/resource";
 import { Button } from "@/app/components/ui/button";
-import { Download } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/app/components/ui/pagination";
 import { useToast } from "@/app/hooks/use-toast";
-import { ResourceActions } from "@/app/resources/components/ResourceActions";
-import { StarRating } from "@/app/components/ui/star-rating";
+import { ResourceItem } from "@/app/resources/components/ResourceItem";
 
 export function ResourceList() {
   const { user, isLoading: authLoading } = useAuth();
@@ -18,9 +15,7 @@ export function ResourceList() {
     resources, 
     totalItems, 
     isLoading, 
-    fetchResources, 
-    rateResource, 
-    getUserRating 
+    fetchResources
   } = useResource();
   
   const [page, setPage] = useState(1);
@@ -28,7 +23,6 @@ export function ResourceList() {
   const pageSize = 10;
   const { toast } = useToast();
   const [resourcesFetched, setResourcesFetched] = useState(false);
-  const [ratingLoading, setRatingLoading] = useState<number | null>(null);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -78,49 +72,21 @@ export function ResourceList() {
       });
   }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize]);
 
-  // 处理评分
-  const handleRate = async (resourceId: number, rating: number) => {
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Authentication Required",
-        description: "You need to be logged in to rate resources."
-      });
-      return;
-    }
-
-    setRatingLoading(resourceId);
+  // 处理评分更新
+  const handleRatingUpdate = (resourceId: number, averageRating: number, ratingCount: number) => {
+    // 更新资源列表中的评分信息
+    const updatedResources = resources.map(resource => 
+      resource.id === resourceId 
+        ? { 
+            ...resource, 
+            average_rating: averageRating, 
+            rating_count: ratingCount 
+          } 
+        : resource
+    );
     
-    try {
-      const result = await rateResource(resourceId, rating);
-      if (result) {
-        // 更新资源列表中的评分信息
-        const updatedResources = resources.map(resource => 
-          resource.id === resourceId 
-            ? { 
-                ...resource, 
-                average_rating: result.average_rating, 
-                rating_count: result.rating_count 
-              } 
-            : resource
-        );
-        
-        toast({
-          title: "Rating Submitted",
-          description: "Thank you for rating this resource!",
-          className: "border-green-500 text-green-700",
-        });
-      }
-    } catch (error) {
-      console.error("Error rating resource:", error);
-      toast({
-        variant: "destructive",
-        title: "Rating Failed",
-        description: "Failed to submit your rating. Please try again."
-      });
-    } finally {
-      setRatingLoading(null);
-    }
+    // 这里我们不直接更新resources状态，因为它由useResource管理
+    // 但在实际应用中，您可能需要更新本地状态或触发重新获取
   };
 
   if (authError) {
@@ -154,93 +120,11 @@ export function ResourceList() {
     <div className="space-y-6 px-4">
       <div className="grid gap-4">
         {resources.map((resource) => (
-          <Card key={resource.id} className="hover:bg-accent/5 transition-colors">
-            <CardHeader className="flex flex-row items-start space-y-0 pb-2 px-6">
-              <div className="space-y-1.5 flex-1">
-                <div className="flex items-center">
-                  <CardTitle className="text-xl w-[40%]">
-                    <span className="text-primary/80">{resource.course_id || 'N/A'}</span>
-                    <span className="mx-2 text-muted-foreground">|</span>
-                    <span>{resource.title}</span>
-                  </CardTitle>
-                  
-                  <div className="w-[40%] flex justify-center">
-                    <StarRating 
-                      rating={resource.average_rating} 
-                      readOnly={true}
-                      size={20}
-                      ratingCount={resource.rating_count}
-                    />
-                  </div>
-                  
-                  <div className="w-[20%] flex justify-end">
-                    <ResourceActions 
-                      resourceId={resource.id}
-                      fileType={resource.file_type}
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex items-center">
-                  <p className="text-muted-foreground text-sm pl-[2px] w-[40%]">
-                    {resource.description || "No description provided"}
-                  </p>
-                  
-                  <div className="w-[40%] flex justify-center">
-                    {ratingLoading === resource.id ? (
-                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                    ) : (
-                      <div className="relative">
-                        <span 
-                          className="text-sm font-medium text-primary cursor-pointer hover:underline px-3 py-1 bg-primary/10 rounded-md"
-                          onClick={() => {
-                            const ratingElement = document.querySelector(`#rating-popup-${resource.id}`);
-                            if (ratingElement) {
-                              ratingElement.classList.toggle('hidden');
-                            }
-                          }}
-                          onMouseEnter={(e) => {
-                            const ratingElement = document.querySelector(`#rating-popup-${resource.id}`);
-                            if (ratingElement) {
-                              ratingElement.classList.remove('hidden');
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            const ratingElement = document.querySelector(`#rating-popup-${resource.id}`);
-                            if (ratingElement) {
-                              ratingElement.classList.add('hidden');
-                            }
-                          }}
-                        >
-                          Rate
-                        </span>
-                        <div 
-                          id={`rating-popup-${resource.id}`}
-                          className="rating-hover hidden absolute top-full mt-1 bg-background border rounded p-2 shadow-md z-10"
-                        >
-                          <StarRating
-                            rating={0}
-                            onRate={(rating) => handleRate(resource.id, rating)}
-                            size={16}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="w-[20%] flex justify-end">
-                    <p className="text-muted-foreground text-xs font-medium">
-                      {new Date(resource.created_at).toLocaleDateString('en-CA', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit'
-                      }).replace(/\//g, '-')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
+          <ResourceItem 
+            key={resource.id} 
+            resource={resource} 
+            onRatingUpdate={handleRatingUpdate}
+          />
         ))}
       </div>
 

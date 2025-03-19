@@ -13,7 +13,8 @@ import {
 
 let cachedActions: ResourceActions | null = null;
 let lastActionsFetchTime = 0;
-const CACHE_TTL = 60000; // 缓存有效期1分钟
+const CACHE_TTL = 300000; // 5分钟
+let fetchingActions = false;
 
 // Add to resourceService.ts
 const getAuthHeaders = (isFileUpload = false): HeadersInit => {
@@ -242,13 +243,22 @@ export const resourceService = {
   // get current user's resource actions
   async getResourceActions(): Promise<ResourceActions> {
     try {
-      // 检查缓存是否有效
       const now = Date.now();
+      
+      // 使用缓存
       if (cachedActions && (now - lastActionsFetchTime < CACHE_TTL)) {
-        console.log("Using cached actions data from service");
         return cachedActions;
       }
-
+      
+      // 如果已经有请求在进行中，等待该请求完成
+      if (fetchingActions) {
+        // 等待一小段时间后再次检查缓存
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return this.getResourceActions();
+      }
+      
+      // 标记正在获取数据
+      fetchingActions = true;
       console.log("Fetching resource actions...");
       
       const response = await fetch('/api/py/resources/actions', {
@@ -317,6 +327,9 @@ export const resourceService = {
         can_manage_status: true,
         can_see_all_statuses: true
       };
+    } finally {
+      // 无论成功失败，都重置锁定状态
+      fetchingActions = false;
     }
   },
 

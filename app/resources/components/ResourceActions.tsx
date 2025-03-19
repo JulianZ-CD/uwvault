@@ -17,6 +17,15 @@ export function ResourceActions({ resourceId, fileType }: ResourceActionsProps) 
   const [viewing, setViewing] = useState<boolean>(false);
   const { toast } = useToast();
 
+  // 判断是否为Word文档
+  const isWordDocument = (fileType?: string): boolean => {
+    const wordTypes = [
+      'application/msword',                                                  // .doc
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
+    ];
+    return fileType ? wordTypes.includes(fileType) : false;
+  };
+
   const handleDownload = async () => {
     setDownloading(true);
     try {
@@ -45,7 +54,14 @@ export function ResourceActions({ resourceId, fileType }: ResourceActionsProps) 
     try {
       const url = await getResourceUrl(resourceId);
       if (url) {
-        window.open(url, '_blank');
+        if (isWordDocument(fileType)) {
+          // 使用Google Docs预览Word文档
+          const previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+          window.open(previewUrl, '_blank');
+        } else {
+          // PDF和其他文件类型直接打开
+          window.open(url, '_blank');
+        }
       }
     } catch (error) {
       console.error("Error viewing resource:", error);
