@@ -20,24 +20,24 @@ export function ResourceFilter({ onFilter }: ResourceFilterProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 mb-6">
+    <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
       <div className="flex-1">
         <Input
-          placeholder="搜索资源..."
+          placeholder="Search resources..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
-      <div className="w-full sm:w-1/3">
+      <div className="w-1/4">
         <Input
-          placeholder="课程ID (可选)"
+          placeholder="Course ID (optional)"
           value={courseId}
           onChange={(e) => setCourseId(e.target.value)}
         />
       </div>
       <Button type="submit">
         <Search className="h-4 w-4 mr-2" />
-        搜索
+        Search
       </Button>
     </form>
   );

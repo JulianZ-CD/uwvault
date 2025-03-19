@@ -24,8 +24,22 @@ const resources = [
   },
 ];
 
+const adminResources = [
+  {
+    title: 'Resource Management',
+    href: '/resources',
+    description: 'Browse and upload resources',
+  },
+  {
+    title: 'Review Resources',
+    href: '/resources/admin',
+    description: 'Review and manage pending resources',
+  },
+];
+
 export function MainNav() {
   const { user, logout, isLoading } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="container flex h-16 items-center">
@@ -49,11 +63,30 @@ export function MainNav() {
             </NavigationMenuItem>
 
             <NavigationMenuItem>
-              <Link href="/resources" legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Resources
-                </NavigationMenuLink>
-              </Link>
+              {isAdmin ? (
+                <>
+                  <NavigationMenuTrigger>Resources</NavigationMenuTrigger>
+                  <NavigationMenuContent>
+                    <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                      {adminResources.map((resource) => (
+                        <ListItem
+                          key={resource.title}
+                          title={resource.title}
+                          href={resource.href}
+                        >
+                          {resource.description}
+                        </ListItem>
+                      ))}
+                    </ul>
+                  </NavigationMenuContent>
+                </>
+              ) : (
+                <Link href="/resources" legacyBehavior passHref>
+                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                    Resources
+                  </NavigationMenuLink>
+                </Link>
+              )}
             </NavigationMenuItem>
 
             <NavigationMenuItem>

@@ -196,9 +196,18 @@ export const resourceService = {
 
   // review resource
   async reviewResource(id: number, data: ResourceReviewData): Promise<Response> {
+    // 确保数据格式正确
+    const reviewData = {
+      status: data.status,
+      review_comment: data.review_comment || "",
+      reviewed_by: data.reviewed_by || ""
+    };
+    
+    console.log("Sending review data to API:", reviewData);
+    
     return await fetch(`/api/py/resources/${id}/review/`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(reviewData),
       headers: getAuthHeaders(),
     });
   },

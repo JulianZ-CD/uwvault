@@ -351,11 +351,29 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
       return false;
     }
     
+    // 确保 reviewed_by 字段存在且只使用用户 ID
+    if (!data.reviewed_by && user) {
+      data.reviewed_by = user.id || "";
+    }
+    
+    setError(null);
+    
     try {
+      console.log("Reviewing resource with data:", data);
+      
       const response = await resourceService.reviewResource(id, data);
       
       if (!response.ok) {
-        throw new Error(`Error reviewing resource: ${response.statusText}`);
+        let errorMessage = response.statusText;
+        try {
+          const errorData = await response.json();
+          console.error("Error details:", errorData);
+          errorMessage = typeof errorData === 'object' ? JSON.stringify(errorData) : errorData;
+        } catch (e) {
+          console.warn("Could not parse error response");
+        }
+        
+        throw new Error(`Error reviewing resource: ${errorMessage}`);
       }
       
       return true;
@@ -364,7 +382,7 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
       setError(err instanceof Error ? err.message : 'Failed to review resource');
       return false;
     }
-  }, [showAlert]);
+  }, [showAlert, user]);
 
   // deactivate resource
   const deactivateResource = useCallback(async (id: number): Promise<boolean> => {

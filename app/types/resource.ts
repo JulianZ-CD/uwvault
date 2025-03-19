@@ -63,6 +63,7 @@ export enum ResourceStatus {
     offset?: number;
     course_id?: string;
     search?: string;
+    status?: string;
     is_admin?: boolean
   }
   
