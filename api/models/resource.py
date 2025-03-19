@@ -62,6 +62,14 @@ class ResourceUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     course_id: Optional[str] = Field(None, max_length=50, description="Associated course ID") 
     updated_by: str = Field(..., description="ID of the user updating the resource")
+    
+    # 以下字段不会从客户端直接接收，但可能在处理文件上传时被服务层填充
+    file_type: Optional[str] = Field(None, description="File extension")
+    file_size: Optional[int] = Field(None, description="File size in bytes")
+    storage_path: Optional[str] = Field(None, description="Storage path in cloud storage")
+    mime_type: Optional[str] = Field(None, description="MIME type of the file")
+    file_hash: Optional[str] = Field(None, description="File content hash")
+    original_filename: Optional[str] = Field(None, max_length=255, description="Original file name")
 
 
 class ResourceReview(BaseModel):

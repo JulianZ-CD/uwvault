@@ -454,9 +454,10 @@ class ResourceService:
     async def update_resource(
         self,
         id: int,
-        resource: ResourceUpdate
+        resource: ResourceUpdate,
+        file: Optional[UploadFile] = None
     ) -> ResourceInDB:
-        """Update resource information"""
+        """Update resource information and optionally replace the file"""
         try:
             self.logger.info(f"Updating resource with id: {id}")
             
@@ -468,6 +469,40 @@ class ResourceService:
             update_data["updated_at"] = datetime.now().isoformat()
             update_data["updated_by"] = resource.updated_by
 
+            # If a new file is provided, process it
+            if file:
+                # Validate file type
+                if not self.validate_file_type(file.content_type):
+                    raise ValidationError(f"Unsupported file type: {file.content_type}")
+                
+                # Validate file size
+                if not self.validate_file_size(file.size):
+                    raise ValidationError(f"File too large: {file.size} bytes")
+                
+                # Calculate file hash
+                file_hash = self.calculate_file_hash(file.file)
+                await file.seek(0)  # Reset file pointer
+                
+                # Generate storage path
+                course_id = resource.course_id or existing_resource.course_id
+                safe_filename = self.generate_safe_filename(file.filename)
+                storage_path = self.generate_storage_path(
+                    safe_filename,
+                    ResourceType.COURSE_DOCUMENT,
+                    course_id
+                )
+                
+                # Update file-related metadata
+                update_data.update({
+                    "file_hash": file_hash,
+                    "file_size": file.size,
+                    "file_type": self.get_file_extension(file.filename),
+                    "mime_type": file.content_type,
+                    "original_filename": file.filename,
+                    "storage_path": storage_path,
+                    "storage_status": StorageStatus.PENDING
+                })
+            
             # Update database
             response = self.supabase.table(self.table_name).update(
                 update_data).eq('id', id).execute()
@@ -476,10 +511,72 @@ class ResourceService:
                 raise NotFoundError(f"Resource with id {id} not found")
 
             updated_resource = ResourceInDB(**response.data[0])
+            
+            # If a new file is provided, upload it to storage
+            if file:
+                try:
+                    # Upload file to storage
+                    await self._ensure_storage_initialized()
+                    blob = self._storage_bucket.blob(updated_resource.storage_path)
+                    
+                    if file.content_type:
+                        blob.content_type = file.content_type
+                        
+                    # Add metadata
+                    gcp_metadata = {
+                        "resource_id": str(updated_resource.id),
+                        "original_filename": file.filename,
+                        "content_hash": update_data["file_hash"],
+                        "file_type": update_data["file_type"],
+                        "file_size": str(file.size),
+                        "mime_type": file.content_type,
+                        "updated_at": update_data["updated_at"],
+                        "updated_by": str(resource.updated_by),
+                        "course_id": course_id or ""
+                    }
+                    blob.metadata = gcp_metadata
+                    
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: blob.upload_from_file(file.file, rewind=True)
+                    )
+                    
+                    # Update sync status
+                    await self._update_sync_status(
+                        updated_resource.id,
+                        StorageStatus.SYNCED,
+                        last_sync_at=datetime.now()
+                    )
+                    
+                    # If storage path changed, delete old file
+                    if existing_resource.storage_path != updated_resource.storage_path:
+                        try:
+                            old_blob = self._storage_bucket.blob(existing_resource.storage_path)
+                            exists = await asyncio.get_event_loop().run_in_executor(
+                                None, old_blob.exists
+                            )
+                            if exists:
+                                await asyncio.get_event_loop().run_in_executor(
+                                    None, old_blob.delete
+                                )
+                        except Exception as e:
+                            self.logger.warning(f"Failed to delete old file: {str(e)}")
+                    
+                except StorageError as e:
+                    await self._handle_storage_error(
+                        updated_resource.id,
+                        StorageOperation.UPLOAD,
+                        e
+                    )
+                    raise StorageOperationError("upload", str(e))
+            
             self.logger.info(f"Successfully updated resource with id: {id}")
             return updated_resource
 
         except NotFoundError:
+            raise
+        except ValidationError as e:
+            self.logger.error(f"Validation error: {str(e)}")
             raise
         except Exception as e:
             self.logger.error(f"Error while updating resource {id}: {str(e)}")

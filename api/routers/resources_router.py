@@ -188,9 +188,10 @@ async def update_resource(
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     course_id: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
     current_user = Depends(get_current_user)
 ):
-    """Update resource details"""
+    """Update resource details and optionally replace the file"""
     try:
         # 添加输入验证
         if title is not None and len(title.strip()) == 0:
@@ -212,13 +213,25 @@ async def update_resource(
                 detail="You don't have permission to update this resource"
             )
         
+        # 如果提供了文件，验证文件类型
+        if file and file.filename:
+            content_type = file.content_type
+            if content_type not in [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ]:
+                raise ValidationError(f"Unsupported file type: {content_type}")
+        
         update_data = ResourceUpdate(
             title=title,
             description=description,
             course_id=course_id,
             updated_by=current_user.get("id")
         )
-        return await resource_service.update_resource(id, update_data)
+        
+        # 调用更新后的service方法，传入可选的文件
+        return await resource_service.update_resource(id, update_data, file)
     except ValidationError as e:
         # 确保 ValidationError 被转换为 422 响应
         logger.error(f"Validation error updating resource {id}: {str(e)}")
@@ -229,6 +242,9 @@ async def update_resource(
     except NotFoundError as e:
         logger.warning(f"Resource not found: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
+    except StorageError as e:
+        logger.error(f"Storage error updating resource {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     except HTTPException as e:
         # 直接重新抛出 HTTPException
         raise e
