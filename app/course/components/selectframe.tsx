@@ -1,4 +1,3 @@
-"use client"
 
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
@@ -24,33 +23,12 @@ import { SelectIndex } from "@/app/types/course"
 
 
 
-// const frameworks = [
-//   {
-//     "value": "next.js",
-//     "label": "Nex.js",
-//   },
-//   {
-//     value: "sveltekit",
-//     label: "SvelteKit",
-//   },
-//   {
-//     value: "nuxt.js",
-//     label: "Nuxt.js",
-//   },
-//   {
-//     value: "remix",
-//     label: "Remix",
-//   },
-//   {
-//     value: "astro",
-//     label: "Astro",
-//   },
-// ]
 interface ComboboxProps{
   frameworks:SelectIndex[];
+  selectedValue:(value:string)=>void;
 }
 
-export default function ComboboxDemo({frameworks}:ComboboxProps) {
+export default function ComboboxDemo({frameworks,selectedValue}:ComboboxProps) {
 
 
   const [open, setOpen] = React.useState(false)
@@ -86,6 +64,7 @@ export default function ComboboxDemo({frameworks}:ComboboxProps) {
                   value={framework.value}
                   onSelect={(currentValue) => {
                     setValue(currentValue === value ? "" : currentValue)
+                    selectedValue(currentValue===value?"":currentValue)
                     setOpen(false)
                   }}
                 >

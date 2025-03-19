@@ -89,7 +89,7 @@ class AuthCourse:
         except Exception as e:
             self.logger.error("Fail to upload the data")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_404_BAD_REQUEST,
                 detail=str(e)
             )
     

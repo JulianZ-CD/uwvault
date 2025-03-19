@@ -5,6 +5,7 @@ from api.models.course import CourseBase
 from api.models.course import CourseSearch
 from api.services.auth_course_service import AuthCourse
 from api.services.user_course_service import UserCourse
+from fastapi import status
 
 router =APIRouter(
     prefix="/api/py/course",
@@ -22,21 +23,28 @@ async def get_all_class() ->list[CourseBase]:
     except Exception as e:
         logger.error(f"Error getting courses:{str(e)}")
         raise HTTPException(
-            status_code=500,
+            status_code=400,
             detail="Fail to get courses"
         )
 
 @router.post("/findclass")
-async def find_course(course_index:CourseSearch)->list[CourseBase]:
+async def find_course(course_index: CourseSearch) -> list[CourseBase]:
     try:
         return user_course_service.find_course(course_index)
-    except Exception as e:
-        logger.error(f"Error getting courses:{str(e)}")
+    except HTTPException as he:
+        raise he
+    except ValueError as ve:
         raise HTTPException(
-            status_code=500,
-            detail="Fail to get courses"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve)
         )
-    
+    except Exception as e:
+        logger.error(f"Error getting courses: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get courses"
+        )
+
 @router.post("/findtask")
 async def all_task():
     try:
@@ -44,7 +52,7 @@ async def all_task():
     except Exception as e:
         logger.error(f"Error getting courses:{str(e)}")
         raise HTTPException(
-            status_code=500,
+            status_code=400,
             detail="Fail to get tasks"
         )   
 
@@ -55,7 +63,7 @@ async def all_term():
     except Exception as e:
         logger.error(f"Error getting courses:{str(e)}")
         raise HTTPException(
-            status_code=500,
+            status_code=400,
             detail="Fail to get terms"
         )   
 
@@ -66,7 +74,7 @@ async def all_title():
     except Exception as e:
         logger.error(f"Error getting courses:{str(e)}")
         raise HTTPException(
-            status_code=500,
+            status_code=400,
             detail="Fail to get tasks"
         )   
 
@@ -76,4 +84,13 @@ async def up_date_allcass():
     try:
         return course_service.upload_course_to_supabase()
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error updating courses: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND ,
+            detail="Failed to update courses"
+        )
