@@ -9,7 +9,7 @@ interface ResourceReviewDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (comment: string) => void;
-  action: 'approve' | 'reject' | 'deactivate';
+  action: 'approve' | 'reject' | 'deactivate' | 'activate';
 }
 
 export function ResourceReviewDialog({ 
@@ -34,6 +34,8 @@ export function ResourceReviewDialog({
         return 'Reject Resource';
       case 'deactivate':
         return 'Deactivate Resource';
+      case 'activate':
+        return 'Activate Resource';
       default:
         return 'Review Resource';
     }
@@ -47,6 +49,8 @@ export function ResourceReviewDialog({
         return 'Please provide a reason for rejecting this resource:';
       case 'deactivate':
         return 'Please provide a reason for deactivating this resource:';
+      case 'activate':
+        return 'Add an optional comment for activating this resource:';
       default:
         return 'Add a comment:';
     }
