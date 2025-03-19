@@ -3,17 +3,16 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useResource } from "@/app/hooks/useResource";
-import { ResourceCreateData } from "@/app/types/resource";
+import { ResourceCreateData, ResourceUpdateData } from "@/app/types/resource";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/app/components/ui/form";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { useToast } from "@/app/hooks/use-toast";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Save, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Label } from "@/app/components/ui/label";
-import { useWatch } from "react-hook-form";
 import { useAuth } from "@/app/hooks/useAuth";
 
 // 定义API错误类型
@@ -25,19 +24,33 @@ interface ApiError {
 interface ResourceFormProps {
   courseId?: string;
   onSuccess?: () => void;
-  onSubmit?: (data: ResourceCreateData) => Promise<void>;
+  onSubmit?: (data: ResourceCreateData | ResourceUpdateData) => Promise<void>;
   isLoading?: boolean;
-  initialData: ResourceCreateData | null;
+  initialData: ResourceCreateData | ResourceUpdateData | null;
+  resourceId?: number;
+  currentFileName?: string;
 }
 
-export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false, initialData }: ResourceFormProps) {
-  const { createResource, isCreating, actions, fetchActions } = useResource();
+export function ResourceForm({ 
+  courseId, 
+  onSuccess, 
+  onSubmit, 
+  isLoading = false, 
+  initialData,
+  resourceId,
+  currentFileName
+}: ResourceFormProps) {
+  const { createResource, updateResource, isCreating, isUpdating, actions } = useResource();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   
   const [file, setFile] = useState<File | null>(null);
   const [authError, setAuthError] = useState(false);
+  const [fileChanged, setFileChanged] = useState(false);
+  
+  // 判断是否为编辑模式
+  const isEditMode = !!initialData && !!resourceId;
   
   useEffect(() => {
     const checkAuth = async () => {
@@ -56,11 +69,12 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
     checkAuth();
   }, [user, authLoading]);
   
+  // 设置表单默认值
   const form = useForm<ResourceCreateData>({
     defaultValues: {
-      title: "",
-      description: "",
-      course_id: courseId || "",
+      title: initialData?.title || "",
+      description: initialData?.description || "",
+      course_id: initialData?.course_id || courseId || "",
     }
   });
 
@@ -80,6 +94,7 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
       }
       
       setFile(selectedFile);
+      setFileChanged(true);
 
       console.log("File selected:", {
         name: selectedFile.name,
@@ -91,53 +106,70 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
 
   const clearFile = () => {
     setFile(null);
-    const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+    setFileChanged(true);
+    const fileInput = document.getElementById("file") as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
     }
   };
 
   const handleSubmit = async (data: Omit<ResourceCreateData, "file">) => {
-    if (!file) {
-      toast({
-        variant: "destructive",
-        title: "File required",
-        description: "Please select a file to upload",
-      });
-      return;
-    }
-
     try {
-      const resourceData: ResourceCreateData = {
-        ...data,
-        file
-      };
-
-      if (onSubmit) {
-        await onSubmit(resourceData);
-      } else {
-        const result = await createResource(resourceData);
-        if (result) {
-          toast({
-            title: "Success",
-            description: "Resource uploaded successfully",
-          });
-          
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            router.push("/resources");
-          }
+      if (isEditMode && resourceId) {
+        // 更新模式
+        const updateData: ResourceUpdateData = {
+          ...data,
+          updated_by: user?.id || ""
+        };
+        
+        // 只有当文件被更改时才添加文件
+        if (fileChanged && file) {
+          updateData.file = file;
         }
+        
+        await updateResource(resourceId, updateData);
+        toast({
+          title: "Success",
+          description: "Resource updated successfully",
+        });
+      } else {
+        // 创建模式
+        if (!file) {
+          toast({
+            variant: "destructive",
+            title: "File required",
+            description: "Please select a file to upload",
+          });
+          return;
+        }
+        
+        const createData: ResourceCreateData = {
+          ...data,
+          file
+        };
+        
+        await createResource(createData);
+        toast({
+          title: "Success",
+          description: "Resource uploaded successfully",
+        });
+        
+        // 重置表单
+        form.reset();
+        clearFile();
+      }
+      
+      if (onSuccess) {
+        onSuccess();
       }
     } catch (error) {
-      console.error("Error uploading resource:", error);
+      console.error(`Error ${isEditMode ? 'updating' : 'uploading'} resource:`, error);
       // 使用类型断言
       const apiError = error as ApiError;
       toast({
         variant: "destructive",
-        title: "Upload failed",
-        description: apiError.message || "An error occurred while uploading the resource",
+        title: `${isEditMode ? 'Update' : 'Upload'} failed`,
+        description: apiError.message || `An error occurred while ${isEditMode ? 'updating' : 'uploading'} the resource`,
       });
     }
   };
@@ -149,7 +181,7 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
           <div className="flex flex-col items-center justify-center p-4 text-center">
             <div className="text-destructive text-xl mb-4">Authentication Required</div>
             <p className="text-muted-foreground mb-6">
-              You need to be logged in to upload resources. Please sign in to continue.
+              You need to be logged in to manage resources. Please sign in to continue.
             </p>
             <Button 
               onClick={() => router.push('/login')} 
@@ -166,7 +198,7 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Upload Resource</CardTitle>
+        <CardTitle>{isEditMode ? 'Update Resource' : 'Upload Resource'}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -223,6 +255,44 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
 
             <div className="space-y-2">
               <Label htmlFor="file">File</Label>
+              
+              {/* 显示当前文件（编辑模式） */}
+              {isEditMode && currentFileName && !fileChanged && (
+                <div className="flex items-center justify-between p-2 border rounded-md mb-2">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span className="text-sm">{currentFileName}</span>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={clearFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              
+              {/* 显示已选择的文件（上传模式） */}
+              {!isEditMode && file && (
+                <div className="flex items-center justify-between p-2 border rounded-md mb-2">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span className="text-sm">{file.name}</span>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={clearFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              
+              {/* 文件选择器 */}
               <div className="relative">
                 <Input
                   id="file"
@@ -237,9 +307,11 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
                   className="w-full text-left font-normal"
                   onClick={() => document.getElementById('file')?.click()}
                 >
-                  {file?.name || 'Select file (PDF, DOC, DOCX only)'}
+                  {(!isEditMode && file) ? 'Change file' : 
+                   (isEditMode ? 'Select new file (optional)' : 'Select file (PDF, DOC, DOCX only)')}
                 </Button>
               </div>
+              
               {form.formState.errors.file && (
                 <p className="text-sm text-destructive">{form.formState.errors.file.message}</p>
               )}
@@ -248,15 +320,24 @@ export function ResourceForm({ courseId, onSuccess, onSubmit, isLoading = false,
             <div className="flex justify-center">
               <Button 
                 type="submit" 
-                disabled={isCreating || !file}
+                disabled={(isCreating || isUpdating) || (!isEditMode && !file)}
                 className="px-6"
               >
-                {isCreating ? (
+                {(isCreating || isUpdating) ? (
                   <div className="animate-spin h-4 w-4 mr-2 border-2 border-b-transparent rounded-full"></div>
                 ) : (
                   <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Resource
+                    {isEditMode ? (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Submit
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Resource
+                      </>
+                    )}
                   </>
                 )}
               </Button>

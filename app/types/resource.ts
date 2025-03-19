@@ -85,6 +85,8 @@ export enum ResourceStatus {
     title?: string;
     description?: string;
     course_id?: string;
+    file?: File;
+    updated_by?: string;
   }
   
   // Resource review form data

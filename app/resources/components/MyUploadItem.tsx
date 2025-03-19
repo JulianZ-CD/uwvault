@@ -32,7 +32,7 @@ export function MyUploadItem({ resource }: MyUploadItemProps) {
   
   // 处理资源更新
   const handleUpdate = () => {
-    router.push(`/resources/update/${resource.id}`);
+    router.push(`/resources/${resource.id}/edit`);
   };
 
   return (

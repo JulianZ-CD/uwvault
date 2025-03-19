@@ -231,13 +231,25 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
     setError(null);
     
     try {
+      console.log("Sending resource update request with data:", {
+        title: data.title,
+        description: data.description,
+        course_id: data.course_id,
+        fileName: data.file ? data.file.name : 'No file provided',
+        fileSize: data.file ? data.file.size : 0,
+        fileType: data.file ? data.file.type : 'N/A'
+      });
+      
       const response = await resourceService.updateResource(id, data);
       
       if (!response.ok) {
-        throw new Error(`Error updating resource: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Error updating resource: ${response.status} ${response.statusText} ${errorText}`);
       }
       
       const responseData = await response.json();
+      console.log("Resource update response data:", responseData);
+      
       return responseData;
     } catch (err) {
       console.error("Error updating resource:", err);

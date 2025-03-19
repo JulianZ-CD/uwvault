@@ -137,11 +137,16 @@ export const resourceService = {
     if (data.title) formData.append('title', data.title);
     if (data.description) formData.append('description', data.description);
     if (data.course_id) formData.append('course_id', data.course_id);
+    
+    // 如果提供了文件，添加到表单数据中
+    if (data.file) {
+      formData.append('file', data.file, data.file.name);
+    }
 
     return await fetch(`/api/py/resources/${id}/`, {
       method: 'PATCH',
       body: formData,
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(true),  // 使用文件上传模式的认证头
     });
   },
 
