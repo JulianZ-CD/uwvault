@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Button } from "@/app/components/ui/button";
-import { Download, Eye, Settings, Check, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { Download, Eye, Info, Edit, Trash2, Check, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { useResource } from "@/app/hooks/useResource";
 import { useToast } from "@/app/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/hooks/useAuth";
 import { Resource, ResourceStatus, ResourceReviewData } from "@/app/types/resource";
 import { ResourceReviewDialog } from "@/app/resources/components/ResourceReviewDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/app/components/ui/alert-dialog";
 
 interface ResourceActionsProps {
   resourceId: number;
@@ -16,16 +17,25 @@ interface ResourceActionsProps {
   fileType?: string;
   onUpdate?: () => void;
   showAdminActions?: boolean;
+  hideViewDownload?: boolean;
 }
 
-export function ResourceActions({ resourceId, resource, fileType, onUpdate, showAdminActions = false }: ResourceActionsProps) {
+export function ResourceActions({ 
+  resourceId, 
+  resource, 
+  fileType, 
+  onUpdate, 
+  showAdminActions = false,
+  hideViewDownload = false
+}: ResourceActionsProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { actions, downloadResource, getResourceUrl, reviewResource } = useResource();
+  const { actions, downloadResource, getResourceUrl, reviewResource, deleteResource } = useResource();
   const [downloading, setDownloading] = useState<boolean>(false);
   const [viewing, setViewing] = useState<boolean>(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | 'deactivate' | 'activate'>('approve');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
 
   // 判断是否为Word文档
@@ -86,15 +96,54 @@ export function ResourceActions({ resourceId, resource, fileType, onUpdate, show
     }
   };
 
-  // 管理员操作相关函数 - 仅当 showAdminActions 为 true 且 resource 存在时可用
-  const handleAdminViewDetails = () => {
+  // 管理员操作相关函数
+  const handleInfoView = () => {
     if (!resource) return;
     router.push(`/resources/${resource.id}`);
   };
   
-  const handleOperate = () => {
+  const handleEdit = () => {
     if (!resource) return;
-    router.push(`/resources/admin/review/${resource.id}`);
+    router.push(`/resources/${resource.id}/edit`);
+  };
+  
+  const handleDelete = async () => {
+    if (!resource) return;
+    setShowDeleteDialog(true);
+  };
+  
+  const handleDeleteResource = async () => {
+    if (!resource) return;
+    
+    try {
+      const success = await deleteResource(resource.id);
+      if (success) {
+        toast({
+          title: "Resource deleted",
+          description: `Resource "${resource.title}" has been deleted.`,
+        });
+        
+        // 调用父组件的更新函数
+        if (onUpdate) {
+          onUpdate();
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Delete failed",
+          description: "Failed to delete the resource."
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting resource:", error);
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: "An error occurred while deleting the resource."
+      });
+    } finally {
+      setShowDeleteDialog(false);
+    }
   };
   
   const openReviewDialog = (action: 'approve' | 'reject' | 'deactivate' | 'activate') => {
@@ -234,124 +283,124 @@ export function ResourceActions({ resourceId, resource, fileType, onUpdate, show
   };
 
   return (
-    <>
-      <div className="flex items-center gap-2">
-        {/* 原有的查看和下载按钮 */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleViewDetails}
-          disabled={viewing}
-        >
-          {viewing ? (
-            <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-          ) : (
-            <>
-              <Eye className="h-4 w-4 mr-1" />
-              View Details
-            </>
-          )}
-        </Button>
-        
-        {actions?.can_download && (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleDownload}
-            disabled={downloading}
-          >
-            {downloading ? (
-              <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-          </Button>
-        )}
-        
-        {/* 管理员操作按钮 */}
-        {showAdminActions && resource && (
+    <div className="flex flex-col gap-2">
+      {/* 第一行：Preview、Download 和 审核按钮 */}
+      <div className="flex items-center justify-end gap-2">
+        {!hideViewDownload && (
           <>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleAdminViewDetails}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleViewDetails}
+              disabled={viewing}
             >
-              <Eye className="h-4 w-4 mr-1" />
-              View
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleDownload}
-              disabled={downloading}
-            >
-              {downloading ? (
+              {viewing ? (
                 <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
               ) : (
-                <Download className="h-4 w-4 mr-1" />
+                <>
+                  <Eye className="h-4 w-4 mr-1" />
+                  Preview
+                </>
               )}
-              Download
             </Button>
             
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleOperate}
-            >
-              <Settings className="h-4 w-4 mr-1" />
-              Operate
-            </Button>
-            
-            {resource.status === ResourceStatus.PENDING && (
-              <>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => openReviewDialog('approve')}
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Approve
-                </Button>
-                
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={() => openReviewDialog('reject')}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Reject
-                </Button>
-              </>
-            )}
-            
-            {resource.status === ResourceStatus.APPROVED && (
-              <Button 
-                variant="outline" 
+            {actions?.can_download && (
+              <Button
+                variant="outline"
                 size="sm"
-                className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
-                onClick={() => openReviewDialog('deactivate')}
+                onClick={handleDownload}
+                disabled={downloading}
               >
-                <AlertTriangle className="h-4 w-4 mr-1" />
-                Deactivate
-              </Button>
-            )}
-            
-            {resource.status === ResourceStatus.INACTIVE && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="border-green-500 text-green-600 hover:bg-green-50"
-                onClick={() => openReviewDialog('activate')}
-              >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Activate
+                {downloading ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
               </Button>
             )}
           </>
         )}
+        
+        {/* 审核按钮放在第一行最右侧 */}
+        {showAdminActions && resource && resource.status === ResourceStatus.PENDING && (
+          <>
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => openReviewDialog('approve')}
+            >
+              <Check className="h-4 w-4 mr-1" />
+              Approve
+            </Button>
+            
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => openReviewDialog('reject')}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Reject
+            </Button>
+          </>
+        )}
+        
+        {showAdminActions && resource && resource.status === ResourceStatus.APPROVED && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+            onClick={() => openReviewDialog('deactivate')}
+          >
+            <AlertTriangle className="h-4 w-4 mr-1" />
+            Deactivate
+          </Button>
+        )}
+        
+        {showAdminActions && resource && resource.status === ResourceStatus.INACTIVE && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="border-green-500 text-green-600 hover:bg-green-50"
+            onClick={() => openReviewDialog('activate')}
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Activate
+          </Button>
+        )}
       </div>
+      
+      {/* 第二行：Info、Edit 和 Delete 按钮 */}
+      {showAdminActions && resource && (
+        <div className="flex items-center justify-end gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleInfoView}
+          >
+            <Info className="h-4 w-4 mr-1" />
+            Info
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleEdit}
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            Edit
+          </Button>
+          
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            onClick={handleDelete}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete
+          </Button>
+        </div>
+      )}
       
       {/* 审核对话框 */}
       {showAdminActions && resource && (
@@ -362,6 +411,28 @@ export function ResourceActions({ resourceId, resource, fileType, onUpdate, show
           action={reviewAction}
         />
       )}
-    </>
+      
+      {/* 删除确认对话框 */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this resource?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the resource
+              and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteResource}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
