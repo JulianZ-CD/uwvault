@@ -261,6 +261,10 @@ async def review_resource(
 ):
     """Review resource (admin only)"""
     try:
+        # 添加请求数据日志
+        logger.info(f"Received review request for resource {id}: {review_data.dict()}")
+        logger.info(f"Current user: {current_user}")
+        
         review = ResourceReview(
             status=review_data.status,
             review_comment=review_data.review_comment,
@@ -269,8 +273,11 @@ async def review_resource(
         resource = await resource_service.review_resource(id, review)
         return resource
     except NotFoundError as e:
+        logger.error(f"Resource not found: {id}, error: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except ValidationError as e:
+        # 添加详细的验证错误日志
+        logger.error(f"Validation error for resource {id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
