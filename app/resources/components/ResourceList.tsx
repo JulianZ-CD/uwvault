@@ -24,8 +24,8 @@ export function ResourceList() {
   const { toast } = useToast();
   const [resourcesFetched, setResourcesFetched] = useState(false);
   
-  // 只保留课程ID过滤
-  const [courseId, setCourseId] = useState("");
+  // Store the current courseId for tracking selection
+  const [courseId, setCourseId] = useState<string | undefined>(undefined);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -34,7 +34,7 @@ export function ResourceList() {
   // 处理过滤 - 只接收课程ID
   const handleFilter = (course_id?: string) => {
     console.log(`Filtering resources with course_id: "${course_id || 'all'}"`);
-    setCourseId(course_id || "");
+    setCourseId(course_id); // Update the state with selected courseId
     setPage(1); // 重置到第一页
     
     // 重新获取资源
@@ -76,7 +76,7 @@ export function ResourceList() {
     fetchResources({ 
       limit: pageSize, 
       offset: (page - 1) * pageSize,
-      course_id: courseId || undefined
+      course_id: courseId
     })
       .catch(error => {
         console.error("Error fetching resources:", error);
@@ -90,11 +90,11 @@ export function ResourceList() {
   useEffect(() => {
     if (!user || authLoading || !resourcesFetched) return;
 
-    console.log(`Fetching resources for page ${page} with filter - course_id: "${courseId}"`);
+    console.log(`Fetching resources for page ${page} with filter - course_id: "${courseId || 'all'}"`);
     fetchResources({ 
       limit: pageSize, 
       offset: (page - 1) * pageSize,
-      course_id: courseId || undefined
+      course_id: courseId
     })
       .catch(error => {
         console.error("Error fetching resources after page change:", error);
@@ -147,8 +147,11 @@ export function ResourceList() {
 
   return (
     <div className="space-y-6 px-4">
-      {/* 只保留课程ID过滤组件 */}
-      <ResourceFilter onFilter={handleFilter} />
+      {/* Pass the current courseId to ResourceFilter */}
+      <ResourceFilter 
+        onFilter={handleFilter} 
+        selectedCourseId={courseId ? courseId : "all"} 
+      />
       
       <div className="grid gap-4">
         {resources.length === 0 ? (

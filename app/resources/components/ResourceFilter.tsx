@@ -8,14 +8,20 @@ import { useResource } from "@/app/hooks/useResource";
 
 interface ResourceFilterProps {
   onFilter: (courseId?: string) => void;
+  selectedCourseId?: string; // Add selectedCourseId prop
 }
 
-export function ResourceFilter({ onFilter }: ResourceFilterProps) {
-  const [courseId, setCourseId] = useState("all");
+export function ResourceFilter({ onFilter, selectedCourseId = "all" }: ResourceFilterProps) {
+  const [courseId, setCourseId] = useState(selectedCourseId);
   const [courseIds, setCourseIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const { user } = useAuth();
   const { getCourseIds } = useResource();
+
+  // Update local state when prop changes
+  useEffect(() => {
+    setCourseId(selectedCourseId);
+  }, [selectedCourseId]);
 
   // 获取所有课程ID
   useEffect(() => {
@@ -55,8 +61,9 @@ export function ResourceFilter({ onFilter }: ResourceFilterProps) {
           defaultValue="all"
         >
           <SelectTrigger className={loading ? "opacity-70" : ""}>
-            <SelectValue placeholder="Select Course ID">
-              {courseId === "all" ? "All Courses" : courseId}
+            <SelectValue placeholder={loading ? "Loading courses..." : "Select Course ID"}>
+              {loading ? "Loading courses..." : 
+               courseId === "all" ? "All Courses" : courseId}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
