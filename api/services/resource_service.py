@@ -744,11 +744,38 @@ class ResourceService:
             self.logger.error(f"Error reactivating resource {id}: {str(e)}")
             raise
 
+    async def get_all_course_ids(self) -> List[str]:
+        """Get all unique course IDs
+        
+        Returns:
+            List[str]: List of unique course IDs
+        """
+        try:
+            self.logger.info("Getting all unique course IDs")
+            
+            response = self.supabase.rpc('get_all_course_ids').execute()
+            
+            if not response.data:
+                return []
+            
+            course_ids = [item['course_id'] for item in response.data if item['course_id']]
+            
+            self.logger.info(f"Successfully retrieved {len(course_ids)} unique course IDs")
+            
+            return course_ids
+        except Exception as e:
+            import traceback
+            stack_trace = traceback.format_exc()
+            self.logger.error(f"Error getting course IDs: {str(e)}")
+            self.logger.error(f"Stack trace: {stack_trace}")
+            return []
+
     async def list_resources(
         self,
         limit: int = 10,
         offset: int = 0,
-        include_pending: bool = False
+        include_pending: bool = False,
+        course_id: Optional[str] = None
     ) -> Tuple[List[ResourceInDB], int]:
         """Get resource list
         
@@ -756,23 +783,46 @@ class ResourceService:
             limit: Maximum number of resources to return
             offset: Number of resources to skip
             include_pending: Whether to include pending resources
+            course_id: Filter resources by course_id
         """
         try:
-            self.logger.info(f"Getting resource list: limit={limit}, offset={offset}, include_pending={include_pending}")
+            self.logger.info(f"Getting resource list: limit={limit}, offset={offset}, include_pending={include_pending}, course_id={course_id}")
             
             # 使用SQL函数
-            if include_pending:
-                response = self.supabase.rpc('get_all_resources', {
-                    'limit_val': limit, 
-                    'offset_val': offset
-                }).execute()
-                count_response = self.supabase.rpc('count_all_resources').execute()
+            if course_id:
+                # 按课程过滤
+                if include_pending:
+                    response = self.supabase.rpc('get_all_resources_by_course', {
+                        'course_id_val': course_id,
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_all_resources_by_course', {
+                        'course_id_val': course_id
+                    }).execute()
+                else:
+                    response = self.supabase.rpc('get_approved_resources_by_course', {
+                        'course_id_val': course_id,
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_approved_resources_by_course', {
+                        'course_id_val': course_id
+                    }).execute()
             else:
-                response = self.supabase.rpc('get_approved_resources', {
-                    'limit_val': limit, 
-                    'offset_val': offset
-                }).execute()
-                count_response = self.supabase.rpc('count_approved_resources').execute()
+                # 不按课程过滤
+                if include_pending:
+                    response = self.supabase.rpc('get_all_resources', {
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_all_resources').execute()
+                else:
+                    response = self.supabase.rpc('get_approved_resources', {
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_approved_resources').execute()
             
             # 处理结果
             if not response.data:

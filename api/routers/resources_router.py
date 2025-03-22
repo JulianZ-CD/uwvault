@@ -67,6 +67,18 @@ async def get_available_actions(
             "can_see_all_statuses": False,
         }
 
+@router.get("/course-ids", response_model=List[str])
+async def get_course_ids(
+    current_user = Depends(get_current_user)
+):
+    """Get all available course IDs"""
+    try:
+        course_ids = await resource_service.get_all_course_ids()
+        return course_ids
+    except Exception as e:
+        logger.error(f"Error getting course IDs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get course IDs")
+
 @router.post("/create", response_model=ResourceInDB)
 async def create_resource(
     title: str = Form(...),
@@ -356,7 +368,8 @@ async def list_resources(
         resources, total = await resource_service.list_resources(
             limit=limit,
             offset=offset,
-            include_pending=include_pending
+            include_pending=include_pending,
+            course_id=course_id
         )
         
         return {
