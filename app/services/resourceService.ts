@@ -46,10 +46,13 @@ export const resourceService = {
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.offset) queryParams.append('offset', params.offset.toString());
       if (params?.course_id) queryParams.append('course_id', params.course_id);
-      if (params?.search) queryParams.append('search', params.search);
+      
+      console.log("Resource query params:", Object.fromEntries(queryParams.entries()));
       
       const queryString = queryParams.toString();
       const url = `/api/py/resources/${queryString ? `?${queryString}` : ''}`;
+      
+      console.log("Fetching resources from URL:", url);
       
       const response = await fetch(url, {
         headers: getAuthHeaders(),
@@ -71,6 +74,44 @@ export const resourceService = {
     } catch (error) {
       console.error("Error in getAllResources:", error);
       return { items: [], total: 0 };
+    }
+  },
+
+  // 获取所有课程ID
+  // async getCourseIds(): Promise<string[]> {
+  //   try {
+  //     const response = await fetch('/api/py/resources/course-ids', {
+  //       headers: getAuthHeaders(),
+  //     });
+      
+  //     if (!response.ok) {
+  //       throw new Error('Failed to fetch course IDs');
+  //     }
+      
+  //     const data = await response.json();
+  //     // 确保过滤掉空字符串和空值
+  //     return data.filter((id: string) => id && id.trim() !== '');
+  //   } catch (error) {
+  //     console.error("Error fetching course IDs:", error);
+  //     return [];
+  //   }
+  // },
+
+  // 获取所有可用的课程ID
+  async getCourseIds(): Promise<string[]> {
+    try {
+      const response = await fetch('/api/py/resources/course-ids', {
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch course IDs: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching course IDs:", error);
+      return [];
     }
   },
 

@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { useResource } from "@/app/hooks/useResource";
 import { useAuth } from "@/app/hooks/useAuth";
-import { ResourceListParams } from "@/app/types/resource";
 import { Button } from "@/app/components/ui/button";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/app/components/ui/pagination";
 import { useToast } from "@/app/hooks/use-toast";
 import { ResourceItem } from "@/app/resources/components/ResourceItem";
+import { ResourceFilter } from "@/app/resources/components/ResourceFilter";
 
 export function ResourceList() {
   const { user, isLoading: authLoading } = useAuth();
@@ -23,9 +23,30 @@ export function ResourceList() {
   const pageSize = 10;
   const { toast } = useToast();
   const [resourcesFetched, setResourcesFetched] = useState(false);
+  
+  // 只保留课程ID过滤
+  const [courseId, setCourseId] = useState("");
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
+  };
+
+  // 处理过滤 - 只接收课程ID
+  const handleFilter = (course_id?: string) => {
+    console.log(`Filtering resources with course_id: "${course_id || 'all'}"`);
+    setCourseId(course_id || "");
+    setPage(1); // 重置到第一页
+    
+    // 重新获取资源
+    if (user) {
+      fetchResources({ 
+        limit: pageSize, 
+        offset: 0,
+        course_id: course_id // 直接传递 course_id，可能是 undefined
+      }).catch(error => {
+        console.error("Error fetching filtered resources:", error);
+      });
+    }
   };
 
   // 当认证状态改变时，重置状态
@@ -52,25 +73,33 @@ export function ResourceList() {
     console.log("User is logged in, fetching resources...");
     setResourcesFetched(true);
     
-    fetchResources({ limit: pageSize, offset: (page - 1) * pageSize })
+    fetchResources({ 
+      limit: pageSize, 
+      offset: (page - 1) * pageSize,
+      course_id: courseId || undefined
+    })
       .catch(error => {
         console.error("Error fetching resources:", error);
         if (error.status === 401 || error.status === 403) {
           setAuthError(true);
         }
       });
-  }, [user, authLoading, fetchResources, pageSize, page, resourcesFetched]);
+  }, [user, authLoading, fetchResources, pageSize, page, resourcesFetched, courseId]);
 
   // 当页码变化时获取新资源
   useEffect(() => {
     if (!user || authLoading || !resourcesFetched) return;
 
-    console.log(`Fetching resources for page ${page}...`);
-    fetchResources({ limit: pageSize, offset: (page - 1) * pageSize })
+    console.log(`Fetching resources for page ${page} with filter - course_id: "${courseId}"`);
+    fetchResources({ 
+      limit: pageSize, 
+      offset: (page - 1) * pageSize,
+      course_id: courseId || undefined
+    })
       .catch(error => {
         console.error("Error fetching resources after page change:", error);
       });
-  }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize]);
+  }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize, courseId]);
 
   // 处理评分更新
   const handleRatingUpdate = (resourceId: number, averageRating: number, ratingCount: number) => {
@@ -118,14 +147,23 @@ export function ResourceList() {
 
   return (
     <div className="space-y-6 px-4">
+      {/* 只保留课程ID过滤组件 */}
+      <ResourceFilter onFilter={handleFilter} />
+      
       <div className="grid gap-4">
-        {resources.map((resource) => (
-          <ResourceItem 
-            key={resource.id} 
-            resource={resource} 
-            onRatingUpdate={handleRatingUpdate}
-          />
-        ))}
+        {resources.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No resources found.
+          </div>
+        ) : (
+          resources.map((resource) => (
+            <ResourceItem 
+              key={resource.id} 
+              resource={resource} 
+              onRatingUpdate={handleRatingUpdate}
+            />
+          ))
+        )}
       </div>
 
       {totalPages > 1 && (

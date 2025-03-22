@@ -482,6 +482,22 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
     }
   }, [showAlert]);
 
+  // get course IDs
+  const getCourseIds = useCallback(async (): Promise<string[]> => {
+    if (!user) {
+      console.warn("User not authenticated, skipping course IDs fetch");
+      return [];
+    }
+    
+    try {
+      return await resourceService.getCourseIds();
+    } catch (err) {
+      console.error("Error getting course IDs:", err);
+      setError(err instanceof Error ? err.message : 'Failed to get course IDs');
+      return [];
+    }
+  }, [user]);
+
   return {
     resources,
     totalItems,
@@ -505,6 +521,7 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
     reactivateResource,
     getUserUploads,
     rateResource,
-    getUserRating
+    getUserRating,
+    getCourseIds
   };
 }
