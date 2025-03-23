@@ -33,8 +33,8 @@ export function ResourceList() {
 
   // 处理过滤 - 只接收课程ID
   const handleFilter = (course_id?: string) => {
-    console.log(`Filtering resources with course_id: "${course_id || 'all'}"`);
-    setCourseId(course_id); // Update the state with selected courseId
+    console.log(`ResourceList - Filtering resources with course_id: ${course_id ? `"${course_id}"` : 'undefined (all courses)'}`);
+    setCourseId(course_id); // 现在可以接受 undefined
     setPage(1); // 重置到第一页
     
     // 重新获取资源
@@ -43,6 +43,8 @@ export function ResourceList() {
         limit: pageSize, 
         offset: 0,
         course_id: course_id // 直接传递 course_id，可能是 undefined
+      }).then(() => {
+        console.log("Resources fetched successfully after filter");
       }).catch(error => {
         console.error("Error fetching filtered resources:", error);
       });
@@ -116,6 +118,7 @@ export function ResourceList() {
     
     // 这里我们不直接更新resources状态，因为它由useResource管理
     // 但在实际应用中，您可能需要更新本地状态或触发重新获取
+    console.log(`Rating updated for resource ${resourceId}: ${averageRating} (${ratingCount} ratings)`);
   };
 
   if (authError) {

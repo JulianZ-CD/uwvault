@@ -74,7 +74,7 @@ export function AdminResourceList({
   const totalPages = Math.ceil(totalItems / pageSize);
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4">
       <div className="grid gap-4">
         {resources.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -106,7 +106,36 @@ export function AdminResourceList({
                 />
               </PaginationItem>
               
-              {/* 分页逻辑 */}
+              {/* 添加页码数字 */}
+              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                let pageNum = i + 1;
+                
+                // 调整页码显示逻辑，确保当前页在中间
+                if (totalPages > 5) {
+                  if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                }
+                
+                return (
+                  <PaginationItem key={pageNum}>
+                    <PaginationLink 
+                      href="#"
+                      isActive={page === pageNum}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePageChange(pageNum);
+                      }}
+                    >
+                      {pageNum}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
               
               <PaginationItem>
                 <PaginationNext 

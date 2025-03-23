@@ -194,15 +194,6 @@ export default function ResourceDetailPage() {
   return (
     <main className="min-h-screen">
       <div className="container py-8">
-        <Button 
-          variant="outline" 
-          onClick={() => router.push("/resources")}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Resources
-        </Button>
-        
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">

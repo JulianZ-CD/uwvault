@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useResource } from "@/app/hooks/useResource";
-import { useToast } from "@/app/hooks/use-toast";
 import { Resource } from "@/app/types/resource";
 import { Card, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { ResourceActions } from "@/app/resources/components/ResourceActions";
@@ -17,7 +16,9 @@ export function ResourceItem({ resource, onRatingUpdate }: ResourceItemProps) {
   const { rateResource } = useResource();
   const [ratingLoading, setRatingLoading] = useState<boolean>(false);
   const [showRatingPopup, setShowRatingPopup] = useState<boolean>(false);
-  const { toast } = useToast();
+  const [userRating, setUserRating] = useState<number>(0);
+  const [localAvgRating, setLocalAvgRating] = useState<number>(resource.average_rating);
+  const [localRatingCount, setLocalRatingCount] = useState<number>(resource.rating_count);
 
   // 处理评分
   const handleRate = async (rating: number) => {
@@ -26,25 +27,21 @@ export function ResourceItem({ resource, onRatingUpdate }: ResourceItemProps) {
     try {
       const result = await rateResource(resource.id, rating);
       if (result) {
+        // 设置用户评分
+        setUserRating(rating);
+        
+        // 更新本地评分数据
+        setLocalAvgRating(result.average_rating);
+        setLocalRatingCount(result.rating_count);
+        
         // 通知父组件更新评分信息
         onRatingUpdate(resource.id, result.average_rating, result.rating_count);
-        
-        toast({
-          title: "Rating Submitted",
-          description: "Thank you for rating this resource!",
-          className: "border-green-500 text-green-700",
-        });
         
         // 隐藏评分弹出框
         setShowRatingPopup(false);
       }
     } catch (error) {
       console.error("Error rating resource:", error);
-      toast({
-        variant: "destructive",
-        title: "Rating Failed",
-        description: "Failed to submit your rating. Please try again."
-      });
     } finally {
       setRatingLoading(false);
     }
@@ -63,10 +60,10 @@ export function ResourceItem({ resource, onRatingUpdate }: ResourceItemProps) {
             
             <div className="w-[40%] flex justify-center">
               <StarRating 
-                rating={resource.average_rating} 
+                rating={userRating > 0 ? localAvgRating : resource.average_rating} 
                 readOnly={true}
                 size={20}
-                ratingCount={resource.rating_count}
+                ratingCount={userRating > 0 ? localRatingCount : resource.rating_count}
               />
             </div>
             
@@ -88,13 +85,25 @@ export function ResourceItem({ resource, onRatingUpdate }: ResourceItemProps) {
                 <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
               ) : (
                 <div className="relative inline-flex items-center">
-                  <span 
-                    className="text-sm font-medium text-primary cursor-pointer hover:underline px-3 py-1 bg-primary/10 rounded-md"
-                    onClick={() => setShowRatingPopup(!showRatingPopup)}
-                    onMouseEnter={() => setShowRatingPopup(true)}
-                  >
-                    Rate
-                  </span>
+                  {userRating > 0 ? (
+                    <div className="flex items-center gap-2 text-sm font-medium text-primary px-3 py-1 bg-primary/10 rounded-md">
+                      <span>Your rating:</span>
+                      <StarRating
+                        rating={userRating}
+                        readOnly={true}
+                        size={14}
+                      />
+                    </div>
+                  ) : (
+                    <span 
+                      className="text-sm font-medium text-primary cursor-pointer hover:underline px-3 py-1 bg-primary/10 rounded-md"
+                      onClick={() => setShowRatingPopup(!showRatingPopup)}
+                      onMouseEnter={() => setShowRatingPopup(true)}
+                    >
+                      Rate
+                    </span>
+                  )}
+                  
                   {showRatingPopup && (
                     <div 
                       className="absolute left-full ml-2 bg-background border rounded p-2 shadow-md z-10"
@@ -102,6 +111,7 @@ export function ResourceItem({ resource, onRatingUpdate }: ResourceItemProps) {
                     >
                       <StarRating
                         rating={0}
+                        userRating={userRating}
                         onRate={handleRate}
                         size={16}
                       />
