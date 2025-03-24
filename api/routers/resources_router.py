@@ -205,6 +205,12 @@ async def update_resource(
 ):
     """Update resource details and optionally replace the file"""
     try:
+        logger.info(f"Received update request for resource {id}")
+        logger.info(f"File provided: {file is not None}")
+        
+        if file:
+            logger.info(f"File details - filename: {file.filename}, content_type: {file.content_type}, size: {getattr(file, 'size', 'unknown')}")
+        
         # 添加输入验证
         if title is not None and len(title.strip()) == 0:
             raise ValidationError("Title cannot be empty")
@@ -242,8 +248,10 @@ async def update_resource(
             updated_by=current_user.get("id")
         )
         
-        # 调用更新后的service方法，传入可选的文件
-        return await resource_service.update_resource(id, update_data, file)
+        logger.info(f"Calling resource_service.update_resource with file: {file is not None}")
+        result = await resource_service.update_resource(id, update_data, file)
+        logger.info(f"Resource {id} updated successfully")
+        return result
     except ValidationError as e:
         # 确保 ValidationError 被转换为 422 响应
         logger.error(f"Validation error updating resource {id}: {str(e)}")

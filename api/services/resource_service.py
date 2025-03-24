@@ -135,6 +135,110 @@ class ResourceService:
             
         return sha256_hash.hexdigest()
 
+    # 新增的辅助函数
+
+    async def _validate_file(self, file: UploadFile) -> None:
+        """验证文件类型和大小"""
+        if not self.validate_file_type(file.content_type):
+            raise ValidationError(f"Unsupported file type: {file.content_type}")
+        
+        if not self.validate_file_size(file.size):
+            raise ValidationError(f"File too large: {file.size} bytes")
+
+    async def _prepare_file_metadata(self, file: UploadFile, course_id: str) -> dict:
+        """准备文件元数据"""
+        file_hash = self.calculate_file_hash(file.file)
+        await file.seek(0)  # 重置文件指针
+        
+        safe_filename = self.generate_safe_filename(file.filename)
+        storage_path = self.generate_storage_path(
+            safe_filename,
+            ResourceType.COURSE_DOCUMENT,
+            course_id
+        )
+        
+        return {
+            "file_hash": file_hash,
+            "file_size": file.size,
+            "file_type": self.get_file_extension(file.filename),
+            "mime_type": file.content_type,
+            "original_filename": file.filename,
+            "storage_path": storage_path
+        }
+
+    async def _upload_file_to_storage(
+        self, 
+        file: UploadFile, 
+        storage_path: str, 
+        resource_id: int, 
+        metadata: dict
+    ) -> None:
+        """上传文件到存储"""
+        await self._ensure_storage_initialized()
+        
+        try:
+            blob = self._storage_bucket.blob(storage_path)
+            
+            if file.content_type:
+                blob.content_type = file.content_type
+            
+            blob.metadata = metadata
+            
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: blob.upload_from_file(file.file, rewind=True)
+            )
+            
+            # 更新同步状态
+            await self._update_sync_status(
+                resource_id,
+                StorageStatus.SYNCED,
+                last_sync_at=datetime.now()
+            )
+        except Exception as e:
+            await self._handle_storage_error(
+                resource_id,
+                StorageOperation.UPLOAD,
+                e
+            )
+            raise StorageOperationError("upload", str(e))
+
+    async def _prepare_gcp_metadata(
+        self, 
+        resource_id: int, 
+        file: UploadFile, 
+        file_hash: str, 
+        user_id: str, 
+        course_id: str,
+        is_update: bool = False
+    ) -> dict:
+        """准备GCP存储的技术元数据"""
+        current_time = datetime.now().isoformat()
+        
+        metadata = {
+            "resource_id": str(resource_id),
+            "original_filename": file.filename,
+            "content_hash": file_hash,
+            "file_type": self.get_file_extension(file.filename),
+            "file_size": str(file.size),
+            "mime_type": file.content_type,
+            "course_id": course_id or ""
+        }
+        
+        if is_update:
+            metadata.update({
+                "updated_at": current_time,
+                "updated_by": str(user_id)
+            })
+        else:
+            metadata.update({
+                "created_at": current_time,
+                "created_by": str(user_id)
+            })
+        
+        return metadata
+
+
     async def _filter_query(self, table_name, conditions, limit=None, offset=None, order_by=None, order_desc=True):
         """通用查询方法，使用基础select和Python过滤"""
         try:
@@ -195,14 +299,6 @@ class ResourceService:
         """
         try:
             self.logger.info(f"Getting resource with ID {id}")
-            # query = self.supabase.table(self.table_name).select("*").eq('id', id)
-                
-            # response = query.single().execute()
-
-            # if not response.data:
-            #     raise NotFoundError(f"Resource with id {id} not found")
-
-            # resource = ResourceInDB(**response.data)
 
             results = await self._filter_query(self.table_name, {"id": id})
             if not results:
@@ -221,57 +317,37 @@ class ResourceService:
             self.logger.error(f"Error while fetching resource {id}: {str(e)}")
             raise
 
-    async def create_resource(
-        self,
-        resource: ResourceCreate,
-        file: UploadFile
-    ) -> ResourceInDB:
-        """Create new resource"""
+    async def create_resource(self, resource: ResourceCreate, file: UploadFile) -> ResourceInDB:
+        """创建新资源"""
         try:
             self.logger.info(f"Creating new resource: {resource.title}")
             
-            # 验证文件类型
-            if not self.validate_file_type(file.content_type):
-                raise ValidationError("Invalid file type")
+            # 验证文件
+            await self._validate_file(file)
             
-            # 验证文件大小
-            if not self.validate_file_size(file.size):
-                raise ValidationError("File too large")
-
             # 确保 uploader_id 是有效的UUID字符串
             if not isinstance(resource.uploader_id, str):
                 raise ValidationError("uploader_id must be a string")
-
-            # 2. Prepare metadata
-            file_hash = self.calculate_file_hash(file.file)
-            safe_filename = self.generate_safe_filename(file.filename)
-            storage_path = self.generate_storage_path(
-                safe_filename,
-                ResourceType.COURSE_DOCUMENT,
-                resource.course_id
-            )
-
-            # 3. Create database record
-            resource_data = resource.model_dump()
             
+            # 准备文件元数据
+            file_metadata = await self._prepare_file_metadata(file, resource.course_id)
+            
+            # 创建数据库记录
+            resource_data = resource.model_dump()
             current_time = datetime.now().isoformat()
+            
             resource_data.update({
                 "created_at": current_time,
                 "updated_at": current_time,
-                "storage_path": storage_path,
-                "file_hash": file_hash,
-                "file_type": self.get_file_extension(file.filename),
-                "file_size": file.size,
-                "mime_type": file.content_type,
-                "original_filename": file.filename,
                 "created_by": resource.uploader_id,
                 "updated_by": resource.uploader_id,
                 "status": resource.status,
                 "storage_status": StorageStatus.PENDING,
-                "retry_count": 0
+                "retry_count": 0,
+                **file_metadata
             })
-
-            # 4. Save to database and upload file
+            
+            # 保存到数据库
             response = self.supabase.table(self.table_name).insert(resource_data).execute()
             
             if not response.data:
@@ -280,55 +356,24 @@ class ResourceService:
             created_resource = ResourceInDB(**response.data[0])
             self.logger.info(f"Created resource record with id: {created_resource.id}")
             
-            # 4. Upload file to storage
-            try:
-                # Prepare GCP storage technical metadata
-                gcp_metadata = {
-                    "resource_id": str(created_resource.id),
-                    "original_filename": file.filename,
-                    "content_hash": file_hash,
-                    "file_type": self.get_file_extension(file.filename),
-                    "file_size": str(file.size),
-                    "mime_type": file.content_type,
-                    "created_at": current_time,
-                    "created_by": str(resource.uploader_id),
-                    "course_id": resource.course_id
-                }
-                
-                # 直接使用GCP存储方法，替换storage.upload_file
-                await self._ensure_storage_initialized()
-                try:
-                    blob = self._storage_bucket.blob(storage_path)
-                    
-                    if file.content_type:
-                        blob.content_type = file.content_type
-                    if gcp_metadata:
-                        blob.metadata = gcp_metadata
-                        
-                    await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        lambda: blob.upload_from_file(file.file, rewind=True)
-                    )
-                except Exception as e:
-                    raise StorageError(f"Upload failed: {str(e)}")
-                
-                # 5. Update sync status
-                await self._update_sync_status(
-                    created_resource.id,
-                    StorageStatus.SYNCED,
-                    last_sync_at=datetime.now()
-                )
-                
-            except StorageError as e:
-                await self._handle_storage_error(
-                    created_resource.id,
-                    StorageOperation.UPLOAD,
-                    e
-                )
-                raise StorageOperationError("upload", str(e))
-
+            # 准备GCP元数据并上传文件
+            gcp_metadata = await self._prepare_gcp_metadata(
+                created_resource.id, 
+                file, 
+                file_metadata["file_hash"], 
+                resource.uploader_id, 
+                resource.course_id
+            )
+            
+            await self._upload_file_to_storage(
+                file, 
+                created_resource.storage_path, 
+                created_resource.id, 
+                gcp_metadata
+            )
+            
             return created_resource
-
+            
         except ValidationError as e:
             self.logger.error(f"Validation error: {str(e)}")
             raise
@@ -457,122 +502,80 @@ class ResourceService:
         resource: ResourceUpdate,
         file: Optional[UploadFile] = None
     ) -> ResourceInDB:
-        """Update resource information and optionally replace the file"""
+        """更新资源信息，可选择替换文件"""
         try:
             self.logger.info(f"Updating resource with id: {id}")
             
-            # Check if resource exists
+            # 检查资源是否存在
             existing_resource = await self.get_resource_by_id(id)
             
-            # Prepare update data
+            # 准备更新数据
             update_data = resource.model_dump(exclude_unset=True)
             update_data["updated_at"] = datetime.now().isoformat()
             update_data["updated_by"] = resource.updated_by
-
-            # If a new file is provided, process it
+            
+            # 如果提供了新文件，处理它
             if file:
-                # Validate file type
-                if not self.validate_file_type(file.content_type):
-                    raise ValidationError(f"Unsupported file type: {file.content_type}")
+                # 验证文件
+                await self._validate_file(file)
                 
-                # Validate file size
-                if not self.validate_file_size(file.size):
-                    raise ValidationError(f"File too large: {file.size} bytes")
-                
-                # Calculate file hash
-                file_hash = self.calculate_file_hash(file.file)
-                await file.seek(0)  # Reset file pointer
-                
-                # Generate storage path
+                # 准备文件元数据
                 course_id = resource.course_id or existing_resource.course_id
-                safe_filename = self.generate_safe_filename(file.filename)
-                storage_path = self.generate_storage_path(
-                    safe_filename,
-                    ResourceType.COURSE_DOCUMENT,
-                    course_id
-                )
+                file_metadata = await self._prepare_file_metadata(file, course_id)
                 
-                # Update file-related metadata
+                # 更新文件相关元数据
                 update_data.update({
-                    "file_hash": file_hash,
-                    "file_size": file.size,
-                    "file_type": self.get_file_extension(file.filename),
-                    "mime_type": file.content_type,
-                    "original_filename": file.filename,
-                    "storage_path": storage_path,
+                    **file_metadata,
                     "storage_status": StorageStatus.PENDING
                 })
             
-            # Update database
+            # 更新数据库
             response = self.supabase.table(self.table_name).update(
                 update_data).eq('id', id).execute()
-
+            
             if not response.data:
                 raise NotFoundError(f"Resource with id {id} not found")
-
+            
             updated_resource = ResourceInDB(**response.data[0])
             
-            # If a new file is provided, upload it to storage
+            # 如果提供了新文件，上传到存储
             if file:
-                try:
-                    # Upload file to storage
-                    await self._ensure_storage_initialized()
-                    blob = self._storage_bucket.blob(updated_resource.storage_path)
-                    
-                    if file.content_type:
-                        blob.content_type = file.content_type
-                        
-                    # Add metadata
-                    gcp_metadata = {
-                        "resource_id": str(updated_resource.id),
-                        "original_filename": file.filename,
-                        "content_hash": update_data["file_hash"],
-                        "file_type": update_data["file_type"],
-                        "file_size": str(file.size),
-                        "mime_type": file.content_type,
-                        "updated_at": update_data["updated_at"],
-                        "updated_by": str(resource.updated_by),
-                        "course_id": course_id or ""
-                    }
-                    blob.metadata = gcp_metadata
-                    
-                    await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        lambda: blob.upload_from_file(file.file, rewind=True)
-                    )
-                    
-                    # Update sync status
-                    await self._update_sync_status(
-                        updated_resource.id,
-                        StorageStatus.SYNCED,
-                        last_sync_at=datetime.now()
-                    )
-                    
-                    # If storage path changed, delete old file
-                    if existing_resource.storage_path != updated_resource.storage_path:
-                        try:
-                            old_blob = self._storage_bucket.blob(existing_resource.storage_path)
-                            exists = await asyncio.get_event_loop().run_in_executor(
-                                None, old_blob.exists
+                # 准备GCP元数据
+                course_id = resource.course_id or existing_resource.course_id
+                gcp_metadata = await self._prepare_gcp_metadata(
+                    updated_resource.id, 
+                    file, 
+                    update_data["file_hash"], 
+                    resource.updated_by, 
+                    course_id,
+                    is_update=True
+                )
+                
+                # 上传文件
+                await self._upload_file_to_storage(
+                    file, 
+                    updated_resource.storage_path, 
+                    updated_resource.id, 
+                    gcp_metadata
+                )
+                
+                # 如果存储路径改变，删除旧文件
+                if existing_resource.storage_path != updated_resource.storage_path:
+                    try:
+                        old_blob = self._storage_bucket.blob(existing_resource.storage_path)
+                        exists = await asyncio.get_event_loop().run_in_executor(
+                            None, old_blob.exists
+                        )
+                        if exists:
+                            await asyncio.get_event_loop().run_in_executor(
+                                None, old_blob.delete
                             )
-                            if exists:
-                                await asyncio.get_event_loop().run_in_executor(
-                                    None, old_blob.delete
-                                )
-                        except Exception as e:
-                            self.logger.warning(f"Failed to delete old file: {str(e)}")
-                    
-                except StorageError as e:
-                    await self._handle_storage_error(
-                        updated_resource.id,
-                        StorageOperation.UPLOAD,
-                        e
-                    )
-                    raise StorageOperationError("upload", str(e))
+                    except Exception as e:
+                        self.logger.warning(f"Failed to delete old file: {str(e)}")
             
             self.logger.info(f"Successfully updated resource with id: {id}")
             return updated_resource
-
+            
         except NotFoundError:
             raise
         except ValidationError as e:
