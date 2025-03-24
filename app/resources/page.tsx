@@ -6,17 +6,28 @@ import { MyUploadsList } from "@/app/resources/components/MyUploadsList";
 import { ResourceTabs } from "@/app/resources/components/ResourceTabs";
 import { Button } from "@/app/components/ui/button";
 import { Upload, Settings } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useResource } from "@/app/hooks/useResource";
 import { useAuth } from "@/app/hooks/useAuth";
 
 export default function ResourceListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const { actions, fetchActions, isAdmin } = useResource();
   const [initializing, setInitializing] = useState(true);
   const pageInitialized = useRef(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'myUploads'>('all');
+  
+  // 从 URL 查询参数中读取 tab
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'all' | 'myUploads'>(
+    tabParam === 'myUploads' ? 'myUploads' : 'all'
+  );
+
+  useEffect(() => {
+    // 当 URL 参数变化时更新 activeTab
+    setActiveTab(tabParam === 'myUploads' ? 'myUploads' : 'all');
+  }, [tabParam]);
 
   useEffect(() => {
     // 统一认证状态检查
@@ -47,6 +58,9 @@ export default function ResourceListPage() {
   // 处理标签切换
   const handleTabChange = (tab: 'all' | 'myUploads') => {
     setActiveTab(tab);
+    // 更新 URL 查询参数，但不触发完整页面刷新
+    const url = `/resources${tab === 'myUploads' ? '?tab=myUploads' : ''}`;
+    window.history.pushState({}, '', url);
   };
   
   // 显示加载状态
