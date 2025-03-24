@@ -154,9 +154,14 @@ export function ResourceForm({
           onSuccess();
         }
         
-        // 更新成功后，重定向到 My Uploads 页面
+        // 根据用户角色决定重定向目标
         setTimeout(() => {
-          router.push("/resources?tab=myUploads");
+          // 管理员重定向到管理页面，普通用户重定向到 My Uploads
+          if (user?.role === 'admin') {
+            router.push("/resources/admin");
+          } else {
+            router.push("/resources?tab=myUploads");
+          }
         }, 2000); // 2秒后重定向，给用户时间看到成功提示
         
       } else {

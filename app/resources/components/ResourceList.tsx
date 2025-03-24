@@ -8,8 +8,10 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { useToast } from "@/app/hooks/use-toast";
 import { ResourceItem } from "@/app/resources/components/ResourceItem";
 import { ResourceFilter } from "@/app/resources/components/ResourceFilter";
+import { useRouter } from "next/navigation";
 
 export function ResourceList() {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const { 
     resources, 
@@ -51,14 +53,13 @@ export function ResourceList() {
     }
   };
 
-  // 当认证状态改变时，重置状态
+  // 当认证状态改变时，重置状态并处理重定向
   useEffect(() => {
     if (!authLoading && !user) {
-      setAuthError(true);
-    } else if (user) {
-      setAuthError(false);
+      // 用户未登录，直接重定向到登录页面
+      router.push('/login');
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, router]);
 
   // 分离资源获取逻辑
   useEffect(() => {
@@ -121,27 +122,11 @@ export function ResourceList() {
     console.log(`Rating updated for resource ${resourceId}: ${averageRating} (${ratingCount} ratings)`);
   };
 
-  if (authError) {
+  // 如果正在加载认证状态或资源，显示加载指示器
+  if (authLoading || isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
-        <div className="text-destructive text-xl mb-4">Authentication Required</div>
-        <p className="text-muted-foreground mb-6">
-          You need to be logged in to view resources. Please sign in to continue.
-        </p>
-        <Button 
-          onClick={() => window.location.href = '/login'} 
-          variant="default"
-        >
-          Sign In
-        </Button>
-      </div>
-    );
-  }
-
-  if (isLoading || (authLoading && !resources.length)) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
     );
   }
