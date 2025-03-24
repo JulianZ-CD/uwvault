@@ -33,6 +33,13 @@ jobs:
       - name: Install Node.js dependencies
         run: npm install
 
+      # Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
       # Run backend tests
       - name: Run backend tests
         env:
@@ -42,6 +49,14 @@ jobs:
           VERIFY_EMAIL_URL: ${{ vars.VERIFY_EMAIL_URL }}
           RESET_PASSWORD_URL: ${{ vars.RESET_PASSWORD_URL }}
           DEFAULT_ORIGIN: ${{ vars.DEFAULT_ORIGIN }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
+          GCP_CREDENTIALS_PATH: ${{ steps.auth.outputs.credentials_file_path }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+          USER_EMAIL: ${{ secrets.USER_EMAIL }}
+          USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           pytest --cov=api --cov-report=xml --cov-report=html
 

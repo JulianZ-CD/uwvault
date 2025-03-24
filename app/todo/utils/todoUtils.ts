@@ -1,4 +1,5 @@
-import { Todo } from "@/app/types/todo";
+import { Todo } from '@/app/types/todo';
+import { format } from 'date-fns';
 
 export const sortTodos = (todos: Todo[]) => {
   return [...todos].sort((a, b) => {
@@ -20,7 +21,7 @@ export const sortTodos = (todos: Todo[]) => {
   });
 };
 
-export const formatDate = (date: string | null): string => {
-  if (!date) return "No due date";
-  return new Date(date).toLocaleDateString();
-}; 
+export const formatDate = (date: string | null) => {
+  if (!date) return 'No due date';
+  return format(new Date(date), 'yyyy-MM-dd');
+};

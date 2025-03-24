@@ -1,4 +1,4 @@
-import { RegisterForm } from '@/app/components/auth/RegisterForm';
+import { RegisterForm } from '@/app/(auth)/register/components/RegisterForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {

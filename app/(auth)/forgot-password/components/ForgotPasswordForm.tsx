@@ -15,7 +15,7 @@ import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Alert, AlertDescription } from '@/app/components/ui/alert';
 import { useToast } from '@/app/hooks/use-toast';
-import { useUser } from '@/app/components/user/UserProvider';
+import { useUser } from '@/app/(user)/profile/components/UserProvider';
 
 export function ForgotPasswordForm() {
   const router = useRouter();

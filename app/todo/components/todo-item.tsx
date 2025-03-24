@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { Todo } from "@/app/types/todo";
-import { Button } from "@/app/components/ui/button";
-import { Card, CardContent } from "@/app/components/ui/card";
-import { Checkbox } from "@/app/components/ui/checkbox";
-import { Badge } from "@/app/components/ui/badge";
-import { Pencil, Trash2, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { Todo } from '@/app/types/todo';
+import { Button } from '@/app/components/ui/button';
+import { Card, CardContent } from '@/app/components/ui/card';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Badge } from '@/app/components/ui/badge';
+import { Pencil, Trash2, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/app/components/ui/alert-dialog";
+} from '@/app/components/ui/alert-dialog';
 
 interface TodoItemProps {
   todo: Todo;
@@ -28,11 +28,11 @@ interface TodoItemProps {
 
 export function TodoItem({ todo, onToggle, onEdit, onDelete }: TodoItemProps) {
   const priorityColors = {
-    1: "bg-gray-500",
-    2: "bg-blue-500",
-    3: "bg-yellow-500",
-    4: "bg-orange-500",
-    5: "bg-red-500",
+    1: 'bg-gray-500',
+    2: 'bg-blue-500',
+    3: 'bg-yellow-500',
+    4: 'bg-orange-500',
+    5: 'bg-red-500',
   };
 
   return (
@@ -47,7 +47,7 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete }: TodoItemProps) {
             <div className="flex items-center space-x-2">
               <h3
                 className={`font-medium ${
-                  todo.is_completed ? "line-through text-gray-500" : ""
+                  todo.is_completed ? 'line-through text-gray-500' : ''
                 }`}
               >
                 {todo.title}
@@ -64,7 +64,7 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete }: TodoItemProps) {
             {todo.due_date && (
               <div className="flex items-center text-xs text-gray-500">
                 <Calendar className="h-3 w-3 mr-1" />
-                {format(todo.due_date, "P")}
+                {format(todo.due_date, 'yyyy-MM-dd')}
               </div>
             )}
           </div>
