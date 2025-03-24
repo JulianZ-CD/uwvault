@@ -135,6 +135,139 @@ class ResourceService:
             
         return sha256_hash.hexdigest()
 
+    # 新增的辅助函数
+
+    async def _validate_file(self, file: UploadFile) -> None:
+        """验证文件类型和大小"""
+        if not self.validate_file_type(file.content_type):
+            raise ValidationError(f"Unsupported file type: {file.content_type}")
+        
+        if not self.validate_file_size(file.size):
+            raise ValidationError(f"File too large: {file.size} bytes")
+
+    async def _prepare_file_metadata(self, file: UploadFile, course_id: str) -> dict:
+        """准备文件元数据"""
+        file_hash = self.calculate_file_hash(file.file)
+        await file.seek(0)  # 重置文件指针
+        
+        safe_filename = self.generate_safe_filename(file.filename)
+        storage_path = self.generate_storage_path(
+            safe_filename,
+            ResourceType.COURSE_DOCUMENT,
+            course_id
+        )
+        
+        return {
+            "file_hash": file_hash,
+            "file_size": file.size,
+            "file_type": self.get_file_extension(file.filename),
+            "mime_type": file.content_type,
+            "original_filename": file.filename,
+            "storage_path": storage_path
+        }
+
+    async def _upload_file_to_storage(
+        self, 
+        file: UploadFile, 
+        storage_path: str, 
+        resource_id: int, 
+        metadata: dict
+    ) -> None:
+        """上传文件到存储"""
+        await self._ensure_storage_initialized()
+        
+        try:
+            blob = self._storage_bucket.blob(storage_path)
+            
+            if file.content_type:
+                blob.content_type = file.content_type
+            
+            blob.metadata = metadata
+            
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: blob.upload_from_file(file.file, rewind=True)
+            )
+            
+            # 更新同步状态
+            await self._update_sync_status(
+                resource_id,
+                StorageStatus.SYNCED,
+                last_sync_at=datetime.now()
+            )
+        except Exception as e:
+            await self._handle_storage_error(
+                resource_id,
+                StorageOperation.UPLOAD,
+                e
+            )
+            raise StorageOperationError("upload", str(e))
+
+    async def _prepare_gcp_metadata(
+        self, 
+        resource_id: int, 
+        file: UploadFile, 
+        file_hash: str, 
+        user_id: str, 
+        course_id: str,
+        is_update: bool = False
+    ) -> dict:
+        """准备GCP存储的技术元数据"""
+        current_time = datetime.now().isoformat()
+        
+        metadata = {
+            "resource_id": str(resource_id),
+            "original_filename": file.filename,
+            "content_hash": file_hash,
+            "file_type": self.get_file_extension(file.filename),
+            "file_size": str(file.size),
+            "mime_type": file.content_type,
+            "course_id": course_id or ""
+        }
+        
+        if is_update:
+            metadata.update({
+                "updated_at": current_time,
+                "updated_by": str(user_id)
+            })
+        else:
+            metadata.update({
+                "created_at": current_time,
+                "created_by": str(user_id)
+            })
+        
+        return metadata
+
+
+    async def _filter_query(self, table_name, conditions, limit=None, offset=None, order_by=None, order_desc=True):
+        """通用查询方法，使用基础select和Python过滤"""
+        try:
+            query = self.supabase.table(table_name).select("*")
+            response = query.execute()
+            
+            if not response.data:
+                return []
+                
+            # 在Python中进行过滤
+            filtered_data = response.data
+            for field, value in conditions.items():
+                filtered_data = [item for item in filtered_data if item[field] == value]
+                
+            # 排序
+            if order_by:
+                reverse = order_desc
+                filtered_data = sorted(filtered_data, key=lambda x: x.get(order_by, ''), reverse=reverse)
+                
+            # 分页
+            if limit is not None:
+                start = offset if offset is not None else 0
+                filtered_data = filtered_data[start:start + limit]
+                
+            return filtered_data
+        except Exception as e:
+            self.logger.error(f"Error in filter query: {str(e)}")
+            return []
+
     # Storage related methods
     async def _ensure_storage_initialized(self) -> None:
         """Ensure storage connection is initialized"""
@@ -166,14 +299,13 @@ class ResourceService:
         """
         try:
             self.logger.info(f"Getting resource with ID {id}")
-            query = self.supabase.table(self.table_name).select("*").eq('id', id)
-                
-            response = query.single().execute()
 
-            if not response.data:
+            results = await self._filter_query(self.table_name, {"id": id})
+            if not results:
                 raise NotFoundError(f"Resource with id {id} not found")
+                
+            resource = ResourceInDB(**results[0])
 
-            resource = ResourceInDB(**response.data)
             self.logger.info(f"Successfully fetched resource with id: {id}")
             return resource
         except Exception as e:
@@ -185,57 +317,37 @@ class ResourceService:
             self.logger.error(f"Error while fetching resource {id}: {str(e)}")
             raise
 
-    async def create_resource(
-        self,
-        resource: ResourceCreate,
-        file: UploadFile
-    ) -> ResourceInDB:
-        """Create new resource"""
+    async def create_resource(self, resource: ResourceCreate, file: UploadFile) -> ResourceInDB:
+        """创建新资源"""
         try:
             self.logger.info(f"Creating new resource: {resource.title}")
             
-            # 验证文件类型
-            if not self.validate_file_type(file.content_type):
-                raise ValidationError("Invalid file type")
+            # 验证文件
+            await self._validate_file(file)
             
-            # 验证文件大小
-            if not self.validate_file_size(file.size):
-                raise ValidationError("File too large")
-
             # 确保 uploader_id 是有效的UUID字符串
             if not isinstance(resource.uploader_id, str):
                 raise ValidationError("uploader_id must be a string")
-
-            # 2. Prepare metadata
-            file_hash = self.calculate_file_hash(file.file)
-            safe_filename = self.generate_safe_filename(file.filename)
-            storage_path = self.generate_storage_path(
-                safe_filename,
-                ResourceType.COURSE_DOCUMENT,
-                resource.course_id
-            )
-
-            # 3. Create database record
-            resource_data = resource.model_dump()
             
+            # 准备文件元数据
+            file_metadata = await self._prepare_file_metadata(file, resource.course_id)
+            
+            # 创建数据库记录
+            resource_data = resource.model_dump()
             current_time = datetime.now().isoformat()
+            
             resource_data.update({
                 "created_at": current_time,
                 "updated_at": current_time,
-                "storage_path": storage_path,
-                "file_hash": file_hash,
-                "file_type": self.get_file_extension(file.filename),
-                "file_size": file.size,
-                "mime_type": file.content_type,
-                "original_filename": file.filename,
                 "created_by": resource.uploader_id,
                 "updated_by": resource.uploader_id,
                 "status": resource.status,
                 "storage_status": StorageStatus.PENDING,
-                "retry_count": 0
+                "retry_count": 0,
+                **file_metadata
             })
-
-            # 4. Save to database and upload file
+            
+            # 保存到数据库
             response = self.supabase.table(self.table_name).insert(resource_data).execute()
             
             if not response.data:
@@ -244,55 +356,24 @@ class ResourceService:
             created_resource = ResourceInDB(**response.data[0])
             self.logger.info(f"Created resource record with id: {created_resource.id}")
             
-            # 4. Upload file to storage
-            try:
-                # Prepare GCP storage technical metadata
-                gcp_metadata = {
-                    "resource_id": str(created_resource.id),
-                    "original_filename": file.filename,
-                    "content_hash": file_hash,
-                    "file_type": self.get_file_extension(file.filename),
-                    "file_size": str(file.size),
-                    "mime_type": file.content_type,
-                    "created_at": current_time,
-                    "created_by": str(resource.uploader_id),
-                    "course_id": resource.course_id
-                }
-                
-                # 直接使用GCP存储方法，替换storage.upload_file
-                await self._ensure_storage_initialized()
-                try:
-                    blob = self._storage_bucket.blob(storage_path)
-                    
-                    if file.content_type:
-                        blob.content_type = file.content_type
-                    if gcp_metadata:
-                        blob.metadata = gcp_metadata
-                        
-                    await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        lambda: blob.upload_from_file(file.file, rewind=True)
-                    )
-                except Exception as e:
-                    raise StorageError(f"Upload failed: {str(e)}")
-                
-                # 5. Update sync status
-                await self._update_sync_status(
-                    created_resource.id,
-                    StorageStatus.SYNCED,
-                    last_sync_at=datetime.now()
-                )
-                
-            except StorageError as e:
-                await self._handle_storage_error(
-                    created_resource.id,
-                    StorageOperation.UPLOAD,
-                    e
-                )
-                raise StorageOperationError("upload", str(e))
-
+            # 准备GCP元数据并上传文件
+            gcp_metadata = await self._prepare_gcp_metadata(
+                created_resource.id, 
+                file, 
+                file_metadata["file_hash"], 
+                resource.uploader_id, 
+                resource.course_id
+            )
+            
+            await self._upload_file_to_storage(
+                file, 
+                created_resource.storage_path, 
+                created_resource.id, 
+                gcp_metadata
+            )
+            
             return created_resource
-
+            
         except ValidationError as e:
             self.logger.error(f"Validation error: {str(e)}")
             raise
@@ -303,20 +384,36 @@ class ResourceService:
     async def get_user_uploads(self, user_id: str, limit: int = 10, offset: int = 0):
         """Get resources uploaded by a specific user"""
         try:
-            base_query = self.supabase.table(self.table_name).eq("created_by", user_id)
+            self.logger.info(f"Getting uploads for user {user_id}: limit={limit}, offset={offset}")
             
-            # 获取总数
-            count_response = base_query.select("*", count='exact').execute()
-            total_count = count_response.count
+            # 使用SQL函数
+            response = self.supabase.rpc('get_user_uploads', {
+                'user_id': user_id,
+                'limit_val': limit, 
+                'offset_val': offset
+            }).execute()
             
-            # 获取资源列表
-            response = base_query.select("*").order('created_at', desc=True).limit(limit).offset(offset).execute()
+            count_response = self.supabase.rpc('count_user_uploads', {
+                'user_id': user_id
+            }).execute()
+            
+            # 处理结果
+            if not response.data:
+                return [], 0
+            
             resources = [ResourceInDB(**item) for item in response.data]
+            total_count = count_response.data[0]['count'] if count_response.data else 0
+            
+            self.logger.info(f"Successfully retrieved {len(resources)} resources from {total_count} total")
             
             return resources, total_count
         except Exception as e:
+            import traceback
+            stack_trace = traceback.format_exc()
             self.logger.error(f"Error getting user uploads: {str(e)}")
-            raise
+            self.logger.error(f"Stack trace: {stack_trace}")
+            # 返回空列表而不是抛出异常
+            return [], 0
 
     async def verify_resource_sync(self, resource_id: int) -> dict:
         """Verify resource synchronization status"""
@@ -402,32 +499,87 @@ class ResourceService:
     async def update_resource(
         self,
         id: int,
-        resource: ResourceUpdate
+        resource: ResourceUpdate,
+        file: Optional[UploadFile] = None
     ) -> ResourceInDB:
-        """Update resource information"""
+        """更新资源信息，可选择替换文件"""
         try:
             self.logger.info(f"Updating resource with id: {id}")
             
-            # Check if resource exists
+            # 检查资源是否存在
             existing_resource = await self.get_resource_by_id(id)
             
-            # Prepare update data
+            # 准备更新数据
             update_data = resource.model_dump(exclude_unset=True)
             update_data["updated_at"] = datetime.now().isoformat()
             update_data["updated_by"] = resource.updated_by
-
-            # Update database
+            
+            # 如果提供了新文件，处理它
+            if file:
+                # 验证文件
+                await self._validate_file(file)
+                
+                # 准备文件元数据
+                course_id = resource.course_id or existing_resource.course_id
+                file_metadata = await self._prepare_file_metadata(file, course_id)
+                
+                # 更新文件相关元数据
+                update_data.update({
+                    **file_metadata,
+                    "storage_status": StorageStatus.PENDING
+                })
+            
+            # 更新数据库
             response = self.supabase.table(self.table_name).update(
                 update_data).eq('id', id).execute()
-
+            
             if not response.data:
                 raise NotFoundError(f"Resource with id {id} not found")
-
+            
             updated_resource = ResourceInDB(**response.data[0])
+            
+            # 如果提供了新文件，上传到存储
+            if file:
+                # 准备GCP元数据
+                course_id = resource.course_id or existing_resource.course_id
+                gcp_metadata = await self._prepare_gcp_metadata(
+                    updated_resource.id, 
+                    file, 
+                    update_data["file_hash"], 
+                    resource.updated_by, 
+                    course_id,
+                    is_update=True
+                )
+                
+                # 上传文件
+                await self._upload_file_to_storage(
+                    file, 
+                    updated_resource.storage_path, 
+                    updated_resource.id, 
+                    gcp_metadata
+                )
+                
+                # 如果存储路径改变，删除旧文件
+                if existing_resource.storage_path != updated_resource.storage_path:
+                    try:
+                        old_blob = self._storage_bucket.blob(existing_resource.storage_path)
+                        exists = await asyncio.get_event_loop().run_in_executor(
+                            None, old_blob.exists
+                        )
+                        if exists:
+                            await asyncio.get_event_loop().run_in_executor(
+                                None, old_blob.delete
+                            )
+                    except Exception as e:
+                        self.logger.warning(f"Failed to delete old file: {str(e)}")
+            
             self.logger.info(f"Successfully updated resource with id: {id}")
             return updated_resource
-
+            
         except NotFoundError:
+            raise
+        except ValidationError as e:
+            self.logger.error(f"Validation error: {str(e)}")
             raise
         except Exception as e:
             self.logger.error(f"Error while updating resource {id}: {str(e)}")
@@ -595,11 +747,38 @@ class ResourceService:
             self.logger.error(f"Error reactivating resource {id}: {str(e)}")
             raise
 
+    async def get_all_course_ids(self) -> List[str]:
+        """Get all unique course IDs
+        
+        Returns:
+            List[str]: List of unique course IDs
+        """
+        try:
+            self.logger.info("Getting all unique course IDs")
+            
+            response = self.supabase.rpc('get_all_course_ids').execute()
+            
+            if not response.data:
+                return []
+            
+            course_ids = [item['course_id'] for item in response.data if item['course_id']]
+            
+            self.logger.info(f"Successfully retrieved {len(course_ids)} unique course IDs")
+            
+            return course_ids
+        except Exception as e:
+            import traceback
+            stack_trace = traceback.format_exc()
+            self.logger.error(f"Error getting course IDs: {str(e)}")
+            self.logger.error(f"Stack trace: {stack_trace}")
+            return []
+
     async def list_resources(
         self,
         limit: int = 10,
         offset: int = 0,
-        include_pending: bool = False
+        include_pending: bool = False,
+        course_id: Optional[str] = None
     ) -> Tuple[List[ResourceInDB], int]:
         """Get resource list
         
@@ -607,36 +786,62 @@ class ResourceService:
             limit: Maximum number of resources to return
             offset: Number of resources to skip
             include_pending: Whether to include pending resources
+            course_id: Filter resources by course_id
         """
         try:
-            self.logger.info(f"Getting resource list: limit={limit}, offset={offset}, include_pending={include_pending}")
+            self.logger.info(f"Getting resource list: limit={limit}, offset={offset}, include_pending={include_pending}, course_id={course_id}")
             
-            # 基础查询
-            base_query = self.supabase.table(self.table_name)
+            # 使用SQL函数
+            if course_id:
+                # 按课程过滤
+                if include_pending:
+                    response = self.supabase.rpc('get_all_resources_by_course', {
+                        'course_id_val': course_id,
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_all_resources_by_course', {
+                        'course_id_val': course_id
+                    }).execute()
+                else:
+                    response = self.supabase.rpc('get_approved_resources_by_course', {
+                        'course_id_val': course_id,
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_approved_resources_by_course', {
+                        'course_id_val': course_id
+                    }).execute()
+            else:
+                # 不按课程过滤
+                if include_pending:
+                    response = self.supabase.rpc('get_all_resources', {
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_all_resources').execute()
+                else:
+                    response = self.supabase.rpc('get_approved_resources', {
+                        'limit_val': limit, 
+                        'offset_val': offset
+                    }).execute()
+                    count_response = self.supabase.rpc('count_approved_resources').execute()
             
-            # 如果不包括待审核资源，只显示已批准的资源
-            if not include_pending:
-                base_query = base_query.eq('status', ResourceStatus.APPROVED)
-            
-            # 获取总数
-            count_query = base_query.select("*", count='exact')
-            count_response = count_query.execute()
-            total_count = count_response.count
-
-            # 获取资源列表
-            query = base_query.select("*").order('created_at', desc=True).limit(limit).offset(offset)
-            response = query.execute()
-            
-            # 添加错误处理
+            # 处理结果
             if not response.data:
                 return [], 0
             
             resources = [ResourceInDB(**item) for item in response.data]
-            self.logger.info(f"Successfully retrieved {len(resources)} resources")
+            total_count = count_response.data[0]['count'] if count_response.data else 0
+            
+            self.logger.info(f"Successfully retrieved {len(resources)} resources from {total_count} total")
             
             return resources, total_count
         except Exception as e:
+            import traceback
+            stack_trace = traceback.format_exc()
             self.logger.error(f"Error while getting resource list: {str(e)}")
+            self.logger.error(f"Stack trace: {stack_trace}")
             # 返回空列表而不是抛出异常
             return [], 0
 

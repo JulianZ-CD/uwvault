@@ -67,6 +67,18 @@ async def get_available_actions(
             "can_see_all_statuses": False,
         }
 
+@router.get("/course-ids", response_model=List[str])
+async def get_course_ids(
+    current_user = Depends(get_current_user)
+):
+    """Get all available course IDs"""
+    try:
+        course_ids = await resource_service.get_all_course_ids()
+        return course_ids
+    except Exception as e:
+        logger.error(f"Error getting course IDs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get course IDs")
+
 @router.post("/create", response_model=ResourceInDB)
 async def create_resource(
     title: str = Form(...),
@@ -188,10 +200,17 @@ async def update_resource(
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     course_id: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
     current_user = Depends(get_current_user)
 ):
-    """Update resource details"""
+    """Update resource details and optionally replace the file"""
     try:
+        logger.info(f"Received update request for resource {id}")
+        logger.info(f"File provided: {file is not None}")
+        
+        if file:
+            logger.info(f"File details - filename: {file.filename}, content_type: {file.content_type}, size: {getattr(file, 'size', 'unknown')}")
+        
         # 添加输入验证
         if title is not None and len(title.strip()) == 0:
             raise ValidationError("Title cannot be empty")
@@ -212,13 +231,27 @@ async def update_resource(
                 detail="You don't have permission to update this resource"
             )
         
+        # 如果提供了文件，验证文件类型
+        if file and file.filename:
+            content_type = file.content_type
+            if content_type not in [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ]:
+                raise ValidationError(f"Unsupported file type: {content_type}")
+        
         update_data = ResourceUpdate(
             title=title,
             description=description,
             course_id=course_id,
             updated_by=current_user.get("id")
         )
-        return await resource_service.update_resource(id, update_data)
+        
+        logger.info(f"Calling resource_service.update_resource with file: {file is not None}")
+        result = await resource_service.update_resource(id, update_data, file)
+        logger.info(f"Resource {id} updated successfully")
+        return result
     except ValidationError as e:
         # 确保 ValidationError 被转换为 422 响应
         logger.error(f"Validation error updating resource {id}: {str(e)}")
@@ -229,6 +262,9 @@ async def update_resource(
     except NotFoundError as e:
         logger.warning(f"Resource not found: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
+    except StorageError as e:
+        logger.error(f"Storage error updating resource {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     except HTTPException as e:
         # 直接重新抛出 HTTPException
         raise e
@@ -245,6 +281,10 @@ async def review_resource(
 ):
     """Review resource (admin only)"""
     try:
+        # 添加请求数据日志
+        logger.info(f"Received review request for resource {id}: {review_data.dict()}")
+        logger.info(f"Current user: {current_user}")
+        
         review = ResourceReview(
             status=review_data.status,
             review_comment=review_data.review_comment,
@@ -253,8 +293,11 @@ async def review_resource(
         resource = await resource_service.review_resource(id, review)
         return resource
     except NotFoundError as e:
+        logger.error(f"Resource not found: {id}, error: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except ValidationError as e:
+        # 添加详细的验证错误日志
+        logger.error(f"Validation error for resource {id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
@@ -333,7 +376,8 @@ async def list_resources(
         resources, total = await resource_service.list_resources(
             limit=limit,
             offset=offset,
-            include_pending=include_pending
+            include_pending=include_pending,
+            course_id=course_id
         )
         
         return {
