@@ -56,9 +56,20 @@ def todo_service(mocker):
 # 定义 MockUser 类放在文件前面
 class MockUser(BaseModel):
     """Mock user model for testing"""
-    id: int
+    id: str  # 确保是字符串类型
     username: str
     is_admin: bool = False
+    
+    # 添加与 FastAPI 安全依赖兼容的方法
+    def get(self, key, default=None):
+        """Make MockUser compatible with dict access patterns"""
+        if hasattr(self, key):
+            return getattr(self, key)
+        return default
+    
+    def __getitem__(self, key):
+        """Support dictionary-like access"""
+        return getattr(self, key)
 
 @pytest.fixture
 async def regular_user_headers(test_client):
@@ -233,7 +244,7 @@ def mock_gcp_storage(mocker):
 def mock_normal_user():
     """Mock normal user for testing"""
     return MockUser(
-        id=1,
+        id="user-123",
         username="test_user",
         is_admin=False
     )
@@ -242,7 +253,7 @@ def mock_normal_user():
 def mock_admin_user():
     """Mock admin user for testing"""
     return MockUser(
-        id=999,
+        id="admin-999",
         username="admin",
         is_admin=True
     )
@@ -252,7 +263,7 @@ def get_current_user():
     """Mock current user function for testing"""
     async def _get_current_user():
         return MockUser(
-            id=1,
+            id="user-123",
             username="test_user",
             is_admin=False
         )
@@ -263,7 +274,7 @@ def require_admin():
     """Mock require admin function for testing"""
     async def _require_admin():
         return MockUser(
-            id=999,
+            id="admin-999",
             username="admin",
             is_admin=True
         )

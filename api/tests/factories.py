@@ -6,6 +6,7 @@ from factory import Factory, Faker, LazyAttribute, LazyFunction
 from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB, ResourceType,
     ResourceReview, ResourceStatus, StorageStatus, StorageOperation,
+    ResourceRatingCreate,
 )
 from api.tests.conftest import MockUser
 import asyncio
@@ -117,8 +118,8 @@ class ResourceFactory(Factory):
     title = Faker('sentence', nb_words=4)
     description = LazyAttribute(lambda o: f'Test Description {o.id}')
     course_id = "ece 657"
-    created_by = Faker('pyint', min_value=1)
-    updated_by = Faker('pyint', min_value=1)
+    created_by = Faker('uuid4')
+    updated_by = Faker('uuid4')
     file_type = "pdf"
     file_size = 1024
     storage_path = LazyAttribute(
@@ -134,6 +135,8 @@ class ResourceFactory(Factory):
     sync_error = None
     retry_count = 0
     last_sync_at = LazyFunction(datetime.now)
+    average_rating = 0.0
+    rating_count = 0
 
 class ResourceCreateFactory(Factory):
     """Factory for ResourceCreate model"""
@@ -151,16 +154,17 @@ class ResourceCreateFactory(Factory):
     mime_type = "application/pdf"
     file_hash = Faker('sha256')
     original_filename = "test.pdf"
-    uploader_id = Faker('pyint', min_value=1)
+    uploader_id = Faker('uuid4')
 
 class ResourceUpdateFactory(Factory):
     """Factory for ResourceUpdate model"""
     class Meta:
         model = ResourceUpdate
-
+    
     title = Faker('sentence', nb_words=4)
     description = Faker('text', max_nb_chars=200)
     course_id = "ece 657"
+    updated_by = Faker('uuid4')
 
 class ResourceReviewFactory(Factory):
     """Factory for ResourceReview model"""
@@ -169,14 +173,14 @@ class ResourceReviewFactory(Factory):
     
     status = ResourceStatus.APPROVED
     review_comment = Faker('text', max_nb_chars=200)
-    reviewed_by = Faker('pyint', min_value=1)
+    reviewed_by = Faker('uuid4')
 
 class MockUserFactory(Factory):
     """Factory for MockUser model"""
     class Meta:
         model = MockUser
-
-    id = Faker('pyint', min_value=1)
+    
+    id = Faker('uuid4')  # 确保生成字符串ID
     username = Faker('user_name')
     is_admin = False
 
@@ -260,3 +264,10 @@ class FileFactory:
     def create(cls):
         """Create a test file (compatibility method for TestFileFactory)"""
         return cls.generate_test_file()
+
+class ResourceRatingCreateFactory(Factory):
+    """Factory for ResourceRatingCreate model"""
+    class Meta:
+        model = ResourceRatingCreate
+    
+    rating = Faker('pyfloat', min_value=1.0, max_value=5.0)
