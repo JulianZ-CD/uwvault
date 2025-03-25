@@ -137,20 +137,33 @@ class TestRegularUserResourceAPI(BaseResourceTest):
             assert get_response.status_code == status.HTTP_200_OK
             assert get_response.json()["status"] == ResourceStatus.PENDING.value
             
-            # 2. 更新资源
+            # 2. 更新资源（包括文件）
+            new_test_file = FileFactory.generate_test_file()
+            new_test_file["filename"] = "updated_file.pdf"  # 使用不同的文件名
+            
             update_data = {
                 "title": "Updated Regular User Resource",
                 "description": "Updated description"
             }
             
+            update_files = {
+                "file": (
+                    new_test_file["filename"],
+                    new_test_file["content"],
+                    new_test_file["content_type"]
+                )
+            }
+            
             update_response = test_client.patch(
                 f"{RESOURCES_PATH}/{resource_id}",
+                files=update_files,
                 data=update_data,
                 headers=headers
             )
             
             assert update_response.status_code == status.HTTP_200_OK
             assert update_response.json()["title"] == update_data["title"]
+            assert update_response.json()["original_filename"] == new_test_file["filename"]
             
             # 3. 获取资源列表（应该看不到PENDING状态的资源）
             list_response = test_client.get(
@@ -226,20 +239,33 @@ class TestAdminResourceAPI(BaseResourceTest):
             assert get_response.status_code == status.HTTP_200_OK
             assert get_response.json()["status"] == ResourceStatus.APPROVED.value
             
-            # 2. 更新资源
+            # 2. 更新资源（包括文件）
+            new_test_file = FileFactory.generate_test_file()
+            new_test_file["filename"] = "admin_updated_file.pdf"
+            
             update_data = {
                 "title": "Updated Admin Resource",
                 "description": "Updated by admin"
             }
             
+            update_files = {
+                "file": (
+                    new_test_file["filename"],
+                    new_test_file["content"],
+                    new_test_file["content_type"]
+                )
+            }
+            
             update_response = test_client.patch(
                 f"{RESOURCES_PATH}/{resource_id}",
+                files=update_files,
                 data=update_data,
                 headers=headers
             )
             
             assert update_response.status_code == status.HTTP_200_OK
             assert update_response.json()["title"] == update_data["title"]
+            assert update_response.json()["original_filename"] == new_test_file["filename"]
             
             # 3. 获取资源列表（应该能看到所有状态的资源）
             list_response = test_client.get(
@@ -354,9 +380,9 @@ class TestResourceErrorHandling(BaseResourceTest):
             resource_id = create_response.json()["id"]
             self.created_resources.append(resource_id)
             
-            # 尝试无效更新
+            # 尝试无效更新 - 使用全空格标题
             invalid_update = {
-                "title": "",  # 空标题应该无效
+                "title": "   ",  # 全空格标题应该被视为无效
                 "description": "Invalid update test"
             }
             
