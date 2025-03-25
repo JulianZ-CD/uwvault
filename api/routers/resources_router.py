@@ -347,7 +347,7 @@ async def review_resource(
 ):
     """Review resource (admin only)"""
     try:
-        logger.info(f"Received review request for resource {id}: {review_data.dict()}")
+        logger.info(f"Received review request for resource {id}: {review_data.model_dump()}")
         logger.info(f"Current user: {current_user}")
         
         review = ResourceReview(
