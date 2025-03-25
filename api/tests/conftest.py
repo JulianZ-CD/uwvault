@@ -54,15 +54,32 @@ def todo_service(mocker):
     return service
 
 # 定义 MockUser 类放在文件前面
+# class MockUser(BaseModel):
+#     """Mock user model for testing"""
+#     id: str  # 确保是字符串类型
+#     username: str
+#     is_admin: bool = False
+    
+#     # 添加与 FastAPI 安全依赖兼容的方法
+#     def get(self, key, default=None):
+#         """Make MockUser compatible with dict access patterns"""
+#         if hasattr(self, key):
+#             return getattr(self, key)
+#         return default
+    
+#     def __getitem__(self, key):
+#         """Support dictionary-like access"""
+#         return getattr(self, key)
+
+# 更新 conftest.py 中的 MockUser 类
 class MockUser(BaseModel):
-    """Mock user model for testing"""
-    id: str  # 确保是字符串类型
+    id: str
     username: str
     is_admin: bool = False
     
-    # 添加与 FastAPI 安全依赖兼容的方法
     def get(self, key, default=None):
-        """Make MockUser compatible with dict access patterns"""
+        if key == "role":
+            return "admin" if self.is_admin else "user"
         if hasattr(self, key):
             return getattr(self, key)
         return default
