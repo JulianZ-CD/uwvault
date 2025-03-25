@@ -1,7 +1,9 @@
-'use client';
+'use client'
+import Link from "next/link"
+import { Button } from "@/app/components/ui/button"
+import { Github } from "lucide-react"
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth';
 import {
   NavigationMenu,
@@ -16,85 +18,43 @@ import { ThemeToggle } from '@/app/components/theme-toggle';
 import { cn } from '@/app/lib/utils';
 import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 
-const resources = [
-  {
-    title: 'Resource Management',
-    href: '/resources',
-    description: 'Manage and browse all resources in one place',
-  },
-];
+export default function Navbar() {
 
-const adminResources = [
-  {
-    title: 'Resource Management',
-    href: '/resources/admin',
-    description: 'Review and manage all resources',
-  },
-];
-
-export function MainNav() {
   const { user, logout, isLoading } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   return (
-    <div className="container flex h-16 items-center">
-      <div className="flex-1">
-        <NavigationMenu>
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <Link href="/" legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  UWVault
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <Link href="/todo " legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Todo
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <Link href="/course" legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Courses
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <NavigationMenuTrigger>Resources</NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                  {(isAdmin ? adminResources : resources).map((resource) => (
-                    <ListItem
-                      key={resource.title}
-                      title={resource.title}
-                      href={resource.href}
-                    >
-                      {resource.description}
-                    </ListItem>
-                  ))}
-                </ul>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <Link href="/about" legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  About Us
-                </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
-      </div>
-
-      {/* right side user menu */}
-      <div className="ml-auto flex items-center gap-4">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex justify-center w-full">
+        <div className="container flex h-14 max-w-screen-lg items-center px-4">
+          <Link href="/" className="mr-6 flex items-center space-x-2">
+            <span className="font-bold">UWvault</span>
+          </Link>
+          <nav className="flex flex-1 items-center space-x-6 text-sm font-medium">
+            <Link href="/todo" className="transition-colors hover:text-primary">
+              Todo
+            </Link>
+            <Link href="/course" className="transition-colors hover:text-primary">
+              Course
+            </Link>
+            <Link href="/resources" className="transition-colors hover:text-primary">
+              Rescource
+            </Link>
+          </nav>
+          <div className="flex items-center space-x-4">
+            <Link href="https://github.com/JulianZ-CD/uwvault" target="_blank" rel="noreferrer">
+              <Button variant="ghost" size="icon">
+                <Github className="h-4 w-4" />
+                <span className="sr-only">GitHub</span>
+              </Button>
+            </Link>
+            <Link href="https://github.com/JulianZ-CD/uwvault/wiki" target="_blank" rel="nonferrer">
+             <Button variant="ghost" size="sm">
+              Wiki
+              </Button>
+            </Link>
+            
+            <div className="ml-auto flex items-center gap-4">
         <ThemeToggle />
 
         <NavigationMenu>
@@ -216,32 +176,10 @@ export function MainNav() {
           </NavigationMenuList>
         </NavigationMenu>
       </div>
-    </div>
-  );
+          </div>
+        </div>
+      </div>
+    </header>
+  )
 }
 
-const ListItem = React.forwardRef<
-  React.ElementRef<'a'>,
-  React.ComponentPropsWithoutRef<'a'>
->(({ className, title, children, ...props }, ref) => {
-  return (
-    <li>
-      <NavigationMenuLink asChild>
-        <a
-          ref={ref}
-          className={cn(
-            'block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground',
-            className
-          )}
-          {...props}
-        >
-          <div className="text-sm font-medium leading-none">{title}</div>
-          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-            {children}
-          </p>
-        </a>
-      </NavigationMenuLink>
-    </li>
-  );
-});
-ListItem.displayName = 'ListItem';

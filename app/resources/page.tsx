@@ -17,17 +17,8 @@ export default function ResourceListPage() {
   const { actions, fetchActions, isAdmin } = useResource();
   const [initializing, setInitializing] = useState(true);
   const pageInitialized = useRef(false);
-  
-  // 从 URL 查询参数中读取 tab
-  const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'all' | 'myUploads'>(
-    tabParam === 'myUploads' ? 'myUploads' : 'all'
-  );
-
-  useEffect(() => {
-    // 当 URL 参数变化时更新 activeTab
-    setActiveTab(tabParam === 'myUploads' ? 'myUploads' : 'all');
-  }, [tabParam]);
+  const [activeTab, setActiveTab] = useState<'all' | 'myUploads'>('all');
+  const courseId = searchParams.get('course_id');
 
   useEffect(() => {
     // 统一认证状态检查
@@ -58,9 +49,6 @@ export default function ResourceListPage() {
   // 处理标签切换
   const handleTabChange = (tab: 'all' | 'myUploads') => {
     setActiveTab(tab);
-    // 更新 URL 查询参数，但不触发完整页面刷新
-    const url = `/resources${tab === 'myUploads' ? '?tab=myUploads' : ''}`;
-    window.history.pushState({}, '', url);
   };
   
   // 显示加载状态
@@ -105,7 +93,7 @@ export default function ResourceListPage() {
           <ResourceTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
           {activeTab === 'all' ? (
-            <ResourceList />
+            <ResourceList courseId={courseId} />
           ) : (
             <MyUploadsList />
           )}
@@ -136,7 +124,7 @@ export default function ResourceListPage() {
         )}
 
         {activeTab === 'all' ? (
-          <ResourceList />
+          <ResourceList courseId={courseId} />
         ) : (
           <MyUploadsList />
         )}

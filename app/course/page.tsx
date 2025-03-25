@@ -6,6 +6,7 @@ import Combobox from "@/app/course/components/selectframe"
 import React from "react"
 import { useState } from "react"
 import ClientComponent from "./components/ClientComponent"
+import Link from "next/link"
 
 
 

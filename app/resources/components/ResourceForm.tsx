@@ -95,22 +95,18 @@ export function ResourceForm({
       
       setFile(selectedFile);
       setFileChanged(true);
-      console.log("[ResourceForm] File selected:", {
+
+      console.log("File selected:", {
         name: selectedFile.name,
         type: selectedFile.type,
-        size: selectedFile.size,
-        fileChanged: true
-      });
-    } else {
-      console.log("[ResourceForm] File selection canceled");
+        size: selectedFile.size
+      }); 
     }
   };
 
   const clearFile = () => {
     setFile(null);
     setFileChanged(true);
-    console.log("[ResourceForm] File cleared, fileChanged set to true");
-    
     const fileInput = document.getElementById("file") as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
@@ -120,50 +116,22 @@ export function ResourceForm({
   const handleSubmit = async (data: Omit<ResourceCreateData, "file">) => {
     try {
       if (isEditMode && resourceId) {
-        console.log("[ResourceForm] Updating resource:", {
-          resourceId,
-          fileChanged,
-          hasFile: !!file,
-          fileName: file?.name,
-          fileSize: file?.size,
-          formData: data
-        });
-        
+        // 更新模式
         const updateData: ResourceUpdateData = {
           ...data,
           updated_by: user?.id || ""
         };
         
+        // 只有当文件被更改时才添加文件
         if (fileChanged && file) {
-          console.log("[ResourceForm] Including file in update:", file.name);
           updateData.file = file;
-        } else {
-          console.log("[ResourceForm] No file included in update. fileChanged:", fileChanged);
         }
         
-        const updatedResource = await updateResource(resourceId, updateData);
-        console.log("[ResourceForm] Resource updated successfully:", updatedResource);
-        
-        // 显示更新后的文件名
-        if (updatedResource && fileChanged && file) {
-          console.log("[ResourceForm] File updated to:", updatedResource.original_filename);
-        }
-        
-        // 更新成功后，调用 onSuccess 回调
-        if (onSuccess) {
-          onSuccess();
-        }
-        
-        // 根据用户角色决定重定向目标
-        setTimeout(() => {
-          // 管理员重定向到管理页面，普通用户重定向到 My Uploads
-          if (user?.role === 'admin') {
-            router.push("/resources/admin");
-          } else {
-            router.push("/resources?tab=myUploads");
-          }
-        }, 2000); // 2秒后重定向，给用户时间看到成功提示
-        
+        await updateResource(resourceId, updateData);
+        toast({
+          title: "Success",
+          description: "Resource updated successfully",
+        });
       } else {
         // 创建模式
         if (!file) {
@@ -181,18 +149,21 @@ export function ResourceForm({
         };
         
         await createResource(createData);
+        toast({
+          title: "Success",
+          description: "Resource uploaded successfully",
+        });
         
         // 重置表单
         form.reset();
         clearFile();
-        
-        // 创建成功后，调用 onSuccess 回调，但不重定向
-        if (onSuccess) {
-          onSuccess();
-        }
+      }
+      
+      if (onSuccess) {
+        onSuccess();
       }
     } catch (error) {
-      console.error("[ResourceForm] Error submitting form:", error);
+      console.error(`Error ${isEditMode ? 'updating' : 'uploading'} resource:`, error);
       // 使用类型断言
       const apiError = error as ApiError;
       toast({
@@ -285,30 +256,12 @@ export function ResourceForm({
             <div className="space-y-2">
               <Label htmlFor="file">File</Label>
               
-              {/* 显示当前文件（编辑模式且未更改文件） */}
+              {/* 显示当前文件（编辑模式） */}
               {isEditMode && currentFileName && !fileChanged && (
                 <div className="flex items-center justify-between p-2 border rounded-md mb-2">
                   <div className="flex items-center">
                     <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
                     <span className="text-sm">{currentFileName}</span>
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={clearFile}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              
-              {/* 显示新选择的文件（编辑模式且已更改文件） */}
-              {isEditMode && fileChanged && file && (
-                <div className="flex items-center justify-between p-2 border rounded-md mb-2">
-                  <div className="flex items-center">
-                    <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span className="text-sm">{file.name} (New)</span>
                   </div>
                   <Button 
                     type="button" 

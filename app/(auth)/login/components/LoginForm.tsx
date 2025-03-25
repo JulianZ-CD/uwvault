@@ -76,82 +76,80 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Login</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="text-2xl text-center">Login</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
               <Input
-                id="email"
-                name="email"
-                type="email"
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 disabled={isLoading}
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  disabled={isLoading}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Login'}
+          </Button>
+
+          <div className="mt-4 text-center text-sm space-y-2">
+            <div>
+              <span className="text-muted-foreground">
+                Don't have an account?{' '}
+                <Link
+                  href="/register"
+                  className="text-primary hover:underline"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+                  Register here
+                </Link>
+              </span>
             </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
-            </Button>
-
-            <div className="mt-4 text-center text-sm space-y-2">
-              <div>
-                <span className="text-muted-foreground">
-                  Don't have an account?{' '}
-                  <Link
-                    href="/register"
-                    className="text-primary hover:underline"
-                  >
-                    Register here
-                  </Link>
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">
-                  Forgot your password?{' '}
-                  <Link
-                    href="/forgot-password"
-                    className="text-primary hover:underline"
-                  >
-                    Reset it
-                  </Link>
-                </span>
-              </div>
+            <div>
+              <span className="text-muted-foreground">
+                Forgot your password?{' '}
+                <Link
+                  href="/forgot-password"
+                  className="text-primary hover:underline"
+                >
+                  Reset it
+                </Link>
+              </span>
             </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

@@ -26,9 +26,10 @@ import { SelectIndex } from "@/app/types/course"
 interface ComboboxProps{
   frameworks:SelectIndex[];
   selectedValue:(value:string)=>void;
+  placeholder:string;
 }
 
-export default function ComboboxDemo({frameworks,selectedValue}:ComboboxProps) {
+export default function ComboboxDemo({frameworks,selectedValue,placeholder}:ComboboxProps) {
 
 
   const [open, setOpen] = React.useState(false)
@@ -37,7 +38,7 @@ export default function ComboboxDemo({frameworks,selectedValue}:ComboboxProps) {
 
 
   return (
-    <div className="top-1/4 ml-20 mt-10">
+    <div>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
@@ -48,13 +49,13 @@ export default function ComboboxDemo({frameworks,selectedValue}:ComboboxProps) {
         >
           {value
             ? frameworks.find((framework) => framework.value === value)?.label
-            : "Select framework..."}
+            : `Select ${placeholder}`}
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
         <Command>
-          <CommandInput placeholder="Search framework..." className="h-9" />
+          <CommandInput placeholder={`Search ${placeholder}...`} className="h-9" />
           <CommandList>
             <CommandEmpty>No framework found.</CommandEmpty>
             <CommandGroup>
