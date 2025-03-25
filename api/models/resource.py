@@ -4,6 +4,13 @@ from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
 
 
+class ResourceType(str, Enum):
+    """Resource type enumeration"""
+    DOCUMENT = "document"
+    COURSE_DOCUMENT = "course-documents"
+    RESOURCE_FILE = "resource-files"
+
+
 class ResourceStatus(str, Enum):
     """Resource status enumeration"""
     UPLOADING = "uploading"  
@@ -48,8 +55,6 @@ class ResourceCreate(ResourceBase):
     """create resource request model"""
     original_filename: str = Field(..., max_length=255, description="Original file name")
     uploader_id: str = Field(..., description="ID of the user uploading the resource")
-    
-    # add optional technical fields, allowing service layer to fill
     file_type: Optional[str] = None
     file_size: Optional[int] = None
     storage_path: Optional[str] = None

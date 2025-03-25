@@ -8,7 +8,8 @@ import os
 
 from supabase import create_client
 from api.index import app
-from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT, ResourceType
+from api.models.resource import ResourceType
+from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT
 from api.services.todo_service import TodoService
 from fastapi import UploadFile
 from unittest.mock import Mock

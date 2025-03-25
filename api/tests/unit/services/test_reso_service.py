@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from fastapi import UploadFile
-from api.services.resource_service import ResourceService, ResourceType
+from api.services.resource_service import ResourceService
 from api.models.resource import (
     ResourceCreate, ResourceUpdate, ResourceInDB, ResourceReview,
     ResourceStatus, StorageStatus, StorageOperation,
@@ -313,7 +313,7 @@ class TestResourceService:
         )
         
         # Act
-        result = await resource_service.verify_resource_sync(mock_resource.id)
+        result = await resource_service._verify_resource_sync(mock_resource.id)
         
         # Assert
         assert result["is_synced"] is True

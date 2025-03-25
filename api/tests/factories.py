@@ -4,11 +4,10 @@ from api.models.todo import Todo, TodoCreate, TodoUpdate
 from api.models.user import UserCreate, UserLogin, UserUpdate, PasswordUpdateRequest
 from factory import Factory, Faker, LazyAttribute, LazyFunction
 from api.models.resource import (
-    ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB,
+    ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB, ResourceType,
     ResourceReview, ResourceStatus, StorageStatus, StorageOperation,
 )
 from api.tests.conftest import MockUser
-from api.services.resource_service import ResourceType
 import asyncio
 from api.core.exceptions import StorageError
 from pathlib import Path
