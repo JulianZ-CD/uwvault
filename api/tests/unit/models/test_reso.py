@@ -3,7 +3,7 @@ from datetime import datetime
 from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB,
     ResourceStatus, StorageStatus, StorageOperation, ResourceReview,
-    ResourceSyncOperation
+    ResourceSyncOperation, ResourceRating, ResourceRatingCreate
 )
 
 @pytest.mark.unit
@@ -15,7 +15,7 @@ class TestResourceCreate:
             "description": "Test Description",
             "course_id": "ece 651",
             "original_filename": "test.pdf",
-            "uploader_id": 1,
+            "uploader_id": "user-123",
             "file_type": "pdf",
             "file_size": 1024,
             "storage_path": "test/path/file.pdf",
@@ -33,7 +33,7 @@ class TestResourceCreate:
         resource_data = {
             "title": "Test Resource",
             "original_filename": "test.pdf",
-            "uploader_id": 1
+            "uploader_id": "user-123"
         }
         resource = ResourceCreate(**resource_data)
         assert resource.title == resource_data["title"]
@@ -51,7 +51,7 @@ class TestResourceCreate:
         """Test ResourceCreate validation constraints"""
         base_data = {
             "original_filename": "test.pdf",
-            "uploader_id": 1
+            "uploader_id": "user-123"
         }
         with pytest.raises(ValueError):
             ResourceCreate(**{**base_data, **invalid_data})
@@ -64,7 +64,7 @@ class TestResourceUpdate:
             "title": "Updated Resource",
             "description": "Updated Description",
             "course_id": "ece 657",
-            "updated_by": 1
+            "updated_by": "user-123"
         }
         resource_update = ResourceUpdate(**update_data)
         assert resource_update.title == update_data["title"]
@@ -72,10 +72,10 @@ class TestResourceUpdate:
         assert resource_update.course_id == update_data["course_id"]
 
     @pytest.mark.parametrize("invalid_data", [
-        {"title": "", "updated_by": 1},  # Empty title
-        {"title": "T" * 101, "updated_by": 1},  # Title too long
-        {"description": "D" * 501, "updated_by": 1},  # Description too long
-        {"course_id": 0, "updated_by": 1},  # Invalid course_id
+        {"title": "", "updated_by": "user-123"},
+        {"title": "T" * 101, "updated_by": "user-123"},
+        {"description": "D" * 501, "updated_by": "user-123"},
+        {"course_id": 0, "updated_by": "user-123"},
     ])
     def test_resource_update_validation_errors(self, invalid_data):
         """Test ResourceUpdate validation constraints"""
@@ -89,14 +89,14 @@ class TestResourceReview:
         review_data = {
             "status": ResourceStatus.APPROVED,
             "review_comment": "Approved for testing",
-            "reviewed_by": 1
+            "reviewed_by": "admin-123"
         }
         review = ResourceReview(**review_data)
         assert review.status == ResourceStatus.APPROVED
         assert review.review_comment == review_data["review_comment"]
 
     @pytest.mark.parametrize("invalid_data", [
-        {"status": "invalid_status", "reviewed_by": 1},  
+        {"status": "invalid_status", "reviewed_by": "admin-123"},  
         {"status": ResourceStatus.APPROVED, "review_comment": "C" * 501}, 
         {"status": ResourceStatus.APPROVED, "reviewed_by": 0}, 
     ])
@@ -120,8 +120,8 @@ class TestResourceInDB:
             "mime_type": "application/pdf",
             "created_at": datetime.now(),
             "updated_at": datetime.now(),
-            "created_by": 1,
-            "updated_by": 1,
+            "created_by": "user-123",
+            "updated_by": "user-123",
             "file_hash": "abc123",
             "is_active": True,
             "storage_status": StorageStatus.SYNCED,
@@ -143,8 +143,8 @@ class TestResourceInDB:
             file_size=1024,
             storage_path="test/path/file.pdf",
             mime_type="application/pdf",
-            created_by=1,
-            updated_by=1,
+            created_by="user-123",
+            updated_by="user-123",
             file_hash="abc123",
             storage_status=StorageStatus.SYNCED,
             last_sync_at=datetime.now(),
@@ -168,8 +168,8 @@ class TestResourceInDB:
             file_size=1024,
             storage_path="test/path/file.pdf",
             mime_type="application/pdf",
-            created_by=1,
-            updated_by=1,
+            created_by="user-123",
+            updated_by="user-123",
             file_hash="abc123",
             storage_status=StorageStatus.ERROR,
             sync_error=error_message,
@@ -181,6 +181,21 @@ class TestResourceInDB:
         assert sync_status["storage_status"] == StorageStatus.ERROR
         assert sync_status["error_message"] == error_message
         assert sync_status["retry_count"] == 1
+
+    def test_resource_rating_fields(self):
+        """Test resource rating fields"""
+        resource = ResourceInDB(
+            id=1,
+            title="Test Resource",
+            original_filename="test.pdf",
+            created_by="user-123",
+            updated_by="user-123",
+            average_rating=4.5,
+            rating_count=10
+        )
+        
+        assert resource.average_rating == 4.5
+        assert resource.rating_count == 10
 
 @pytest.mark.unit
 class TestResourceSyncOperation:
@@ -209,4 +224,52 @@ class TestResourceSyncOperation:
         operation = ResourceSyncOperation(**operation_data)
         assert operation.status == StorageStatus.ERROR
         assert operation.error_message == "Sync failed"
-        assert operation.retry_count == 2 
+        assert operation.retry_count == 2
+
+@pytest.mark.unit
+class TestResourceRating:
+    def test_resource_rating_success(self):
+        """Test successful ResourceRating model creation"""
+        rating_data = {
+            "resource_id": 1,
+            "user_id": "user-123",
+            "rating": 4.5,
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        rating = ResourceRating(**rating_data)
+        assert rating.resource_id == rating_data["resource_id"]
+        assert rating.user_id == rating_data["user_id"]
+        assert rating.rating == rating_data["rating"]
+        
+    def test_resource_rating_validation(self):
+        """Test ResourceRating validation constraints"""
+        with pytest.raises(ValueError):
+            ResourceRating(
+                resource_id=1,
+                user_id="user-123",
+                rating=0.5
+            )
+            
+        with pytest.raises(ValueError):
+            ResourceRating(
+                resource_id=1,
+                user_id="user-123",
+                rating=5.5
+            )
+            
+    def test_resource_rating_create_success(self):
+        """Test successful ResourceRatingCreate model creation"""
+        rating_data = {
+            "rating": 4.0
+        }
+        rating = ResourceRatingCreate(**rating_data)
+        assert rating.rating == rating_data["rating"]
+        
+    def test_resource_rating_create_validation(self):
+        """Test ResourceRatingCreate validation constraints"""
+        with pytest.raises(ValueError):
+            ResourceRatingCreate(rating=0.5)
+            
+        with pytest.raises(ValueError):
+            ResourceRatingCreate(rating=5.5) 

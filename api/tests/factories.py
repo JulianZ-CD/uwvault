@@ -4,15 +4,11 @@ from api.models.todo import Todo, TodoCreate, TodoUpdate
 from api.models.user import UserCreate, UserLogin, UserUpdate, PasswordUpdateRequest
 from factory import Factory, Faker, LazyAttribute, LazyFunction
 from api.models.resource import (
-    ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB,
+    ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB, ResourceType,
     ResourceReview, ResourceStatus, StorageStatus, StorageOperation,
+    ResourceRatingCreate,
 )
-from api.tests.conftest import MockUser
-from api.services.resource_service import ResourceType
-import asyncio
-from api.core.exceptions import StorageError
 from pathlib import Path
-import io
 
 def format_datetime():
     """Helper function to format datetime consistently"""
@@ -118,8 +114,8 @@ class ResourceFactory(Factory):
     title = Faker('sentence', nb_words=4)
     description = LazyAttribute(lambda o: f'Test Description {o.id}')
     course_id = "ece 657"
-    created_by = Faker('pyint', min_value=1)
-    updated_by = Faker('pyint', min_value=1)
+    created_by = Faker('uuid4')
+    updated_by = Faker('uuid4')
     file_type = "pdf"
     file_size = 1024
     storage_path = LazyAttribute(
@@ -135,6 +131,8 @@ class ResourceFactory(Factory):
     sync_error = None
     retry_count = 0
     last_sync_at = LazyFunction(datetime.now)
+    average_rating = 0.0
+    rating_count = 0
 
 class ResourceCreateFactory(Factory):
     """Factory for ResourceCreate model"""
@@ -152,16 +150,17 @@ class ResourceCreateFactory(Factory):
     mime_type = "application/pdf"
     file_hash = Faker('sha256')
     original_filename = "test.pdf"
-    uploader_id = Faker('pyint', min_value=1)
+    uploader_id = Faker('uuid4')
 
 class ResourceUpdateFactory(Factory):
     """Factory for ResourceUpdate model"""
     class Meta:
         model = ResourceUpdate
-
+    
     title = Faker('sentence', nb_words=4)
     description = Faker('text', max_nb_chars=200)
     course_id = "ece 657"
+    updated_by = Faker('uuid4')
 
 class ResourceReviewFactory(Factory):
     """Factory for ResourceReview model"""
@@ -170,23 +169,7 @@ class ResourceReviewFactory(Factory):
     
     status = ResourceStatus.APPROVED
     review_comment = Faker('text', max_nb_chars=200)
-    reviewed_by = Faker('pyint', min_value=1)
-
-class MockUserFactory(Factory):
-    """Factory for MockUser model"""
-    class Meta:
-        model = MockUser
-
-    id = Faker('pyint', min_value=1)
-    username = Faker('user_name')
-    is_admin = False
-
-class MockAdminFactory(MockUserFactory):
-    """Factory for admin MockUser model"""
-    class Meta:
-        model = MockUser
-    
-    is_admin = True
+    reviewed_by = Faker('uuid4')
 
 class FileFactory:
     """Factory for file upload testing"""
@@ -194,24 +177,6 @@ class FileFactory:
     # Test file paths
     TEST_FILES_DIR = Path(__file__).parent / "e2e" / "test_files"
     TEST_FILE_PATH = TEST_FILES_DIR / "test_document.pdf"
-    
-    @classmethod
-    def setup_test_file(cls):
-        """Create test file and directory"""
-        cls.TEST_FILES_DIR.mkdir(exist_ok=True)
-        if not cls.TEST_FILE_PATH.exists():
-            with open(cls.TEST_FILE_PATH, "wb") as f:
-                f.write(b"%PDF-1.4\n%Test PDF content")
-        return cls.TEST_FILE_PATH
-
-    @classmethod
-    def cleanup_test_file(cls):
-        """Clean up test file"""
-        if cls.TEST_FILE_PATH.exists():
-            try:
-                cls.TEST_FILE_PATH.unlink()
-            except Exception:
-                pass
 
     @staticmethod
     def generate_test_file():
@@ -241,23 +206,16 @@ class FileFactory:
             for blob in blobs:
                 blob.delete()
         except Exception as e:
-            raise StorageError(f"Failed to cleanup test files: {str(e)}")
-
-    @staticmethod
-    async def verify_file_exists(resource_service, file_path: str) -> bool:
-        """verify file existence"""
-        try:
-            # 直接使用 resource_service 的方法验证文件存在
-            await resource_service._ensure_storage_initialized()
-            blob = resource_service._storage_bucket.blob(file_path)
-            exists = await asyncio.get_event_loop().run_in_executor(
-                None, blob.exists
-            )
-            return exists
-        except Exception as e:
-            raise StorageError(f"Failed to verify file existence: {str(e)}")
+            raise ValueError(f"Failed to cleanup test files: {str(e)}")
             
     @classmethod
     def create(cls):
         """Create a test file (compatibility method for TestFileFactory)"""
         return cls.generate_test_file()
+
+class ResourceRatingCreateFactory(Factory):
+    """Factory for ResourceRatingCreate model"""
+    class Meta:
+        model = ResourceRatingCreate
+    
+    rating = Faker('pyfloat', min_value=1.0, max_value=5.0)

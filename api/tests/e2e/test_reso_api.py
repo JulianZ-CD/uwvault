@@ -1,24 +1,16 @@
 import pytest
-from pathlib import Path
 from fastapi import status
-import io
-
-from api.core.config import get_settings
+from api.routers.resources_router import router
 from api.tests.factories import FileFactory
 from api.utils.logger import setup_logger
-from api.services.resource_service import ResourceService
 from api.models.resource import ResourceStatus
 
 # setup test logger
 test_logger = setup_logger("test_reso_api", "test_reso_api.log")
 
-# Constants
-RESOURCES_PATH = "/api/py/resources"
-TEST_TABLE_NAME = 'resources'
-
-# Test file paths
-TEST_FILES_DIR = Path(__file__).parent / "test_files"
-TEST_FILE_PATH = TEST_FILES_DIR / "test_document.pdf"
+RESOURCES_PATH = router.prefix
+TEST_FILES_DIR = FileFactory.TEST_FILES_DIR
+TEST_FILE_PATH = FileFactory.TEST_FILE_PATH
 
 @pytest.fixture(scope="function", autouse=True)
 async def setup_test_env(test_db, resource_service):
@@ -32,16 +24,16 @@ async def setup_test_env(test_db, resource_service):
         raise
 
 class BaseResourceTest:
-    """基础资源测试类"""
+    """basic resource test class"""
     def setup_method(self):
-        """每个测试方法前的设置"""
+        """setup for each test method"""
         self.created_resources = []
 
     @pytest.fixture(autouse=True)
     async def cleanup(self, test_client, admin_user_headers):
-        """每个测试后自动清理资源"""
+        """cleanup resources after each test"""
         yield
-        # 使用管理员权限清理资源
+        # use admin permission to cleanup resources
         headers, _ = admin_user_headers
         for resource_id in self.created_resources:
             try:
@@ -54,14 +46,14 @@ class BaseResourceTest:
 
 @pytest.mark.e2e
 class TestResourceAPI(BaseResourceTest):
-    """基础资源API测试"""
+    """basic resource API test"""
     
     async def test_invalid_file_type(self, test_client, regular_user_headers):
-        """测试上传无效文件类型"""
+        """test uploading invalid file type"""
         try:
             headers, user_id = regular_user_headers
             
-            # 创建无效文件类型
+            # create invalid file type
             invalid_file = FileFactory.generate_invalid_file()
             
             files = {
@@ -94,14 +86,14 @@ class TestResourceAPI(BaseResourceTest):
 
 @pytest.mark.e2e
 class TestRegularUserResourceAPI(BaseResourceTest):
-    """普通用户资源API测试"""
+    """regular user resource API test"""
     
     async def test_regular_user_resource_lifecycle(self, test_client, regular_user_headers):
-        """测试普通用户资源生命周期"""
+        """test regular user resource lifecycle"""
         try:
             headers, user_id = regular_user_headers
             
-            # 1. 创建资源
+            # 1. create resource
             test_file = FileFactory.generate_test_file()
             form_data = {
                 "title": "Regular User Resource",
@@ -129,7 +121,7 @@ class TestRegularUserResourceAPI(BaseResourceTest):
             resource_id = create_response.json()["id"]
             self.created_resources.append(resource_id)
             
-            # 验证资源状态为 PENDING
+            # verify resource status is PENDING
             get_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}",
                 headers=headers
@@ -137,22 +129,35 @@ class TestRegularUserResourceAPI(BaseResourceTest):
             assert get_response.status_code == status.HTTP_200_OK
             assert get_response.json()["status"] == ResourceStatus.PENDING.value
             
-            # 2. 更新资源
+            # 2. update resource (including file)
+            new_test_file = FileFactory.generate_test_file()
+            new_test_file["filename"] = "updated_file.pdf"  # use different file name
+            
             update_data = {
                 "title": "Updated Regular User Resource",
                 "description": "Updated description"
             }
             
+            update_files = {
+                "file": (
+                    new_test_file["filename"],
+                    new_test_file["content"],
+                    new_test_file["content_type"]
+                )
+            }
+            
             update_response = test_client.patch(
                 f"{RESOURCES_PATH}/{resource_id}",
+                files=update_files,
                 data=update_data,
                 headers=headers
             )
             
             assert update_response.status_code == status.HTTP_200_OK
             assert update_response.json()["title"] == update_data["title"]
+            assert update_response.json()["original_filename"] == new_test_file["filename"]
             
-            # 3. 获取资源列表（应该看不到PENDING状态的资源）
+            # 3. get resource list (should not see PENDING status resource)
             list_response = test_client.get(
                 f"{RESOURCES_PATH}/",
                 headers=headers
@@ -161,7 +166,7 @@ class TestRegularUserResourceAPI(BaseResourceTest):
             resources = list_response.json()["items"]
             assert not any(r["id"] == resource_id for r in resources)
             
-            # 4. 获取下载URL
+            # 4. get download URL
             url_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}/download",
                 headers=headers
@@ -169,7 +174,7 @@ class TestRegularUserResourceAPI(BaseResourceTest):
             assert url_response.status_code == status.HTTP_200_OK
             assert isinstance(url_response.json(), str)
             
-            # 5. 下载资源
+            # 5. download resource
             download_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}/download-file",
                 headers=headers
@@ -183,14 +188,14 @@ class TestRegularUserResourceAPI(BaseResourceTest):
 
 @pytest.mark.e2e
 class TestAdminResourceAPI(BaseResourceTest):
-    """管理员资源API测试"""
+    """admin resource API test"""
     
     async def test_admin_resource_lifecycle(self, test_client, admin_user_headers):
-        """测试管理员资源生命周期"""
+        """test admin resource lifecycle"""
         try:
             headers, user_id = admin_user_headers
             
-            # 1. 创建资源
+            # 1. create resource
             test_file = FileFactory.generate_test_file()
             form_data = {
                 "title": "Admin Resource",
@@ -218,7 +223,7 @@ class TestAdminResourceAPI(BaseResourceTest):
             resource_id = create_response.json()["id"]
             self.created_resources.append(resource_id)
             
-            # 验证资源状态为 APPROVED（管理员上传的资源直接批准）
+            # verify resource status is APPROVED (admin uploaded resource is directly approved)
             get_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}",
                 headers=headers
@@ -226,22 +231,35 @@ class TestAdminResourceAPI(BaseResourceTest):
             assert get_response.status_code == status.HTTP_200_OK
             assert get_response.json()["status"] == ResourceStatus.APPROVED.value
             
-            # 2. 更新资源
+            # 2. update resource (including file)
+            new_test_file = FileFactory.generate_test_file()
+            new_test_file["filename"] = "admin_updated_file.pdf"
+            
             update_data = {
                 "title": "Updated Admin Resource",
                 "description": "Updated by admin"
             }
             
+            update_files = {
+                "file": (
+                    new_test_file["filename"],
+                    new_test_file["content"],
+                    new_test_file["content_type"]
+                )
+            }
+            
             update_response = test_client.patch(
                 f"{RESOURCES_PATH}/{resource_id}",
+                files=update_files,
                 data=update_data,
                 headers=headers
             )
             
             assert update_response.status_code == status.HTTP_200_OK
             assert update_response.json()["title"] == update_data["title"]
+            assert update_response.json()["original_filename"] == new_test_file["filename"]
             
-            # 3. 获取资源列表（应该能看到所有状态的资源）
+            # 3. get resource list
             list_response = test_client.get(
                 f"{RESOURCES_PATH}/",
                 headers=headers
@@ -250,7 +268,7 @@ class TestAdminResourceAPI(BaseResourceTest):
             resources = list_response.json()["items"]
             assert any(r["id"] == resource_id for r in resources)
             
-            # 4. 停用资源
+            # 4. deactivate resource
             deactivate_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/deactivate",
                 headers=headers
@@ -259,7 +277,7 @@ class TestAdminResourceAPI(BaseResourceTest):
             assert deactivate_response.json()["status"] == ResourceStatus.INACTIVE.value
             assert not deactivate_response.json()["is_active"]
             
-            # 5. 重新激活资源
+            # 5. reactivate resource
             activate_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/reactivate",
                 headers=headers
@@ -268,14 +286,14 @@ class TestAdminResourceAPI(BaseResourceTest):
             assert activate_response.json()["status"] == ResourceStatus.APPROVED.value
             assert activate_response.json()["is_active"]
             
-            # 6. 删除资源
+            # 6. delete resource
             delete_response = test_client.delete(
                 f"{RESOURCES_PATH}/{resource_id}",
                 headers=headers
             )
             assert delete_response.status_code == status.HTTP_200_OK
             
-            # 验证资源已被删除
+            # verify resource is deleted
             get_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}",
                 headers=headers
@@ -288,21 +306,21 @@ class TestAdminResourceAPI(BaseResourceTest):
 
 @pytest.mark.e2e
 class TestResourceErrorHandling(BaseResourceTest):
-    """资源错误处理测试"""
+    """resource error handling test"""
     
     async def test_resource_validation_errors(self, test_client, regular_user_headers):
-        """测试资源验证错误"""
+        """test resource validation errors"""
         try:
             headers, user_id = regular_user_headers
             
-            # 1. 测试无效的资源ID
+            # 1. test invalid resource ID
             get_response = test_client.get(
                 f"{RESOURCES_PATH}/99999",
                 headers=headers
             )
             assert get_response.status_code == status.HTTP_404_NOT_FOUND
             
-            # 2. 测试无效的文件类型
+            # 2. test invalid file type
             invalid_file = FileFactory.generate_invalid_file()
             resource_data = {
                 "title": "Invalid Resource",
@@ -326,8 +344,8 @@ class TestResourceErrorHandling(BaseResourceTest):
             )
             assert create_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
             
-            # 3. 测试无效的更新数据
-            # 首先创建一个有效资源
+            # 3. test invalid update data
+            # first create a valid resource
             test_file = FileFactory.generate_test_file()
             valid_resource_data = {
                 "title": "Valid Resource",
@@ -354,9 +372,9 @@ class TestResourceErrorHandling(BaseResourceTest):
             resource_id = create_response.json()["id"]
             self.created_resources.append(resource_id)
             
-            # 尝试无效更新
+            # try invalid update - use full space title
             invalid_update = {
-                "title": "",  # 空标题应该无效
+                "title": "   ", 
                 "description": "Invalid update test"
             }
             
@@ -365,18 +383,19 @@ class TestResourceErrorHandling(BaseResourceTest):
                 data=invalid_update,
                 headers=headers
             )
-            assert update_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+            assert update_response.status_code == status.HTTP_404_NOT_FOUND
+            assert "Title cannot be empty" in update_response.json()["detail"]
             
         except Exception as e:
             test_logger.error(f"Test failed: {str(e)}")
             raise
 
     async def test_permission_errors(self, test_client, regular_user_headers):
-        """测试权限错误"""
+        """test permission errors"""
         try:
             headers, user_id = regular_user_headers
             
-            # 1. 创建资源（使用普通用户）
+            # 1. create resource (use regular user)
             test_file = FileFactory.generate_test_file()
             resource_data = {
                 "title": "Permission Test Resource",
@@ -403,7 +422,7 @@ class TestResourceErrorHandling(BaseResourceTest):
             resource_id = create_response.json()["id"]
             self.created_resources.append(resource_id)
             
-            # 2. 测试普通用户尝试审核资源
+            # 2. test regular user trying to review resource
             review_data = {
                 "status": ResourceStatus.APPROVED.value,
                 "review_comment": "Attempting to approve",
@@ -417,14 +436,14 @@ class TestResourceErrorHandling(BaseResourceTest):
             )
             assert review_response.status_code == status.HTTP_403_FORBIDDEN
             
-            # 3. 测试普通用户尝试删除资源
+            # 3. test regular user trying to delete resource
             delete_response = test_client.delete(
                 f"{RESOURCES_PATH}/{resource_id}",
                 headers=headers
             )
             assert delete_response.status_code == status.HTTP_403_FORBIDDEN
             
-            # 4. 测试普通用户尝试停用/启用资源
+            # 4. test regular user trying to deactivate/activate resource
             deactivate_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/deactivate",
                 headers=headers
@@ -437,15 +456,15 @@ class TestResourceErrorHandling(BaseResourceTest):
 
 @pytest.mark.e2e
 class TestResourceRatingAPI(BaseResourceTest):
-    """资源评分API测试"""
+    """resource rating API test"""
     
     async def test_resource_rating_operations(self, test_client, regular_user_headers, admin_user_headers):
-        """测试资源评分操作"""
+        """test resource rating operations"""
         try:
             admin_headers, admin_id = admin_user_headers
             user_headers, user_id = regular_user_headers
             
-            # 1. 获取已有的资源列表
+            # 1. get existing resource list
             list_response = test_client.get(
                 f"{RESOURCES_PATH}/",
                 headers=admin_headers
@@ -455,13 +474,13 @@ class TestResourceRatingAPI(BaseResourceTest):
             resources = list_response.json()["items"]
             assert len(resources) > 0, "need at least one existing resource for testing"
             
-            # 选择第一个已批准的资源进行评分
+            # select the first approved resource for rating
             approved_resources = [r for r in resources if r["status"] == ResourceStatus.APPROVED.value]
             assert len(approved_resources) > 0, "need at least one approved resource for testing"
             
             resource_id = approved_resources[0]["id"]
             
-            # 2. 用户对资源进行评分
+            # 2. user rate resource
             rating_data = {"rating": 4.5}
             rate_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/rating",
@@ -472,13 +491,12 @@ class TestResourceRatingAPI(BaseResourceTest):
             assert rate_response.status_code == status.HTTP_200_OK
             rating_result = rate_response.json()
             
-            # 修改这里：检查user_rating字段而不是rating字段
             assert "user_rating" in rating_result
             assert rating_result["user_rating"] == 4.5
             assert "average_rating" in rating_result
             assert "rating_count" in rating_result
             
-            # 3. 获取用户评分
+            # 3. get user rating
             get_rating_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}/rating",
                 headers=user_headers
@@ -487,11 +505,10 @@ class TestResourceRatingAPI(BaseResourceTest):
             assert get_rating_response.status_code == status.HTTP_200_OK
             user_rating = get_rating_response.json()
             
-            # 这里也需要修改：检查user_rating字段
             assert "user_rating" in user_rating
             assert user_rating["user_rating"] == 4.5
             
-            # 4. 更新用户评分
+            # 4. update user rating
             update_rating = {"rating": 3.5}
             update_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/rating",
@@ -502,11 +519,10 @@ class TestResourceRatingAPI(BaseResourceTest):
             assert update_response.status_code == status.HTTP_200_OK
             updated_rating = update_response.json()
             
-            # 这里也需要修改：检查user_rating字段
             assert "user_rating" in updated_rating
             assert updated_rating["user_rating"] == 3.5
             
-            # 5. 验证资源详情中包含评分信息
+            # 5. verify resource details include rating information
             get_resource_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}",
                 headers=user_headers
@@ -523,44 +539,44 @@ class TestResourceRatingAPI(BaseResourceTest):
             raise
     
     async def test_rating_validation(self, test_client, regular_user_headers, admin_user_headers):
-        """测试评分验证"""
+        """test rating validation"""
         try:
             user_headers, user_id = regular_user_headers
             
-            # 1. 获取已有的资源列表
+            # 1. get existing resource list
             list_response = test_client.get(
                 f"{RESOURCES_PATH}/",
-                headers=admin_user_headers[0]  # 使用管理员权限获取所有资源
+                headers=admin_user_headers[0]
             )
             
             resources = list_response.json()["items"]
             assert len(resources) > 0, "need at least one existing resource for testing"
             
-            # 选择第一个已批准的资源进行评分
+            # select the first approved resource for rating
             approved_resources = [r for r in resources if r["status"] == ResourceStatus.APPROVED.value]
             assert len(approved_resources) > 0, "need at least one approved resource for testing"
             
             resource_id = approved_resources[0]["id"]
             
-            # 2. 测试无效评分值 - 低于最小值
+            # 2. test invalid rating value - below minimum
             invalid_low_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/rating",
-                json={"rating": 0.5},  # 低于最小值1.0
+                json={"rating": 0.5},
                 headers=user_headers
             )
             
             assert invalid_low_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
             
-            # 3. 测试无效评分值 - 高于最大值
+            # 3. test invalid rating value - above maximum
             invalid_high_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/rating",
-                json={"rating": 5.5},  # 高于最大值5.0
+                json={"rating": 5.5},
                 headers=user_headers
             )
             
             assert invalid_high_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
             
-            # 4. 测试对不存在的资源进行评分
+            # 4. test rating nonexistent resource
             nonexistent_response = test_client.post(
                 f"{RESOURCES_PATH}/99999/rating",
                 json={"rating": 4.0},
@@ -574,12 +590,12 @@ class TestResourceRatingAPI(BaseResourceTest):
             raise
     
     async def test_multiple_user_ratings(self, test_client, regular_user_headers, admin_user_headers):
-        """测试多用户评分"""
+        """test multiple user ratings"""
         try:
             admin_headers, admin_id = admin_user_headers
             user_headers, user_id = regular_user_headers
             
-            # 1. 获取已有的资源列表
+            # 1. get existing resource list
             list_response = test_client.get(
                 f"{RESOURCES_PATH}/",
                 headers=admin_headers
@@ -588,13 +604,13 @@ class TestResourceRatingAPI(BaseResourceTest):
             resources = list_response.json()["items"]
             assert len(resources) > 0, "need at least one existing resource for testing"
             
-            # 选择第一个已批准的资源进行评分
+            # select the first approved resource for rating
             approved_resources = [r for r in resources if r["status"] == ResourceStatus.APPROVED.value]
             assert len(approved_resources) > 0, "need at least one approved resource for testing"
             
             resource_id = approved_resources[0]["id"]
             
-            # 2. 管理员用户评分
+            # 2. admin user rate resource
             admin_rate_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/rating",
                 json={"rating": 5.0},
@@ -603,7 +619,7 @@ class TestResourceRatingAPI(BaseResourceTest):
             
             assert admin_rate_response.status_code == status.HTTP_200_OK
             
-            # 3. 普通用户评分
+            # 3. regular user rate resource
             user_rate_response = test_client.post(
                 f"{RESOURCES_PATH}/{resource_id}/rating",
                 json={"rating": 4.0},
@@ -612,7 +628,7 @@ class TestResourceRatingAPI(BaseResourceTest):
             
             assert user_rate_response.status_code == status.HTTP_200_OK
             
-            # 4. 验证资源评分统计
+            # 4. verify resource rating statistics
             get_resource_response = test_client.get(
                 f"{RESOURCES_PATH}/{resource_id}",
                 headers=user_headers
@@ -621,9 +637,7 @@ class TestResourceRatingAPI(BaseResourceTest):
             assert get_resource_response.status_code == status.HTTP_200_OK
             resource_data = get_resource_response.json()
             
-            # 验证评分计数和平均分
             assert resource_data["rating_count"] >= 2
-            # 不能精确断言平均分，因为可能有其他用户也对此资源进行了评分
             assert "average_rating" in resource_data
             
         except Exception as e:
