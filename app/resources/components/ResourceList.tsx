@@ -33,18 +33,18 @@ export function ResourceList() {
     setPage(newPage);
   };
 
-  // 处理过滤 - 只接收课程ID
+  // handle filter - only receive course ID
   const handleFilter = (course_id?: string) => {
     console.log(`ResourceList - Filtering resources with course_id: ${course_id ? `"${course_id}"` : 'undefined (all courses)'}`);
-    setCourseId(course_id); // 现在可以接受 undefined
-    setPage(1); // 重置到第一页
+    setCourseId(course_id); 
+    setPage(1); 
     
-    // 重新获取资源
+    // re-fetch resources
     if (user) {
       fetchResources({ 
         limit: pageSize, 
         offset: 0,
-        course_id: course_id // 直接传递 course_id，可能是 undefined
+        course_id: course_id
       }).then(() => {
         console.log("Resources fetched successfully after filter");
       }).catch(error => {
@@ -53,22 +53,18 @@ export function ResourceList() {
     }
   };
 
-  // 当认证状态改变时，重置状态并处理重定向
+  // when authentication status changes, reset state and handle redirection
   useEffect(() => {
     if (!authLoading && !user) {
-      // 用户未登录，直接重定向到登录页面
       router.push('/login');
     }
   }, [user, authLoading, router]);
 
-  // 分离资源获取逻辑
   useEffect(() => {
-    // 仅在认证完成且用户已登录的情况下获取资源
     if (authLoading || !user) {
       return;
     }
 
-    // 避免重复获取资源
     if (resourcesFetched) {
       return;
     }
@@ -89,7 +85,7 @@ export function ResourceList() {
       });
   }, [user, authLoading, fetchResources, pageSize, page, resourcesFetched, courseId]);
 
-  // 当页码变化时获取新资源
+  // when page changes, get new resources
   useEffect(() => {
     if (!user || authLoading || !resourcesFetched) return;
 
@@ -104,9 +100,8 @@ export function ResourceList() {
       });
   }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize, courseId]);
 
-  // 处理评分更新
+  // handle rating update
   const handleRatingUpdate = (resourceId: number, averageRating: number, ratingCount: number) => {
-    // 更新资源列表中的评分信息
     const updatedResources = resources.map(resource => 
       resource.id === resourceId 
         ? { 
@@ -117,12 +112,9 @@ export function ResourceList() {
         : resource
     );
     
-    // 这里我们不直接更新resources状态，因为它由useResource管理
-    // 但在实际应用中，您可能需要更新本地状态或触发重新获取
     console.log(`Rating updated for resource ${resourceId}: ${averageRating} (${ratingCount} ratings)`);
   };
 
-  // 如果正在加载认证状态或资源，显示加载指示器
   if (authLoading || isLoading) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -175,7 +167,6 @@ export function ResourceList() {
               {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
                 let pageNum = i + 1;
                 
-                // 调整页码显示逻辑，确保当前页在中间
                 if (totalPages > 5) {
                   if (page <= 3) {
                     pageNum = i + 1;

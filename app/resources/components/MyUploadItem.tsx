@@ -16,7 +16,7 @@ interface MyUploadItemProps {
 export function MyUploadItem({ resource }: MyUploadItemProps) {
   const router = useRouter();
   
-  // 根据状态获取徽章变体
+  // get badge variant based on status
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'approved':
@@ -30,7 +30,7 @@ export function MyUploadItem({ resource }: MyUploadItemProps) {
     }
   };
   
-  // 处理资源更新
+  // handle resource update
   const handleUpdate = () => {
     router.push(`/resources/${resource.id}/edit`);
   };
@@ -82,7 +82,7 @@ export function MyUploadItem({ resource }: MyUploadItemProps) {
             </p>
             
             <div className="w-[40%] flex justify-center">
-              {/* 空白区域，与ResourceItem保持一致 */}
+              {/* blank area, keep consistent with ResourceItem */}
             </div>
             
             <div className="w-[20%] flex justify-end">
@@ -96,7 +96,7 @@ export function MyUploadItem({ resource }: MyUploadItemProps) {
             </div>
           </div>
           
-          {/* 审核评论 (如果有) */}
+          {/* review comment (if exists) */}
           {resource.review_comment && (
             <div className="mt-2 p-2 bg-muted/50 rounded-md text-sm">
               <span className="font-medium">Review comment:</span> {resource.review_comment}

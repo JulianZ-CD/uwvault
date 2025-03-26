@@ -13,14 +13,13 @@ import {
 
 let cachedActions: ResourceActions | null = null;
 let lastActionsFetchTime = 0;
-const CACHE_TTL = 300000; // 5分钟
+const CACHE_TTL = 300000; 
 let fetchingActions = false;
 
-// Add to resourceService.ts
+
 const getAuthHeaders = (isFileUpload = false): HeadersInit => {
   const headers: HeadersInit = {};
   
-  // 只有在不是文件上传时才设置 Content-Type
   if (!isFileUpload) {
     headers["Content-Type"] = 'application/json';
   }
@@ -77,27 +76,7 @@ export const resourceService = {
     }
   },
 
-  // 获取所有课程ID
-  // async getCourseIds(): Promise<string[]> {
-  //   try {
-  //     const response = await fetch('/api/py/resources/course-ids', {
-  //       headers: getAuthHeaders(),
-  //     });
-      
-  //     if (!response.ok) {
-  //       throw new Error('Failed to fetch course IDs');
-  //     }
-      
-  //     const data = await response.json();
-  //     // 确保过滤掉空字符串和空值
-  //     return data.filter((id: string) => id && id.trim() !== '');
-  //   } catch (error) {
-  //     console.error("Error fetching course IDs:", error);
-  //     return [];
-  //   }
-  // },
-
-  // 获取所有可用的课程ID
+  // get all available course IDs
   async getCourseIds(): Promise<string[]> {
     try {
       const response = await fetch('/api/py/resources/course-ids', {
@@ -138,17 +117,11 @@ export const resourceService = {
     formData.append('title', data.title);
     if (data.description) formData.append('description', data.description);
     if (data.course_id) formData.append('course_id', data.course_id);
-    // formData.append('file', data.file);
-
-    // 正确地添加文件，确保包含文件名
     formData.append('file', data.file, data.file.name);
     
-    // 获取认证头，但避免设置Content-Type
     const authHeaders = getAuthHeaders();
-    // 创建新的headers对象，只包含授权信息
     const headers: HeadersInit = {};
 
-    // 只复制Authorization头
     if ('Authorization' in authHeaders) {
       headers['Authorization'] = authHeaders['Authorization'];
     }
@@ -167,7 +140,6 @@ export const resourceService = {
     return await fetch('/api/py/resources/create/', {
       method: 'POST',
       body: formData,
-      // headers: getAuthHeaders(),
       headers: getAuthHeaders(true),
     });
   },
@@ -179,7 +151,6 @@ export const resourceService = {
     if (data.description) formData.append('description', data.description);
     if (data.course_id) formData.append('course_id', data.course_id);
     
-    // 如果提供了文件，添加到表单数据中
     if (data.file) {
       formData.append('file', data.file, data.file.name);
     }
@@ -187,7 +158,7 @@ export const resourceService = {
     return await fetch(`/api/py/resources/${id}/`, {
       method: 'PATCH',
       body: formData,
-      headers: getAuthHeaders(true),  // 使用文件上传模式的认证头
+      headers: getAuthHeaders(true),
     });
   },
 
@@ -237,7 +208,6 @@ export const resourceService = {
 
   // review resource
   async reviewResource(id: number, data: ResourceReviewData): Promise<Response> {
-    // 确保数据格式正确
     const reviewData = {
       status: data.status,
       review_comment: data.review_comment || "",
@@ -300,19 +270,16 @@ export const resourceService = {
     try {
       const now = Date.now();
       
-      // 使用缓存
+      // use cache
       if (cachedActions && (now - lastActionsFetchTime < CACHE_TTL)) {
         return cachedActions;
       }
       
-      // 如果已经有请求在进行中，等待该请求完成
       if (fetchingActions) {
-        // 等待一小段时间后再次检查缓存
         await new Promise(resolve => setTimeout(resolve, 100));
         return this.getResourceActions();
       }
       
-      // 标记正在获取数据
       fetchingActions = true;
       console.log("Fetching resource actions...");
       
@@ -365,7 +332,6 @@ export const resourceService = {
       const data = await response.json();
       console.log("Actions data received:", data);
       
-      // 更新缓存
       cachedActions = data;
       lastActionsFetchTime = now;
       
@@ -383,12 +349,11 @@ export const resourceService = {
         can_see_all_statuses: true
       };
     } finally {
-      // 无论成功失败，都重置锁定状态
       fetchingActions = false;
     }
   },
 
-  // 对资源进行评分
+  // rate resource
   async rateResource(id: number, rating: number): Promise<ResourceRating> {
     try {
       const ratingData: ResourceRatingCreate = {
@@ -412,7 +377,7 @@ export const resourceService = {
     }
   },
 
-  // 获取用户对资源的评分
+  // get user rating for resource
   async getUserRating(id: number): Promise<ResourceRating> {
     try {
       const response = await fetch(`/api/py/resources/${id}/rating`, {
@@ -421,7 +386,6 @@ export const resourceService = {
       
       if (!response.ok) {
         if (response.status === 404) {
-          // 用户未对该资源评分，返回默认值
           return {
             resource_id: id,
             user_rating: 0,
@@ -435,7 +399,6 @@ export const resourceService = {
       return await response.json();
     } catch (error) {
       console.error(`Error getting user rating for resource ${id}:`, error);
-      // 出错时返回默认值
       return {
         resource_id: id,
         user_rating: 0,

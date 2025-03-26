@@ -14,13 +14,12 @@ export default function ResourceUploadPage() {
   const [initializing, setInitializing] = useState(true);
   const { toast } = useToast();
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
-  const formKey = useRef(0); // 用于重置表单的key
+  const formKey = useRef(0); 
   
-  // 初始化页面，只检查用户是否登录
+  // initialize page, only check if user is logged in
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
-        // 未登录，重定向到登录页面
         toast({
           variant: "destructive",
           title: "Authentication required",
@@ -30,12 +29,11 @@ export default function ResourceUploadPage() {
         return;
       }
       
-      // 用户已登录，可以上传
       setInitializing(false);
     }
   }, [user, authLoading, router, toast]);
   
-  // 显示加载状态
+  // show loading state
   if (initializing || authLoading) {
     return (
       <main className="min-h-screen">
@@ -47,13 +45,9 @@ export default function ResourceUploadPage() {
   }
   
   const handleUploadSuccess = () => {
-    // 显示成功提示
     setShowSuccessAlert(true);
-    
-    // 重置表单 (通过改变key强制重新渲染)
     formKey.current += 1;
     
-    // 5秒后自动隐藏成功提示
     setTimeout(() => {
       setShowSuccessAlert(false);
     }, 5000);

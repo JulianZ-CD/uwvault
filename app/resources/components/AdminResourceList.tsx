@@ -106,11 +106,10 @@ export function AdminResourceList({
                 />
               </PaginationItem>
               
-              {/* 添加页码数字 */}
+              {/* add page number */}
               {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
                 let pageNum = i + 1;
                 
-                // 调整页码显示逻辑，确保当前页在中间
                 if (totalPages > 5) {
                   if (page <= 3) {
                     pageNum = i + 1;

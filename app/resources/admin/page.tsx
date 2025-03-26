@@ -14,14 +14,14 @@ export default function AdminResourcePage() {
   const { user, isLoading: authLoading } = useAuth();
   const [courseId, setCourseId] = useState<string | undefined>(undefined);
   
-  // 检查用户权限
+  // check user permission
   useEffect(() => {
     if (!authLoading && user && user.role !== 'admin') {
       router.push('/resources');
     }
   }, [user, authLoading, router]);
   
-  // 处理过滤
+  // handle filter
   const handleFilter = (course_id?: string) => {
     setCourseId(course_id);
   };
@@ -37,7 +37,7 @@ export default function AdminResourcePage() {
   }
   
   if (!user || user.role !== 'admin') {
-    return null; // 权限检查中，或无权限
+    return null; 
   }
   
   return (

@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { Label } from "@/app/components/ui/label";
 import { useAuth } from "@/app/hooks/useAuth";
 
-// 定义API错误类型
+// define API error type
 interface ApiError {
   status?: number;
   message?: string;
@@ -49,7 +49,7 @@ export function ResourceForm({
   const [authError, setAuthError] = useState(false);
   const [fileChanged, setFileChanged] = useState(false);
   
-  // 判断是否为编辑模式
+  // check if it is edit mode
   const isEditMode = !!initialData && !!resourceId;
   
   useEffect(() => {
@@ -69,7 +69,7 @@ export function ResourceForm({
     checkAuth();
   }, [user, authLoading]);
   
-  // 设置表单默认值
+  // set form default values
   const form = useForm<ResourceCreateData>({
     defaultValues: {
       title: initialData?.title || "",
@@ -144,28 +144,24 @@ export function ResourceForm({
         const updatedResource = await updateResource(resourceId, updateData);
         console.log("[ResourceForm] Resource updated successfully:", updatedResource);
         
-        // 显示更新后的文件名
         if (updatedResource && fileChanged && file) {
           console.log("[ResourceForm] File updated to:", updatedResource.original_filename);
         }
         
-        // 更新成功后，调用 onSuccess 回调
         if (onSuccess) {
           onSuccess();
         }
         
-        // 根据用户角色决定重定向目标
         setTimeout(() => {
-          // 管理员重定向到管理页面，普通用户重定向到 My Uploads
           if (user?.role === 'admin') {
             router.push("/resources/admin");
           } else {
             router.push("/resources?tab=myUploads");
           }
-        }, 2000); // 2秒后重定向，给用户时间看到成功提示
+        }, 2000); 
         
       } else {
-        // 创建模式
+        // create mode
         if (!file) {
           toast({
             variant: "destructive",
@@ -182,18 +178,15 @@ export function ResourceForm({
         
         await createResource(createData);
         
-        // 重置表单
         form.reset();
         clearFile();
         
-        // 创建成功后，调用 onSuccess 回调，但不重定向
         if (onSuccess) {
           onSuccess();
         }
       }
     } catch (error) {
       console.error("[ResourceForm] Error submitting form:", error);
-      // 使用类型断言
       const apiError = error as ApiError;
       toast({
         variant: "destructive",
@@ -285,7 +278,7 @@ export function ResourceForm({
             <div className="space-y-2">
               <Label htmlFor="file">File</Label>
               
-              {/* 显示当前文件（编辑模式且未更改文件） */}
+              {/* show current file (edit mode and not changed) */}
               {isEditMode && currentFileName && !fileChanged && (
                 <div className="flex items-center justify-between p-2 border rounded-md mb-2">
                   <div className="flex items-center">
@@ -303,7 +296,7 @@ export function ResourceForm({
                 </div>
               )}
               
-              {/* 显示新选择的文件（编辑模式且已更改文件） */}
+              {/* show new selected file (edit mode and changed) */}
               {isEditMode && fileChanged && file && (
                 <div className="flex items-center justify-between p-2 border rounded-md mb-2">
                   <div className="flex items-center">
@@ -321,7 +314,7 @@ export function ResourceForm({
                 </div>
               )}
               
-              {/* 显示已选择的文件（上传模式） */}
+              {/* show selected file (upload mode) */}
               {!isEditMode && file && (
                 <div className="flex items-center justify-between p-2 border rounded-md mb-2">
                   <div className="flex items-center">
@@ -339,7 +332,7 @@ export function ResourceForm({
                 </div>
               )}
               
-              {/* 文件选择器 */}
+              {/* file selector */}
               <div className="relative">
                 <Input
                   id="file"

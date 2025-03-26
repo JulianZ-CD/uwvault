@@ -23,10 +23,10 @@ export function ResourceFilter({ onFilter, selectedCourseId = "all" }: ResourceF
     setCourseId(selectedCourseId);
   }, [selectedCourseId]);
 
-  // 获取所有课程ID
+  // get all course IDs
   useEffect(() => {
     const fetchCourseIds = async () => {
-      if (!user) return; // 确保用户已登录
+      if (!user) return; // ensure user is logged in
       
       setLoading(true);
       try {
@@ -42,13 +42,10 @@ export function ResourceFilter({ onFilter, selectedCourseId = "all" }: ResourceF
     fetchCourseIds();
   }, [user, getCourseIds]);
 
-  // 处理课程选择变化
+  // handle course selection change
   const handleCourseChange = (value: string) => {
     console.log("Selected course ID:", value);
     setCourseId(value);
-    
-    // 课程变化时立即触发过滤
-    // 明确传递 undefined 而不是空字符串，确保 API 调用正确
     onFilter(value === "all" ? undefined : value);
   };
 

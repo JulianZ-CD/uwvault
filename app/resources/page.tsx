@@ -18,29 +18,25 @@ export default function ResourceListPage() {
   const [initializing, setInitializing] = useState(true);
   const pageInitialized = useRef(false);
   
-  // 从 URL 查询参数中读取 tab
+  // read tab from URL query parameters
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<'all' | 'myUploads'>(
     tabParam === 'myUploads' ? 'myUploads' : 'all'
   );
 
   useEffect(() => {
-    // 当 URL 参数变化时更新 activeTab
     setActiveTab(tabParam === 'myUploads' ? 'myUploads' : 'all');
   }, [tabParam]);
 
   useEffect(() => {
-    // 统一认证状态检查
     const init = async () => {
       if (authLoading) {
-        // 等待认证状态加载
         return;
       }
       
       if (user && !pageInitialized.current) {
-        pageInitialized.current = true; // 标记页面已初始化
+        pageInitialized.current = true;
         
-        // 用户已登录，获取权限（仅在首次加载时执行）
         try {
           console.log("Initializing page and fetching actions...");
           await fetchActions();
@@ -55,15 +51,14 @@ export default function ResourceListPage() {
     init();
   }, [authLoading, user, fetchActions]);
   
-  // 处理标签切换
+  // handle tab change
   const handleTabChange = (tab: 'all' | 'myUploads') => {
     setActiveTab(tab);
-    // 更新 URL 查询参数，但不触发完整页面刷新
     const url = `/resources${tab === 'myUploads' ? '?tab=myUploads' : ''}`;
     window.history.pushState({}, '', url);
   };
   
-  // 显示加载状态
+  // show loading state
   if (authLoading || initializing) {
     return (
       <main className="min-h-screen">
@@ -74,7 +69,7 @@ export default function ResourceListPage() {
     );
   }
 
-  // 如果是管理员，重定向到管理员资源页面
+  // if admin, redirect to admin resource page
   if (user?.role === 'admin') {
     return (
       <main className="min-h-screen">
@@ -114,7 +109,7 @@ export default function ResourceListPage() {
     );
   }
 
-  // 普通用户视图
+  // normal user view
   return (
     <main className="min-h-screen">
       <div className="container py-8">

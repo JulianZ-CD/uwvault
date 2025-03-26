@@ -25,7 +25,7 @@ export function MyUploadsList() {
     setPage(newPage);
   };
 
-  // 获取用户上传的资源
+  // get user uploads
   useEffect(() => {
     if (!user || authLoading) return;
 
@@ -100,7 +100,6 @@ export function MyUploadsList() {
               {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
                 let pageNum = i + 1;
                 
-                // 调整页码显示逻辑，确保当前页在中间
                 if (totalPages > 5) {
                   if (page <= 3) {
                     pageNum = i + 1;
