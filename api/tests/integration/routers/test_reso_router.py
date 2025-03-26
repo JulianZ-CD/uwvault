@@ -1300,7 +1300,7 @@ class TestResourceRouter:
     ):
         """Test error handling when reactivating a resource"""
         try:
-            # 准备 - 创建资源
+            # Arrange - Create resource
             headers, _ = admin_user_headers
             test_file = FileFactory.create()
             
@@ -1322,23 +1322,21 @@ class TestResourceRouter:
             resource_id = create_response.json()["id"]
             cleanup_resources.append(resource_id)
             
-            # 等待资源完全处理
             time.sleep(2)
             
-            # 模拟reactivate_resource方法抛出异常
             mocker.patch.object(
                 ResourceService,
                 'reactivate_resource',
                 side_effect=Exception("Test error")
             )
             
-            # 执行
+            # Act
             response = test_client.post(
                 f"{self.BASE_URL}/{resource_id}/reactivate",
                 headers=headers
             )
             
-            # 断言
+            # Assert
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
             assert response.json()["detail"] == "Failed to reactivate resource"
             
