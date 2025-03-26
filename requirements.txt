@@ -10,3 +10,5 @@ pytest-mock==3.14.0
 fastapi-users[sqlalchemy]
 python-jose[cryptography]
 passlib[bcrypt]
+google-auth>=2.22.0
+google-cloud-storage>=2.10.0

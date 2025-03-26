@@ -5,7 +5,16 @@ from api.core.config import get_settings, Settings
 from api.services.todo_service import TodoService
 from api.services.auth_service import AuthService
 import os
-
+from supabase import create_client
+from api.models.resource import ResourceType, ResourceStatus, StorageStatus
+from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT
+from api.services.todo_service import TodoService
+from fastapi import UploadFile
+from unittest.mock import Mock
+from io import BytesIO
+from api.services.auth_service import AuthService
+from datetime import datetime
+from fastapi import status
 
 @pytest.fixture
 def test_settings():
@@ -15,12 +24,10 @@ def test_settings():
         SUPABASE_KEY="test-key"
     )
 
-
 @pytest.fixture
 def test_client():
     """Create a test client for FastAPI app"""
     return TestClient(app)
-
 
 @pytest.fixture
 def todo_service(mocker):
@@ -29,7 +36,6 @@ def todo_service(mocker):
     # Mock Supabase client
     mocker.patch.object(service, 'supabase')
     return service
-
 
 @pytest.fixture
 async def admin_token(test_client):
@@ -59,3 +65,148 @@ async def cleanup_users(admin_token):
                 print(f"Successfully deleted user: {user['email']}")
             except Exception as e:
                 print(f"Failed to delete test user {user['email']}: {e}")
+
+@pytest.fixture(scope="function")
+async def test_db():
+    """setup test database"""
+    try:
+        settings = get_settings()
+        client = create_client(
+            settings.SUPABASE_URL,
+            settings.SUPABASE_KEY
+        )
+        yield client
+    except Exception as e:
+        raise
+
+@pytest.fixture
+async def regular_user_headers(test_client):
+    try:
+        settings = get_settings()
+        login_response = test_client.post("/api/py/auth/login", json={
+            "email": settings.USER_EMAIL,
+            "password": settings.USER_PASSWORD
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        
+        access_token = login_response.json()["session"]["access_token"]
+        user_id = login_response.json()["user"]["id"]
+        
+        return {"Authorization": f"Bearer {access_token}"}, user_id
+        
+    except Exception as e:
+        pytest.fail(f"Failed to get regular user headers: {e}")
+
+@pytest.fixture
+async def admin_user_headers(test_client):
+    try:
+        settings = get_settings()
+        login_response = test_client.post("/api/py/auth/login", json={
+            "email": settings.ADMIN_EMAIL,
+            "password": settings.ADMIN_PASSWORD
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        
+        access_token = login_response.json()["session"]["access_token"]
+        user_id = login_response.json()["user"]["id"]
+        
+        return {"Authorization": f"Bearer {access_token}"}, user_id
+        
+    except Exception as e:
+        pytest.fail(f"Failed to get admin headers: {e}")
+
+@pytest.fixture
+def resource_service():
+    """Create a real ResourceService"""
+    service = ResourceService()
+    return service
+
+@pytest.fixture
+def mock_supabase(mocker):
+    """Mock Supabase client"""
+    mock_client = mocker.Mock()
+    mock_table = mocker.Mock()
+    
+    # correctly set table method
+    mock_client.table = mocker.Mock(return_value=mock_table)
+    
+    # mock table operation method chain
+    mock_table.select = mocker.Mock(return_value=mock_table)
+    mock_table.insert = mocker.Mock(return_value=mock_table)
+    mock_table.update = mocker.Mock(return_value=mock_table)
+    mock_table.delete = mocker.Mock(return_value=mock_table)
+    mock_table.eq = mocker.Mock(return_value=mock_table)
+    mock_table.order = mocker.Mock(return_value=mock_table)
+    mock_table.limit = mocker.Mock(return_value=mock_table)
+    mock_table.offset = mocker.Mock(return_value=mock_table)
+    mock_table.single = mocker.Mock(return_value=mock_table)
+    
+    # set execute method
+    mock_execute = mocker.Mock()
+    mock_execute.data = []
+    mock_execute.count = 0
+    mock_table.execute = mocker.Mock(return_value=mock_execute)
+    
+    return mock_client
+
+@pytest.fixture
+def mock_file():
+    """Create a mock file for testing"""
+    file = Mock(spec=UploadFile)
+    file.filename = "test.pdf"
+    file.content_type = "application/pdf"
+    file.file = BytesIO(b"test content")
+    file.size = 1024
+    return file
+
+@pytest.fixture
+def mock_gcp_storage(mocker):
+    """Mock GCP storage bucket and blob"""
+    mock_storage_bucket = mocker.Mock()
+    mock_blob = mocker.Mock()
+    mock_storage_bucket.blob = mocker.Mock(return_value=mock_blob)
+    mock_blob.exists = mocker.Mock(return_value=True)
+    mock_blob.delete = mocker.Mock()
+    mock_blob.upload_from_file = mocker.Mock()
+    mock_blob.generate_signed_url = mocker.Mock(return_value="https://storage.googleapis.com/test-url")
+    
+    return {
+        "bucket": mock_storage_bucket,
+        "blob": mock_blob
+    }
+
+@pytest.fixture
+def mock_resources():
+    """create mock resource data list"""
+    return [
+        {
+            "id": 1,
+            "title": "Resource 1",
+            "description": "Description 1",
+            "course_id": "ECE 651",
+            "status": ResourceStatus.APPROVED.value,
+            "storage_status": StorageStatus.SYNCED.value,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "file_type": "pdf",
+            "storage_path": "test/path/file1.pdf",
+            "is_active": True,
+            "created_by": "user-id",
+            "updated_by": "user-id"
+        },
+        {
+            "id": 2,
+            "title": "Resource 2",
+            "description": "Description 2",
+            "course_id": "CS 446",
+            "status": ResourceStatus.APPROVED.value,
+            "storage_status": StorageStatus.SYNCED.value,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "file_type": "pdf",
+            "storage_path": "test/path/file2.pdf",
+            "is_active": True,
+            "created_by": "user-id",
+            "updated_by": "user-id"
+        }
+    ]
