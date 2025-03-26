@@ -2,13 +2,9 @@ import pytest
 from datetime import datetime, timedelta
 from fastapi import UploadFile
 from api.services.resource_service import ResourceService
-from api.models.resource import (
-    ResourceCreate, ResourceUpdate, ResourceInDB, ResourceReview,
-    ResourceStatus, StorageStatus, StorageOperation,
-)
+from api.models.resource import ResourceStatus, StorageStatus, StorageOperation
 from api.tests.factories import ResourceFactory, ResourceCreateFactory, ResourceReviewFactory, ResourceUpdateFactory, ResourceRatingCreateFactory
-from unittest.mock import Mock, AsyncMock, MagicMock
-from io import BytesIO
+from unittest.mock import AsyncMock
 
 
 @pytest.mark.unit
@@ -625,7 +621,7 @@ class TestResourceService:
         resource_service._storage_bucket = None
         resource_service._storage_client = None
         
-        # 移除原有的 _ensure_storage_initialized 的 mock
+
         if hasattr(resource_service, '_ensure_storage_initialized') and isinstance(resource_service._ensure_storage_initialized, AsyncMock):
             delattr(resource_service, '_ensure_storage_initialized')
         
@@ -654,7 +650,6 @@ class TestResourceService:
         resource_service._storage_bucket = None
         resource_service._storage_client = None
         
-        # 移除原有的 _ensure_storage_initialized 的 mock
         if hasattr(resource_service, '_ensure_storage_initialized') and isinstance(resource_service._ensure_storage_initialized, AsyncMock):
             delattr(resource_service, '_ensure_storage_initialized')
         
@@ -970,12 +965,10 @@ class TestResourceService:
             }
         ]
         
-        # 添加一个辅助方法来模拟获取资源评分
         async def mock_get_ratings(res_id):
             assert res_id == resource_id
             return mock_ratings
         
-        # 将辅助方法添加到 resource_service
         resource_service.get_resource_ratings = mock_get_ratings
         
         # Act
@@ -997,7 +990,7 @@ class TestResourceService:
         resource_id = 1
         user_id = "user-123"
         
-        # Mock _get_user_rating - 确保包含 user_id 字段
+        # Mock _get_user_rating
         mock_rating = {
             "resource_id": resource_id,
             "user_id": user_id,
@@ -1011,7 +1004,7 @@ class TestResourceService:
             return_value=mock_rating
         )
         
-        # Act - 直接使用 _get_user_rating 而不是 get_user_rating
+        # Act
         result = await resource_service._get_user_rating(resource_id, user_id)
         
         # Assert
@@ -1025,7 +1018,6 @@ class TestResourceService:
         # Arrange
         resource_id = 1
         
-        # 创建新的模拟对象，而不是重置现有的
         mock_supabase = mocker.Mock()
         mock_table = mocker.Mock()
         mock_select = mocker.Mock()
@@ -1035,7 +1027,6 @@ class TestResourceService:
         mock_update_eq = mocker.Mock()
         mock_update_execute = mocker.Mock()
         
-        # 设置模拟链
         resource_service.supabase = mock_supabase
         mock_supabase.table.return_value = mock_table
         mock_table.select.return_value = mock_select
@@ -1061,7 +1052,6 @@ class TestResourceService:
         expected_average = round(sum(r["rating"] for r in mock_ratings) / len(mock_ratings), 1)
         expected_count = len(mock_ratings)
         
-        # 验证调用
         mock_supabase.table.assert_called()
         mock_table.update.assert_called_once()
         update_call = mock_table.update.call_args[0][0]
@@ -1131,7 +1121,6 @@ class TestResourceService:
         limit = 10
         offset = 0
         
-        # 使用 mock_resources 中的第一个资源
         mock_resource = mock_resources[0]
         
         mock_count = [{"count": 1}]
@@ -1143,7 +1132,6 @@ class TestResourceService:
         mock_count_response = mocker.Mock()
         mock_count_response.data = mock_count
         
-        # 修改 side_effect 函数以匹配 resource_service.py 中的实际参数名
         resource_service.supabase.rpc.side_effect = lambda name, params=None: {
             'get_user_uploads': mocker.Mock(execute=lambda: mock_response),
             'count_user_uploads': mocker.Mock(execute=lambda: mock_count_response)
@@ -1176,7 +1164,6 @@ class TestResourceService:
         offset = 0
         include_pending = False
         
-        # 只使用已批准的资源
         approved_resources = [r for r in mock_resources if r["status"] == ResourceStatus.APPROVED.value]
         mock_count = [{"count": len(approved_resources)}]
         
@@ -1219,7 +1206,6 @@ class TestResourceService:
         include_pending = True
         course_id = "ECE 651"
         
-        # 筛选指定课程的资源
         course_resources = [r for r in mock_resources if r["course_id"] == course_id]
         mock_count = [{"count": len(course_resources)}]
         

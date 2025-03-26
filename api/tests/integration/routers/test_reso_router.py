@@ -1,15 +1,9 @@
 import pytest
 import time
-import json
 from fastapi import status
-from unittest.mock import AsyncMock, patch, MagicMock
-from api.tests.factories import (
-    ResourceFactory, FileFactory, ResourceRatingCreateFactory
-)
+from api.tests.factories import FileFactory, ResourceRatingCreateFactory
 from api.models.resource import ResourceStatus, ResourceReview
 from api.services.resource_service import ResourceService
-import os
-
 
 @pytest.mark.integration
 class TestResourceRouter:
@@ -695,8 +689,8 @@ class TestResourceRouter:
         assert actions["can_download"] is True
         assert actions["can_update"] is True
         assert actions["can_rate"] is True
-        assert actions["can_delete"] is False  # Regular users can't delete
-        assert actions["can_review"] is False  # Regular users can't review
+        assert actions["can_delete"] is False  
+        assert actions["can_review"] is False 
         
         # Test admin user actions
         admin_headers, _ = admin_user_headers
@@ -707,8 +701,8 @@ class TestResourceRouter:
         
         assert response.status_code == status.HTTP_200_OK
         actions = response.json()
-        assert actions["can_delete"] is True  # Admins can delete
-        assert actions["can_review"] is True  # Admins can review
+        assert actions["can_delete"] is True 
+        assert actions["can_review"] is True 
         assert actions["can_manage_status"] is True
         assert actions["can_see_all_statuses"] is True
     
@@ -725,7 +719,7 @@ class TestResourceRouter:
             f"{self.BASE_URL}/actions"
         )
         
-        # Assert - when get_current_user raises an exception, the router returns 403 Forbidden
+        # Assert 
         assert response.status_code == status.HTTP_403_FORBIDDEN
     
     @pytest.mark.asyncio

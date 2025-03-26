@@ -15,7 +15,6 @@ from io import BytesIO
 from api.services.auth_service import AuthService
 from datetime import datetime
 from fastapi import status
-from pydantic import BaseModel
 
 @pytest.fixture
 def test_settings():
@@ -122,22 +121,6 @@ def resource_service():
     service = ResourceService()
     return service
 
-class MockUser(BaseModel):
-    id: str
-    username: str
-    is_admin: bool = False
-    
-    def get(self, key, default=None):
-        if key == "role":
-            return "admin" if self.is_admin else "user"
-        if hasattr(self, key):
-            return getattr(self, key)
-        return default
-    
-    def __getitem__(self, key):
-        """Support dictionary-like access"""
-        return getattr(self, key)
-
 @pytest.fixture
 def mock_supabase(mocker):
     """Mock Supabase client"""
@@ -190,69 +173,6 @@ def mock_gcp_storage(mocker):
     return {
         "bucket": mock_storage_bucket,
         "blob": mock_blob
-    }
-
-@pytest.fixture
-def mock_normal_user():
-    """Mock normal user for testing"""
-    return MockUser(
-        id="user-123",
-        username="test_user",
-        is_admin=False
-    )
-
-@pytest.fixture
-def mock_admin_user():
-    """Mock admin user for testing"""
-    return MockUser(
-        id="admin-999",
-        username="admin",
-        is_admin=True
-    )
-
-@pytest.fixture
-def get_current_user():
-    """Mock current user function for testing"""
-    async def _get_current_user():
-        return MockUser(
-            id="user-123",
-            username="test_user",
-            is_admin=False
-        )
-    return _get_current_user
-
-@pytest.fixture
-def require_admin():
-    """Mock require admin function for testing"""
-    async def _require_admin():
-        return MockUser(
-            id="admin-999",
-            username="admin",
-            is_admin=True
-        )
-    return _require_admin
-
-@pytest.fixture
-def mock_resource_rating_response():
-    """create mock resource rating response"""
-    return {
-        "resource_id": 1,
-        "user_id": "test-user",
-        "rating": 4.5,
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat()
-    }
-
-@pytest.fixture
-def mock_resource_with_ratings():
-    """create mock resource with ratings"""
-    return {
-        "id": 1,
-        "title": "Test Resource",
-        "description": "Test Description",
-        "status": "approved",
-        "average_rating": 4.2,
-        "rating_count": 5
     }
 
 @pytest.fixture
