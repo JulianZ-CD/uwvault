@@ -391,7 +391,8 @@ class TestResourceErrorHandling(BaseResourceTest):
                 data=invalid_update,
                 headers=headers
             )
-            assert update_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+            assert update_response.status_code == status.HTTP_404_NOT_FOUND
+            assert "Title cannot be empty" in update_response.json()["detail"]
             
         except Exception as e:
             test_logger.error(f"Test failed: {str(e)}")

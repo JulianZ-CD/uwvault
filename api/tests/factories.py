@@ -244,21 +244,21 @@ class FileFactory:
             for blob in blobs:
                 blob.delete()
         except Exception as e:
-            raise StorageError(f"Failed to cleanup test files: {str(e)}")
+            raise ValueError(f"Failed to cleanup test files: {str(e)}")
 
-    @staticmethod
-    async def verify_file_exists(resource_service, file_path: str) -> bool:
-        """verify file existence"""
-        try:
-            # 直接使用 resource_service 的方法验证文件存在
-            await resource_service._ensure_storage_initialized()
-            blob = resource_service._storage_bucket.blob(file_path)
-            exists = await asyncio.get_event_loop().run_in_executor(
-                None, blob.exists
-            )
-            return exists
-        except Exception as e:
-            raise StorageError(f"Failed to verify file existence: {str(e)}")
+    # @staticmethod
+    # async def verify_file_exists(resource_service, file_path: str) -> bool:
+    #     """verify file existence"""
+    #     try:
+    #         # 直接使用 resource_service 的方法验证文件存在
+    #         await resource_service._ensure_storage_initialized()
+    #         blob = resource_service._storage_bucket.blob(file_path)
+    #         exists = await asyncio.get_event_loop().run_in_executor(
+    #             None, blob.exists
+    #         )
+    #         return exists
+    #     except Exception as e:
+    #         raise StorageError(f"Failed to verify file existence: {str(e)}")
             
     @classmethod
     def create(cls):

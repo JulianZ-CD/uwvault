@@ -8,7 +8,7 @@ import os
 
 from supabase import create_client
 from api.index import app
-from api.models.resource import ResourceType
+from api.models.resource import ResourceType, ResourceStatus, StorageStatus
 from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT
 from api.services.todo_service import TodoService
 from fastapi import UploadFile
@@ -52,24 +52,6 @@ def todo_service(mocker):
     # Mock Supabase client
     mocker.patch.object(service, 'supabase')
     return service
-
-# 定义 MockUser 类放在文件前面
-# class MockUser(BaseModel):
-#     """Mock user model for testing"""
-#     id: str  # 确保是字符串类型
-#     username: str
-#     is_admin: bool = False
-    
-#     # 添加与 FastAPI 安全依赖兼容的方法
-#     def get(self, key, default=None):
-#         """Make MockUser compatible with dict access patterns"""
-#         if hasattr(self, key):
-#             return getattr(self, key)
-#         return default
-    
-#     def __getitem__(self, key):
-#         """Support dictionary-like access"""
-#         return getattr(self, key)
 
 # 更新 conftest.py 中的 MockUser 类
 class MockUser(BaseModel):
@@ -348,3 +330,39 @@ def mock_resource_with_ratings():
         "average_rating": 4.2,
         "rating_count": 5
     }
+
+@pytest.fixture
+def mock_resources():
+    """创建模拟资源数据列表"""
+    return [
+        {
+            "id": 1,
+            "title": "Resource 1",
+            "description": "Description 1",
+            "course_id": "ECE 651",
+            "status": ResourceStatus.APPROVED.value,
+            "storage_status": StorageStatus.SYNCED.value,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "file_type": "pdf",
+            "storage_path": "test/path/file1.pdf",
+            "is_active": True,
+            "created_by": "user-id",
+            "updated_by": "user-id"
+        },
+        {
+            "id": 2,
+            "title": "Resource 2",
+            "description": "Description 2",
+            "course_id": "CS 446",
+            "status": ResourceStatus.APPROVED.value,
+            "storage_status": StorageStatus.SYNCED.value,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "file_type": "pdf",
+            "storage_path": "test/path/file2.pdf",
+            "is_active": True,
+            "created_by": "user-id",
+            "updated_by": "user-id"
+        }
+    ]

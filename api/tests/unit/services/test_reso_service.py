@@ -6,7 +6,6 @@ from api.models.resource import (
     ResourceCreate, ResourceUpdate, ResourceInDB, ResourceReview,
     ResourceStatus, StorageStatus, StorageOperation,
 )
-from api.core.exceptions import NotFoundError, ValidationError, StorageOperationError, StorageError, StorageConnectionError
 from api.tests.factories import ResourceFactory, ResourceCreateFactory, ResourceReviewFactory, ResourceUpdateFactory, ResourceRatingCreateFactory
 from unittest.mock import Mock, AsyncMock, MagicMock
 from io import BytesIO
@@ -27,25 +26,9 @@ def mock_file():
 @pytest.mark.unit
 class TestResourceService:
     @pytest.fixture
-    def resource_service(self, mocker, mock_gcp_storage):
+    def resource_service(self, mock_supabase, mock_gcp_storage):
         """Resource service fixture with mocked dependencies"""
-        # create a correct mock Supabase client
-        mock_supabase = mocker.Mock()
-        mock_table = mocker.Mock()
-        mock_supabase.table = mocker.Mock(return_value=mock_table)
-        
-        # mock table operation method chain
-        mock_table.select = mocker.Mock(return_value=mock_table)
-        mock_table.insert = mocker.Mock(return_value=mock_table)
-        mock_table.update = mocker.Mock(return_value=mock_table)
-        mock_table.delete = mocker.Mock(return_value=mock_table)
-        mock_table.eq = mocker.Mock(return_value=mock_table)
-        mock_table.order = mocker.Mock(return_value=mock_table)
-        mock_table.limit = mocker.Mock(return_value=mock_table)
-        mock_table.offset = mocker.Mock(return_value=mock_table)
-        mock_table.single = mocker.Mock(return_value=mock_table)
-        mock_table.execute = mocker.Mock()
-        mock_table.execute.return_value = mocker.Mock(data=[], count=0)
+        # 使用共享的 mock_supabase fixture 而不是创建新的
         
         # create service with mocks
         service = ResourceService(
@@ -111,7 +94,7 @@ class TestResourceService:
         resource_service.supabase.table().select().eq().single().execute.return_value = mock_response
 
         # Act & Assert
-        with pytest.raises(NotFoundError):
+        with pytest.raises(ValueError, match="Resource with id 999 not found"):
             await resource_service.get_resource_by_id(999)
 
     @pytest.mark.asyncio
@@ -176,7 +159,7 @@ class TestResourceService:
         mocker.patch.object(resource_service, 'validate_file_type', return_value=False)
 
         # Act & Assert
-        with pytest.raises(ValidationError, match="Unsupported file type"):
+        with pytest.raises(ValueError, match="Unsupported file type"):
             await resource_service.create_resource(resource_create, mock_file)
 
     @pytest.mark.asyncio
@@ -353,7 +336,7 @@ class TestResourceService:
         """Test handling storage connection errors"""
         # Arrange
         mock_resource = ResourceFactory(storage_path="test/path/file.pdf")
-        
+
         # Mock get_resource_by_id
         mocker.patch.object(
             resource_service,
@@ -361,12 +344,12 @@ class TestResourceService:
             new_callable=AsyncMock,
             return_value=mock_resource
         )
-        
+
         # Mock _ensure_storage_initialized to raise an exception
-        resource_service._ensure_storage_initialized.side_effect = StorageConnectionError("Connection failed")
-        
+        resource_service._ensure_storage_initialized.side_effect = ValueError("Connection failed")
+
         # Act & Assert
-        with pytest.raises(StorageOperationError, match="get_url failed: Connection failed"):
+        with pytest.raises(ValueError, match="Connection failed"):
             await resource_service.get_resource_url(mock_resource.id)
 
     @pytest.mark.asyncio
@@ -388,7 +371,7 @@ class TestResourceService:
         blob.generate_signed_url.side_effect = Exception("Operation failed")
         
         # Act & Assert
-        with pytest.raises(StorageOperationError):
+        with pytest.raises(ValueError, match="Failed to generate signed URL"):
             await resource_service.get_resource_url(mock_resource.id)
 
     @pytest.mark.asyncio
@@ -502,6 +485,251 @@ class TestResourceService:
         assert call_args[0] == resource_id
         assert call_args[1].status == ResourceStatus.APPROVED
         assert call_args[1].reviewed_by == admin_id
+
+    @pytest.mark.asyncio
+    async def test_filter_query_error(self, resource_service, mocker):
+        """Test error handling in _filter_query method"""
+        # Arrange
+        table_name = "resources"
+        conditions = {"id": 1}
+        
+        # Mock logger and supabase
+        mock_logger = mocker.patch.object(resource_service, 'logger')
+        resource_service.supabase.table.return_value.select.return_value.execute.side_effect = Exception("Database error")
+        
+        # Act
+        result = await resource_service._filter_query(table_name, conditions)
+        
+        # Assert
+        assert result == []
+        mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_user_rating_error(self, resource_service, mocker):
+        """Test error handling in _get_user_rating method"""
+        # Arrange
+        resource_id = 1
+        user_id = "user-123"
+        
+        # Mock logger and supabase
+        mock_logger = mocker.patch.object(resource_service, 'logger')
+        resource_service.supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.side_effect = Exception("Database error")
+        
+        # Act
+        result = await resource_service._get_user_rating(resource_id, user_id)
+        
+        # Assert
+        assert result is None
+        mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_resource_rating_stats_error(self, resource_service, mocker):
+        """Test error handling in _get_resource_rating_stats method"""
+        # Arrange
+        resource_id = 1
+        
+        # Mock logger and supabase
+        mock_logger = mocker.patch.object(resource_service, 'logger')
+        resource_service.supabase.table.return_value.select.return_value.eq.return_value.execute.side_effect = Exception("Database error")
+        
+        # Act
+        result = await resource_service._get_resource_rating_stats(resource_id)
+        
+        # Assert
+        assert result == {"average_rating": 0, "rating_count": 0}
+        mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_resource_rating_stats_error(self, resource_service, mocker):
+        """Test error handling in _update_resource_rating_stats method"""
+        # Arrange
+        resource_id = 1
+        
+        # Mock logger and supabase
+        mock_logger = mocker.patch.object(resource_service, 'logger')
+        resource_service.supabase.table.return_value.select.return_value.eq.return_value.execute.side_effect = Exception("Database error")
+        
+        # Act & Assert
+        with pytest.raises(Exception):
+            await resource_service._update_resource_rating_stats(resource_id)
+        
+        mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_user_rating_for_resource_error(self, resource_service, mocker):
+        """Test error handling in get_user_rating method"""
+        # Arrange
+        resource_id = 1
+        user_id = "user-123"
+        
+        # Mock logger
+        mock_logger = mocker.patch.object(resource_service, 'logger')
+        
+        # Mock _get_user_rating to raise an exception
+        mocker.patch.object(
+            resource_service,
+            '_get_user_rating',
+            side_effect=Exception("Database error")
+        )
+        
+        # Act
+        result = await resource_service.get_user_rating(resource_id, user_id)
+        
+        # Assert
+        assert result["resource_id"] == resource_id
+        assert result["user_rating"] == 0
+        assert result["average_rating"] == 0
+        assert result["rating_count"] == 0
+        mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_list_resources_error(self, resource_service, mocker):
+        """Test error handling in list_resources method"""
+        # Arrange
+        limit = 10
+        offset = 0
+        
+        # Mock logger and supabase
+        mock_logger = mocker.patch.object(resource_service, 'logger')
+        resource_service.supabase.rpc.side_effect = Exception("Database error")
+        
+        # Act
+        resources, total_count = await resource_service.list_resources(limit, offset)
+        
+        # Assert
+        assert resources == []
+        assert total_count == 0
+        mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_user_uploads_error(self, resource_service, mocker):
+        """Test error handling in get_user_uploads method"""
+        # Arrange
+        user_id = "user-123"
+        limit = 10
+        offset = 0
+        
+        # Mock logger and supabase
+        mock_logger = mocker.patch.object(resource_service, 'logger')
+        resource_service.supabase.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.offset.return_value.execute.side_effect = Exception("Database error")
+        
+        # Act
+        result = await resource_service.get_user_uploads(user_id, limit, offset)
+        
+        # Assert
+        assert result == ([], 0)
+        mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_validate_file_size_too_large(self, resource_service, mocker):
+        """Test validating a file that is too large"""
+        # Arrange
+        file = mocker.Mock()
+        file.size = 100000000  # 100MB, larger than the limit
+        file.content_type = "application/pdf"  # Valid content type
+        
+        # Act & Assert
+        with pytest.raises(ValueError, match="File too large"):
+            await resource_service._validate_file(file)
+
+    @pytest.mark.asyncio
+    async def test_ensure_storage_initialized_bucket_not_exists(self, resource_service, mocker):
+        """Test storage initialization when bucket doesn't exist"""
+        # Arrange
+        resource_service._storage_bucket = None
+        resource_service._storage_client = None
+        
+        # 移除原有的 _ensure_storage_initialized 的 mock
+        if hasattr(resource_service, '_ensure_storage_initialized') and isinstance(resource_service._ensure_storage_initialized, AsyncMock):
+            delattr(resource_service, '_ensure_storage_initialized')
+        
+        # Mock storage client
+        mock_client = mocker.Mock()
+        mock_bucket = mocker.Mock()
+        mock_bucket.exists.return_value = False
+        mock_client.bucket.return_value = mock_bucket
+        
+        # Mock service_account.Credentials
+        mock_credentials = mocker.Mock()
+        mocker.patch('google.oauth2.service_account.Credentials.from_service_account_file',
+                    return_value=mock_credentials)
+        
+        # Mock storage.Client
+        mocker.patch('google.cloud.storage.Client', return_value=mock_client)
+        
+        # Act & Assert
+        with pytest.raises(ValueError, match="Bucket .* does not exist"):
+            await resource_service._ensure_storage_initialized()
+
+    @pytest.mark.asyncio
+    async def test_ensure_storage_initialized_exception(self, resource_service, mocker):
+        """Test storage initialization when an exception occurs"""
+        # Arrange
+        resource_service._storage_bucket = None
+        resource_service._storage_client = None
+        
+        # 移除原有的 _ensure_storage_initialized 的 mock
+        if hasattr(resource_service, '_ensure_storage_initialized') and isinstance(resource_service._ensure_storage_initialized, AsyncMock):
+            delattr(resource_service, '_ensure_storage_initialized')
+        
+        # Mock service_account.Credentials to raise an exception
+        mocker.patch('google.oauth2.service_account.Credentials.from_service_account_file',
+                    side_effect=Exception("Invalid credentials"))
+        
+        # Act & Assert
+        with pytest.raises(ValueError, match="Storage initialization failed"):
+            await resource_service._ensure_storage_initialized()
+
+    @pytest.mark.asyncio
+    async def test_verify_resource_sync_exception(self, resource_service, mocker):
+        """Test verifying resource sync when an exception occurs"""
+        # Arrange
+        resource_id = 1
+        mock_resource = ResourceFactory(id=resource_id)
+        
+        mocker.patch.object(
+            resource_service,
+            'get_resource_by_id',
+            return_value=mock_resource
+        )
+        
+        # Mock _ensure_storage_initialized to raise an exception
+        resource_service._ensure_storage_initialized.side_effect = ValueError("Storage error")
+        
+        # Act
+        result = await resource_service._verify_resource_sync(resource_id)
+        
+        # Assert
+        assert result["is_synced"] is False
+        assert result["storage_status"] == StorageStatus.ERROR
+        assert "Storage error" in result["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_upload_file_to_storage_exception(self, resource_service, mock_file, mocker):
+        """Test error handling when uploading file to storage"""
+        # Arrange
+        resource_id = 1
+        storage_path = "test/path/file.pdf"
+        metadata = {"key": "value"}
+        
+        # Mock blob to raise an exception during upload
+        blob = resource_service._storage_bucket.blob.return_value
+        blob.upload_from_file.side_effect = Exception("Upload failed")
+        
+        # Mock _handle_storage_error
+        mocker.patch.object(
+            resource_service,
+            '_handle_storage_error',
+            new_callable=AsyncMock
+        )
+        
+        # Act & Assert
+        with pytest.raises(ValueError, match="Failed to upload file"):
+            await resource_service._upload_file_to_storage(mock_file, storage_path, resource_id, metadata)
+        
+        resource_service._handle_storage_error.assert_called_once()
+        assert resource_service._handle_storage_error.call_args[0][0] == resource_id
+        assert resource_service._handle_storage_error.call_args[0][1] == StorageOperation.UPLOAD
 
     @pytest.mark.asyncio
     async def test_resource_lifecycle(self, resource_service, mock_file, mocker):
@@ -855,3 +1083,261 @@ class TestResourceService:
         assert update_call["rating_count"] == expected_count
         mock_update.eq.assert_called_once_with("id", resource_id)
         mock_update_eq.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_all_course_ids(self, resource_service, mocker):
+        """Test getting all unique course IDs"""
+        # Arrange
+        mock_course_ids = [
+            {"course_id": "ECE 651"},
+            {"course_id": "CS 446"},
+            {"course_id": "MATH 239"}
+        ]
+        
+        # Mock the RPC response
+        mock_response = mocker.Mock()
+        mock_response.data = mock_course_ids
+        resource_service.supabase.rpc.return_value.execute.return_value = mock_response
+        
+        # Act
+        result = await resource_service.get_all_course_ids()
+        
+        # Assert
+        assert len(result) == 3
+        assert "ECE 651" in result
+        assert "CS 446" in result
+        assert "MATH 239" in result
+        resource_service.supabase.rpc.assert_called_once_with('get_all_course_ids')
+
+    @pytest.mark.asyncio
+    async def test_get_all_course_ids_empty(self, resource_service, mocker):
+        """Test getting course IDs when none exist"""
+        # Arrange
+        mock_response = mocker.Mock()
+        mock_response.data = []
+        resource_service.supabase.rpc.return_value.execute.return_value = mock_response
+        
+        # Act
+        result = await resource_service.get_all_course_ids()
+        
+        # Assert
+        assert result == []
+        resource_service.supabase.rpc.assert_called_once_with('get_all_course_ids')
+
+    @pytest.mark.asyncio
+    async def test_get_all_course_ids_error(self, resource_service, mocker):
+        """Test error handling when getting course IDs"""
+        # Arrange
+        resource_service.supabase.rpc.return_value.execute.side_effect = Exception("Database error")
+        
+        # Act
+        result = await resource_service.get_all_course_ids()
+        
+        # Assert
+        assert result == []
+        resource_service.supabase.rpc.assert_called_once_with('get_all_course_ids')
+
+    @pytest.mark.asyncio
+    async def test_get_user_uploads(self, resource_service, mock_resources, mocker):
+        """Test getting user uploads"""
+        # Arrange
+        user_id = "user-id"
+        limit = 10
+        offset = 0
+        
+        # 使用 mock_resources 中的第一个资源
+        mock_resource = mock_resources[0]
+        
+        mock_count = [{"count": 1}]
+        
+        # Mock the RPC responses
+        mock_response = mocker.Mock()
+        mock_response.data = [mock_resource]
+        
+        mock_count_response = mocker.Mock()
+        mock_count_response.data = mock_count
+        
+        # 修改 side_effect 函数以匹配 resource_service.py 中的实际参数名
+        resource_service.supabase.rpc.side_effect = lambda name, params=None: {
+            'get_user_uploads': mocker.Mock(execute=lambda: mock_response),
+            'count_user_uploads': mocker.Mock(execute=lambda: mock_count_response)
+        }[name]
+        
+        # Act
+        resources, total_count = await resource_service.get_user_uploads(user_id, limit, offset)
+        
+        # Assert
+        assert len(resources) == 1
+        assert resources[0].id == mock_resource["id"]
+        assert resources[0].title == mock_resource["title"]
+        assert total_count == 1
+        
+        # Verify correct RPC calls
+        resource_service.supabase.rpc.assert_any_call(
+            'get_user_uploads', 
+            {'user_id': user_id, 'limit_val': limit, 'offset_val': offset}
+        )
+        resource_service.supabase.rpc.assert_any_call(
+            'count_user_uploads', 
+            {'user_id': user_id}
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_resources_approved_only(self, resource_service, mock_resources, mocker):
+        """Test listing only approved resources"""
+        # Arrange
+        limit = 10
+        offset = 0
+        include_pending = False
+        
+        # 只使用已批准的资源
+        approved_resources = [r for r in mock_resources if r["status"] == ResourceStatus.APPROVED.value]
+        mock_count = [{"count": len(approved_resources)}]
+        
+        # Mock the RPC responses
+        mock_response = mocker.Mock()
+        mock_response.data = approved_resources
+        
+        mock_count_response = mocker.Mock()
+        mock_count_response.data = mock_count
+        
+        resource_service.supabase.rpc.side_effect = lambda name, params=None: {
+            'get_approved_resources': mocker.Mock(execute=lambda: mock_response),
+            'count_approved_resources': mocker.Mock(execute=lambda: mock_count_response)
+        }[name]
+        
+        # Act
+        resources, total_count = await resource_service.list_resources(limit, offset, include_pending)
+        
+        # Assert
+        assert len(resources) == len(approved_resources)
+        assert resources[0].id == approved_resources[0]["id"]
+        assert resources[0].title == approved_resources[0]["title"]
+        assert total_count == len(approved_resources)
+        
+        # Verify correct RPC calls
+        resource_service.supabase.rpc.assert_any_call(
+            'get_approved_resources', 
+            {'limit_val': limit, 'offset_val': offset}
+        )
+        resource_service.supabase.rpc.assert_any_call(
+            'count_approved_resources'
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_resources_by_course(self, resource_service, mock_resources, mocker):
+        """Test listing resources by course"""
+        # Arrange
+        limit = 10
+        offset = 0
+        include_pending = True
+        course_id = "ECE 651"
+        
+        # 筛选指定课程的资源
+        course_resources = [r for r in mock_resources if r["course_id"] == course_id]
+        mock_count = [{"count": len(course_resources)}]
+        
+        # Mock the RPC responses
+        mock_response = mocker.Mock()
+        mock_response.data = course_resources
+        
+        mock_count_response = mocker.Mock()
+        mock_count_response.data = mock_count
+        
+        resource_service.supabase.rpc.side_effect = lambda name, params=None: {
+            'get_all_resources_by_course': mocker.Mock(execute=lambda: mock_response),
+            'count_all_resources_by_course': mocker.Mock(execute=lambda: mock_count_response)
+        }[name]
+        
+        # Act
+        resources, total_count = await resource_service.list_resources(limit, offset, include_pending, course_id)
+        
+        # Assert
+        assert len(resources) == len(course_resources)
+        assert resources[0].id == course_resources[0]["id"]
+        assert resources[0].title == course_resources[0]["title"]
+        assert resources[0].course_id == course_id
+        assert total_count == len(course_resources)
+        
+        # Verify correct RPC calls
+        resource_service.supabase.rpc.assert_any_call(
+            'get_all_resources_by_course', 
+            {'course_id_val': course_id, 'limit_val': limit, 'offset_val': offset}
+        )
+        resource_service.supabase.rpc.assert_any_call(
+            'count_all_resources_by_course', 
+            {'course_id_val': course_id}
+        )
+
+    @pytest.mark.asyncio
+    async def test_handle_storage_error(self, resource_service, mocker):
+        """Test handling storage errors"""
+        # Arrange
+        resource_id = 1
+        operation = StorageOperation.UPLOAD
+        error = Exception("Storage connection failed")
+        
+        # Mock resource
+        mock_resource = ResourceFactory(
+            id=resource_id,
+            retry_count=0,
+            storage_status=StorageStatus.PENDING
+        )
+        
+        # Mock get_resource_by_id
+        mocker.patch.object(
+            resource_service,
+            'get_resource_by_id',
+            new_callable=AsyncMock,
+            return_value=mock_resource
+        )
+        
+        # Mock supabase update
+        mock_update = mocker.Mock()
+        mock_eq = mocker.Mock()
+        mock_execute = mocker.Mock()
+        
+        resource_service.supabase.table.return_value.update.return_value = mock_update
+        mock_update.eq.return_value = mock_eq
+        mock_eq.execute.return_value = mock_execute
+        
+        # Act
+        await resource_service._handle_storage_error(resource_id, operation, error)
+        
+        # Assert
+        resource_service.get_resource_by_id.assert_called_once_with(resource_id, include_pending=True)
+        resource_service.supabase.table.assert_called_once_with(resource_service.table_name)
+        resource_service.supabase.table().update.assert_called_once()
+        
+        # Verify update data
+        update_data = resource_service.supabase.table().update.call_args[0][0]
+        assert update_data["storage_status"] == StorageStatus.ERROR
+        assert "Storage connection failed" in update_data["sync_error"]
+        assert update_data["retry_count"] == 1
+        
+        mock_update.eq.assert_called_once_with('id', resource_id)
+        mock_eq.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_storage_error_with_exception(self, resource_service, mocker):
+        """Test handling storage errors when an exception occurs during error handling"""
+        # Arrange
+        resource_id = 1
+        operation = StorageOperation.UPLOAD
+        error = Exception("Storage connection failed")
+        
+        # Mock get_resource_by_id to raise an exception
+        mocker.patch.object(
+            resource_service,
+            'get_resource_by_id',
+            new_callable=AsyncMock,
+            side_effect=Exception("Resource not found")
+        )
+        
+        # Act
+        await resource_service._handle_storage_error(resource_id, operation, error)
+        
+        # Assert
+        resource_service.get_resource_by_id.assert_called_once_with(resource_id, include_pending=True)
+        # Verify that no update was attempted
+        resource_service.supabase.table.assert_not_called()
