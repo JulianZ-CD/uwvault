@@ -10,9 +10,25 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str
 
     # Auth URLs
-    VERIFY_EMAIL_URL: str
-    RESET_PASSWORD_URL: str
-    DEFAULT_ORIGIN: str
+    VERIFY_EMAIL_URL: str = "http://localhost:3000/verify-email"
+    RESET_PASSWORD_URL: str = "http://localhost:3000/reset-password"
+    DEFAULT_ORIGIN: str = "http://localhost:3000"
+
+    # GCP Storage Configuration
+    GCP_PROJECT_ID: str
+    GCP_BUCKET_NAME: str
+    GCP_CREDENTIALS_PATH: str
+
+    # Test User Credentials
+    USER_EMAIL: str
+    USER_PASSWORD: str
+    
+    # Admin User Credentials
+    ADMIN_EMAIL: str
+    ADMIN_PASSWORD: str
+    
+    # Testing flag
+    TESTING: bool = False
 
     model_config = ConfigDict(
         env_file=".env.dev",
@@ -25,3 +41,5 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings():
     return Settings()
+
+settings = get_settings()
