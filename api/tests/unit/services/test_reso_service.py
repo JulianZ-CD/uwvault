@@ -9,18 +9,6 @@ from api.models.resource import (
 from api.tests.factories import ResourceFactory, ResourceCreateFactory, ResourceReviewFactory, ResourceUpdateFactory, ResourceRatingCreateFactory
 from unittest.mock import Mock, AsyncMock, MagicMock
 from io import BytesIO
-import asyncio
-
-
-@pytest.fixture
-def mock_file():
-    """Create a mock file for testing"""
-    file = Mock(spec=UploadFile)
-    file.filename = "test.pdf"
-    file.content_type = "application/pdf"
-    file.file = BytesIO(b"test content")
-    file.size = 1024
-    return file
 
 
 @pytest.mark.unit
@@ -28,8 +16,6 @@ class TestResourceService:
     @pytest.fixture
     def resource_service(self, mock_supabase, mock_gcp_storage):
         """Resource service fixture with mocked dependencies"""
-        # 使用共享的 mock_supabase fixture 而不是创建新的
-        
         # create service with mocks
         service = ResourceService(
             supabase_client=mock_supabase,
@@ -266,7 +252,7 @@ class TestResourceService:
             status=ResourceStatus.UPLOADING
         )
     
-        # Mock file handling - 使用 patch.object 而不是 patch
+        # Mock file handling
         mocker.patch.object(resource_service, 'validate_file_type', return_value=True)
         mocker.patch.object(resource_service, 'validate_file_size', return_value=True)
         mocker.patch.object(resource_service, 'generate_safe_filename', return_value="safe_filename.pdf")

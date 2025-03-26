@@ -8,11 +8,7 @@ from api.models.resource import (
     ResourceReview, ResourceStatus, StorageStatus, StorageOperation,
     ResourceRatingCreate,
 )
-from api.tests.conftest import MockUser
-import asyncio
-from api.core.exceptions import StorageError
 from pathlib import Path
-import io
 
 def format_datetime():
     """Helper function to format datetime consistently"""
@@ -175,46 +171,12 @@ class ResourceReviewFactory(Factory):
     review_comment = Faker('text', max_nb_chars=200)
     reviewed_by = Faker('uuid4')
 
-class MockUserFactory(Factory):
-    """Factory for MockUser model"""
-    class Meta:
-        model = MockUser
-    
-    id = Faker('uuid4')  # 确保生成字符串ID
-    username = Faker('user_name')
-    is_admin = False
-
-class MockAdminFactory(MockUserFactory):
-    """Factory for admin MockUser model"""
-    class Meta:
-        model = MockUser
-    
-    is_admin = True
-
 class FileFactory:
     """Factory for file upload testing"""
     
     # Test file paths
     TEST_FILES_DIR = Path(__file__).parent / "e2e" / "test_files"
     TEST_FILE_PATH = TEST_FILES_DIR / "test_document.pdf"
-    
-    @classmethod
-    def setup_test_file(cls):
-        """Create test file and directory"""
-        cls.TEST_FILES_DIR.mkdir(exist_ok=True)
-        if not cls.TEST_FILE_PATH.exists():
-            with open(cls.TEST_FILE_PATH, "wb") as f:
-                f.write(b"%PDF-1.4\n%Test PDF content")
-        return cls.TEST_FILE_PATH
-
-    @classmethod
-    def cleanup_test_file(cls):
-        """Clean up test file"""
-        if cls.TEST_FILE_PATH.exists():
-            try:
-                cls.TEST_FILE_PATH.unlink()
-            except Exception:
-                pass
 
     @staticmethod
     def generate_test_file():
@@ -245,20 +207,6 @@ class FileFactory:
                 blob.delete()
         except Exception as e:
             raise ValueError(f"Failed to cleanup test files: {str(e)}")
-
-    # @staticmethod
-    # async def verify_file_exists(resource_service, file_path: str) -> bool:
-    #     """verify file existence"""
-    #     try:
-    #         # 直接使用 resource_service 的方法验证文件存在
-    #         await resource_service._ensure_storage_initialized()
-    #         blob = resource_service._storage_bucket.blob(file_path)
-    #         exists = await asyncio.get_event_loop().run_in_executor(
-    #             None, blob.exists
-    #         )
-    #         return exists
-    #     except Exception as e:
-    #         raise StorageError(f"Failed to verify file existence: {str(e)}")
             
     @classmethod
     def create(cls):

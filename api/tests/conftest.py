@@ -5,45 +5,30 @@ from api.core.config import get_settings, Settings
 from api.services.todo_service import TodoService
 from api.services.auth_service import AuthService
 import os
-
 from supabase import create_client
-from api.index import app
 from api.models.resource import ResourceType, ResourceStatus, StorageStatus
 from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT
 from api.services.todo_service import TodoService
 from fastapi import UploadFile
 from unittest.mock import Mock
 from io import BytesIO
-
-import uuid
 from api.services.auth_service import AuthService
-# from api.tests.factories import UserCreateFactory, AdminUserCreateFactory
-import json
-import jwt
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import status
 from pydantic import BaseModel
 
-settings = get_settings()
-
-@pytest.fixture(scope="session")
+@pytest.fixture
 def test_settings():
-    """测试环境配置"""
-    settings = get_settings()
-    settings.TESTING = True
-    return settings
-
-@pytest.fixture(autouse=True)
-def setup_test_env(test_settings):
-    """设置测试环境"""
-    # 确保使用测试配置
-    yield
+    """Override settings for testing"""
+    return Settings(
+        SUPABASE_URL="https://test-url.supabase.co",
+        SUPABASE_KEY="test-key"
+    )
 
 @pytest.fixture
 def test_client():
     """Create a test client for FastAPI app"""
     return TestClient(app)
-
 
 @pytest.fixture
 def todo_service(mocker):
@@ -53,62 +38,34 @@ def todo_service(mocker):
     mocker.patch.object(service, 'supabase')
     return service
 
-# 更新 conftest.py 中的 MockUser 类
-class MockUser(BaseModel):
-    id: str
-    username: str
-    is_admin: bool = False
-    
-    def get(self, key, default=None):
-        if key == "role":
-            return "admin" if self.is_admin else "user"
-        if hasattr(self, key):
-            return getattr(self, key)
-        return default
-    
-    def __getitem__(self, key):
-        """Support dictionary-like access"""
-        return getattr(self, key)
-
 @pytest.fixture
-async def regular_user_headers(test_client):
-    """获取普通用户的认证头"""
-    try:
-        # 使用环境变量中的普通用户账户
-        settings = get_settings()
-        login_response = test_client.post("/api/py/auth/login", json={
-            "email": settings.USER_EMAIL,  # 使用环境变量
-            "password": settings.USER_PASSWORD  # 使用环境变量
-        })
-        assert login_response.status_code == status.HTTP_200_OK
-        
-        access_token = login_response.json()["session"]["access_token"]
-        user_id = login_response.json()["user"]["id"]
-        
-        return {"Authorization": f"Bearer {access_token}"}, user_id
-        
-    except Exception as e:
-        pytest.fail(f"Failed to get regular user headers: {e}")
+async def admin_token(test_client):
+    """obtain admin token for cleanup operations"""
+    auth_service = AuthService()
+    admin_credentials = {
+        "email": os.getenv("ADMIN_EMAIL"),
+        "password": os.getenv("ADMIN_PASSWORD")
+    }
+    response = await auth_service.sign_in(admin_credentials)
+    return response["session"]["access_token"]
 
-@pytest.fixture
-async def admin_user_headers(test_client):
-    """获取管理员用户的认证头"""
-    try:
-        # 使用环境变量中的管理员账户
-        settings = get_settings()
-        login_response = test_client.post("/api/py/auth/login", json={
-            "email": settings.ADMIN_EMAIL,  # 使用环境变量
-            "password": settings.ADMIN_PASSWORD  # 使用环境变量
-        })
-        assert login_response.status_code == status.HTTP_200_OK
-        
-        access_token = login_response.json()["session"]["access_token"]
-        user_id = login_response.json()["user"]["id"]
-        
-        return {"Authorization": f"Bearer {access_token}"}, user_id
-        
-    except Exception as e:
-        pytest.fail(f"Failed to get admin headers: {e}")
+
+@pytest.fixture(scope="function")
+async def cleanup_users(admin_token):
+    test_emails = []
+    test_emails.append(admin_token["email"])  # add admin user to cleanup list
+    yield test_emails
+
+    auth_service = AuthService()
+    # use admin token for cleanup
+    users = await auth_service.list_users()
+    for user in users:
+        if user["email"].endswith("@example.com"):
+            try:
+                await auth_service.delete_user(user["id"])
+                print(f"Successfully deleted user: {user['email']}")
+            except Exception as e:
+                print(f"Failed to delete test user {user['email']}: {e}")
 
 @pytest.fixture(scope="function")
 async def test_db():
@@ -124,66 +81,62 @@ async def test_db():
         raise
 
 @pytest.fixture
+async def regular_user_headers(test_client):
+    try:
+        settings = get_settings()
+        login_response = test_client.post("/api/py/auth/login", json={
+            "email": settings.USER_EMAIL,
+            "password": settings.USER_PASSWORD
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        
+        access_token = login_response.json()["session"]["access_token"]
+        user_id = login_response.json()["user"]["id"]
+        
+        return {"Authorization": f"Bearer {access_token}"}, user_id
+        
+    except Exception as e:
+        pytest.fail(f"Failed to get regular user headers: {e}")
+
+@pytest.fixture
+async def admin_user_headers(test_client):
+    try:
+        settings = get_settings()
+        login_response = test_client.post("/api/py/auth/login", json={
+            "email": settings.ADMIN_EMAIL,
+            "password": settings.ADMIN_PASSWORD
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        
+        access_token = login_response.json()["session"]["access_token"]
+        user_id = login_response.json()["user"]["id"]
+        
+        return {"Authorization": f"Bearer {access_token}"}, user_id
+        
+    except Exception as e:
+        pytest.fail(f"Failed to get admin headers: {e}")
+
+@pytest.fixture
 def resource_service():
     """Create a real ResourceService"""
     service = ResourceService()
-    service.ratings_table = 'resource_ratings'  # 添加评分表名称
     return service
 
-@pytest.fixture
-def storage_manager(resource_service):
-    """Create a storage manager from resource service"""
-    return resource_service
-
-@pytest.fixture
-def test_file():
-    """Create a test file fixture"""
-    return {
-        "filename": "test.pdf",
-        "content": b"test content",
-        "content_type": "application/pdf",
-        "size": 1024
-    }
-
-@pytest.fixture
-def test_resource_data():
-    """Create test resource data"""
-    return {
-        "title": "Test Resource",
-        "description": "Test Description",
-        "course_id": "ece 657",
-        "file_type": "pdf",
-        "file_size": FILE_SIZE_LIMIT // 2,
-        "mime_type": "application/pdf",
-        "storage_path": f"{ResourceType.RESOURCE_FILE.value}/2024/01/test_file.pdf",
-    }
-
-@pytest.fixture
-async def admin_token(supabase_client):
-    """Create admin user and get token using service role"""
-    admin_data = {
-        "email": "admin@test.com",
-        "password": "admin123",
-        "user_metadata": {
-            "is_admin": True
-        }
-    }
+class MockUser(BaseModel):
+    id: str
+    username: str
+    is_admin: bool = False
     
-    try:
-        # use service role to create admin user
-        response = await supabase_client.auth.admin.create_user(admin_data)
-        user = response.user
-        
-        # get access token
-        auth_response = await supabase_client.auth.sign_in_with_password({
-            "email": admin_data["email"],
-            "password": admin_data["password"]
-        })
-        
-        return auth_response.session.access_token
-        
-    except Exception as e:
-        pytest.fail(f"Failed to create admin user: {str(e)}")
+    def get(self, key, default=None):
+        if key == "role":
+            return "admin" if self.is_admin else "user"
+        if hasattr(self, key):
+            return getattr(self, key)
+        return default
+    
+    def __getitem__(self, key):
+        """Support dictionary-like access"""
+        return getattr(self, key)
 
 @pytest.fixture
 def mock_supabase(mocker):
@@ -280,37 +233,8 @@ def require_admin():
     return _require_admin
 
 @pytest.fixture
-async def admin_token(test_client):
-    """obtain admin token for cleanup operations"""
-    auth_service = AuthService()
-    admin_credentials = {
-        "email": os.getenv("ADMIN_EMAIL"),
-        "password": os.getenv("ADMIN_PASSWORD")
-    }
-    response = await auth_service.sign_in(admin_credentials)
-    return response["session"]["access_token"]
-
-
-@pytest.fixture(scope="function")
-async def cleanup_users(admin_token):
-    test_emails = []
-    test_emails.append(admin_token["email"])  # add admin user to cleanup list
-    yield test_emails
-
-    auth_service = AuthService()
-    # use admin token for cleanup
-    users = await auth_service.list_users()
-    for user in users:
-        if user["email"].endswith("@example.com"):
-            try:
-                await auth_service.delete_user(user["id"])
-                print(f"Successfully deleted user: {user['email']}")
-            except Exception as e:
-                print(f"Failed to delete test user {user['email']}: {e}")
-
-@pytest.fixture
 def mock_resource_rating_response():
-    """创建模拟的资源评分响应"""
+    """create mock resource rating response"""
     return {
         "resource_id": 1,
         "user_id": "test-user",
@@ -321,7 +245,7 @@ def mock_resource_rating_response():
 
 @pytest.fixture
 def mock_resource_with_ratings():
-    """创建带有评分的模拟资源"""
+    """create mock resource with ratings"""
     return {
         "id": 1,
         "title": "Test Resource",
@@ -333,7 +257,7 @@ def mock_resource_with_ratings():
 
 @pytest.fixture
 def mock_resources():
-    """创建模拟资源数据列表"""
+    """create mock resource data list"""
     return [
         {
             "id": 1,
