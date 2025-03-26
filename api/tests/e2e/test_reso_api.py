@@ -1,11 +1,8 @@
 import pytest
-# from pathlib import Path
 from fastapi import status
 from api.routers.resources_router import router
-# from api.core.config import get_settings
 from api.tests.factories import FileFactory
 from api.utils.logger import setup_logger
-# from api.services.resource_service import ResourceService
 from api.models.resource import ResourceStatus
 
 # setup test logger
