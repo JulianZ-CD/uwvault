@@ -11,7 +11,6 @@ from api.models.resource import (
 )
 from api.services.resource_service import ResourceService
 from api.routers.auth_router import get_auth_service, require_admin, security
-from api.core.exceptions import NotFoundError, ValidationError, StorageError
 from api.utils.logger import setup_logger
 from api.services.auth_service import AuthService
 
@@ -103,16 +102,11 @@ async def create_resource(
         )
         
         return await resource_service.create_resource(resource_data, file)
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
-    except StorageError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating resource: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to create resource")
 
 @router.get("/history/uploads")
 async def get_upload_history(
@@ -143,7 +137,6 @@ async def get_resource(
     current_user = Depends(get_current_user)
 ):
     """Get resource details"""
-    logger.info(f"Received request to get resource with ID: {id}")
     try:
         is_admin = current_user.get("role") == "admin"
         include_pending = is_admin
@@ -157,13 +150,12 @@ async def get_resource(
                 )
         
         return resource
-    except NotFoundError as e:
-        logger.warning(f"Resource not found: {str(e)}")
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except HTTPException as e:
         raise e
     except Exception as e:
-        logger.error(f"Error getting resource {id}: {str(e)}", exc_info=True)
+        logger.error(f"Error getting resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get resource")
 
 @router.get("/{id}/download")
@@ -178,10 +170,8 @@ async def get_resource_url(
             id,
             expiration=timedelta(minutes=30)
         )
-    except NotFoundError as e:
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except StorageError as e:
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.error(f"Error getting resource URL {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get download URL")
@@ -214,9 +204,8 @@ async def download_resource(
                     "Content-Disposition": f'attachment; filename="{filename}"'
                 }
             )
-    except NotFoundError as e:
-        logger.error(f"Error downloading resource {id}: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error downloading resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to download resource")
@@ -247,8 +236,8 @@ async def list_resources(
             "total": total
         }
     except Exception as e:
-        logger.error(f"Error listing resources: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to list resources: {str(e)}")
+        logger.error(f"Error listing resources: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to list resources")
 
 @router.post("/{id}/rating")
 async def rate_resource(
@@ -261,10 +250,8 @@ async def rate_resource(
     try:
         result = await resource_service.rate_resource(id, current_user.get("id"), rating_data)
         return result
-    except NotFoundError as e:
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f"Error rating resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to rate resource")
@@ -278,7 +265,7 @@ async def get_user_rating(
     """Get current user's rating for a resource"""
     try:
         return await resource_service.get_user_rating(id, current_user.get("id"))
-    except NotFoundError as e:
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error getting user rating for resource {id}: {str(e)}")
@@ -296,8 +283,6 @@ async def update_resource(
 ):
     """Update resource details and optionally replace the file"""
     try:
-        logger.info(f"Received update request for resource {id}")
-        
         resource = await resource_service.get_resource_by_id(id, include_pending=True)
         is_admin = current_user.get("role") == "admin"
         is_owner = resource.created_by == current_user.get("id")
@@ -320,23 +305,13 @@ async def update_resource(
         logger.info(f"Resource {id} updated successfully")
         return result
         
-    except ValidationError as e:
-        logger.error(f"Validation error updating resource {id}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
-    except NotFoundError as e:
-        logger.warning(f"Resource not found: {str(e)}")
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except StorageError as e:
-        logger.error(f"Storage error updating resource {id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
     except HTTPException as e:
         raise e
     except Exception as e:
         logger.error(f"Error updating resource {id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to update resource: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update resource")
 
 @router.post("/{id}/review", response_model=ResourceInDB)
 async def review_resource(
@@ -347,9 +322,6 @@ async def review_resource(
 ):
     """Review resource (admin only)"""
     try:
-        logger.info(f"Received review request for resource {id}: {review_data.model_dump()}")
-        logger.info(f"Current user: {current_user}")
-        
         review = ResourceReview(
             status=review_data.status,
             review_comment=review_data.review_comment,
@@ -357,21 +329,11 @@ async def review_resource(
         )
         resource = await resource_service.review_resource(id, review)
         return resource
-    except NotFoundError as e:
-        logger.error(f"Resource not found: {id}, error: {str(e)}")
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except ValidationError as e:
-        logger.error(f"Validation error for resource {id}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
     except Exception as e:
         logger.error(f"Error reviewing resource {id}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to review resource"
-        )
+        raise HTTPException(status_code=500, detail="Failed to review resource")
 
 @router.post("/{id}/deactivate", tags=["admin"])
 async def deactivate_resource(
@@ -382,7 +344,7 @@ async def deactivate_resource(
     """Deactivate a resource (admin only)"""
     try:
         return await resource_service.deactivate_resource(id, current_user.get("id"))
-    except NotFoundError as e:
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error deactivating resource {id}: {str(e)}")
@@ -397,7 +359,7 @@ async def reactivate_resource(
     """Reactivate a resource (admin only)"""
     try:
         return await resource_service.reactivate_resource(id, current_user.get("id"))
-    except NotFoundError as e:
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error reactivating resource {id}: {str(e)}")
@@ -413,7 +375,7 @@ async def delete_resource(
     try:
         await resource_service.delete_resource(id)
         return {"message": "Resource deleted successfully"}
-    except NotFoundError as e:
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error deleting resource {id}: {str(e)}")

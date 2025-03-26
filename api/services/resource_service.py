@@ -6,9 +6,6 @@ from api.models.resource import (
     ResourceStatus, ResourceReview, StorageStatus, StorageOperation,
     ResourceRating, ResourceRatingCreate, ResourceType
 )
-from api.core.exceptions import (
-    NotFoundError, ValidationError, StorageError, StorageConnectionError, StorageOperationError
-)
 from api.utils.logger import setup_logger
 from api.core.config import get_settings
 from supabase import create_client, Client
@@ -109,7 +106,7 @@ class ResourceService:
             await self._validate_file(file)
             
             if not isinstance(resource.uploader_id, str):
-                raise ValidationError("uploader_id must be a string")
+                raise ValueError("uploader_id must be a string")
             
             # create database record
             file_metadata = await self._prepare_file_metadata(file, resource.course_id)
@@ -130,7 +127,7 @@ class ResourceService:
             response = self.supabase.table(self.table_name).insert(resource_data).execute()
             
             if not response.data:
-                raise Exception("Failed to create resource record")
+                raise ValueError("Failed to create resource record")
                 
             created_resource = ResourceInDB(**response.data[0])
             self.logger.info(f"Created resource record with id: {created_resource.id}")
@@ -153,7 +150,7 @@ class ResourceService:
             
             return created_resource
             
-        except ValidationError as e:
+        except ValueError as e:
             self.logger.error(f"Validation error: {str(e)}")
             raise
         except Exception as e:
@@ -172,7 +169,7 @@ class ResourceService:
             existing_resource = await self.get_resource_by_id(id)
             
             if resource.title is not None and len(resource.title.strip()) == 0:
-                raise ValidationError("Title cannot be empty")
+                raise ValueError("Title cannot be empty")
             
             if file and file.filename:
                 self.logger.info(f"File provided for update - filename: {file.filename}, content_type: {file.content_type}")
@@ -198,7 +195,7 @@ class ResourceService:
                 update_data).eq('id', id).execute()
             
             if not response.data:
-                raise NotFoundError(f"Resource with id {id} not found")
+                raise ValueError(f"Resource with id {id} not found")
             
             updated_resource = ResourceInDB(**response.data[0])
             
@@ -238,9 +235,7 @@ class ResourceService:
             self.logger.info(f"Successfully updated resource with id: {id}")
             return updated_resource
             
-        except NotFoundError:
-            raise
-        except ValidationError as e:
+        except ValueError as e:
             self.logger.error(f"Validation error: {str(e)}")
             raise
         except Exception as e:
@@ -269,13 +264,11 @@ class ResourceService:
                 )
                 return url
             except Exception as e:
-                raise StorageError(f"Failed to generate signed URL: {str(e)}")
+                raise ValueError(f"Failed to generate signed URL: {str(e)}")
                 
-        except NotFoundError:
+        except ValueError as e:
+            self.logger.error(f"Error getting resource URL: {str(e)}")
             raise
-        except StorageError as e:
-            self.logger.error(f"Storage error: {str(e)}")
-            raise StorageOperationError("get_url", str(e))
         except Exception as e:
             self.logger.error(f"Error while getting resource URL: {str(e)}")
             raise
@@ -296,10 +289,7 @@ class ResourceService:
             
             return course_ids
         except Exception as e:
-            import traceback
-            stack_trace = traceback.format_exc()
             self.logger.error(f"Error getting course IDs: {str(e)}")
-            self.logger.error(f"Stack trace: {stack_trace}")
             return []
 
     async def list_resources(
@@ -356,10 +346,7 @@ class ResourceService:
             
             return resources, total_count
         except Exception as e:
-            import traceback
-            stack_trace = traceback.format_exc()
             self.logger.error(f"Error while getting resource list: {str(e)}")
-            self.logger.error(f"Stack trace: {stack_trace}")
             return [], 0
 
     async def get_user_uploads(self, user_id: str, limit: int = 10, offset: int = 0):
@@ -387,10 +374,7 @@ class ResourceService:
             
             return resources, total_count
         except Exception as e:
-            import traceback
-            stack_trace = traceback.format_exc()
             self.logger.error(f"Error getting user uploads: {str(e)}")
-            self.logger.error(f"Stack trace: {stack_trace}")
             return [], 0
 
     async def rate_resource(self, resource_id: int, user_id: str, rating_data: ResourceRatingCreate) -> Dict:
@@ -400,7 +384,7 @@ class ResourceService:
             
             resource = await self.get_resource_by_id(resource_id)
             if resource.status != ResourceStatus.APPROVED:
-                raise ValidationError("only approved resources can be rated")
+                raise ValueError("only approved resources can be rated")
                 
             existing_rating = await self._get_user_rating(resource_id, user_id)
             current_time = datetime.now().isoformat()
@@ -416,7 +400,7 @@ class ResourceService:
                 ).eq("resource_id", resource_id).eq("user_id", user_id).execute()
                 
                 if not response.data:
-                    raise Exception("Failed to update rating")
+                    raise ValueError("Failed to update rating")
                     
                 self.logger.info(f"Updated rating for resource {resource_id} by user {user_id}")
             else:
@@ -431,7 +415,7 @@ class ResourceService:
                 response = self.supabase.table(self.ratings_table).insert(new_rating).execute()
                 
                 if not response.data:
-                    raise Exception("Failed to create rating")
+                    raise ValueError("Failed to create rating")
                     
                 self.logger.info(f"Created new rating for resource {resource_id} by user {user_id}")
             
@@ -445,9 +429,8 @@ class ResourceService:
                 "rating_count": updated_stats.get("rating_count", 0)
             }
             
-        except NotFoundError:
-            raise
-        except ValidationError:
+        except ValueError as e:
+            self.logger.error(f"Resource not found: {str(e)}")
             raise
         except Exception as e:
             self.logger.error(f"Error rating resource {resource_id}: {str(e)}")
@@ -502,7 +485,7 @@ class ResourceService:
                 update_data).eq('id', id).execute()
 
             if not response.data:
-                raise NotFoundError(f"Resource with id {id} not found")
+                raise ValueError(f"Resource with id {id} not found")
 
             updated_resource = ResourceInDB(**response.data[0])
             self.logger.info(
@@ -511,7 +494,8 @@ class ResourceService:
             )
             return updated_resource
 
-        except NotFoundError:
+        except ValueError as e:
+            self.logger.error(f"Resource not found: {str(e)}")
             raise
         except Exception as e:
             self.logger.error(f"Error while reviewing resource {id}: {str(e)}")
@@ -550,17 +534,16 @@ class ResourceService:
 
             results = await self._filter_query(self.table_name, {"id": id})
             if not results:
-                raise NotFoundError(f"Resource with id {id} not found")
+                raise ValueError(f"Resource with id {id} not found")
                 
             resource = ResourceInDB(**results[0])
 
-            self.logger.info(f"Successfully fetched resource with id: {id}")
             return resource
         except Exception as e:
             error_str = str(e)
             if "no rows" in error_str.lower() or "0 rows" in error_str.lower():
                 self.logger.error(f"Resource with id {id} not found")
-                raise NotFoundError(f"Resource with id {id} not found")
+                raise ValueError(f"Resource with id {id} not found")
             
             self.logger.error(f"Error while fetching resource {id}: {str(e)}")
             raise
@@ -585,19 +568,20 @@ class ResourceService:
                             None, blob.delete
                         )
                 except Exception as e:
-                    raise StorageError(f"Delete failed: {str(e)}")
-            except StorageError as e:
+                    raise ValueError(f"Delete failed: {str(e)}")
+            except ValueError as e:
                 self.logger.error(f"Storage error: {str(e)}")
-                raise StorageOperationError("delete", str(e))
+                raise ValueError(str(e))
 
             response = self.supabase.table(self.table_name).delete().eq('id', id).execute()
             if not response.data:
-                raise NotFoundError(f"Resource with id {id} not found")
+                raise ValueError(f"Resource with id {id} not found")
 
             self.logger.info(f"Successfully deleted resource with id: {id}")
             return True
 
-        except NotFoundError:
+        except ValueError as e:
+            self.logger.error(f"Resource not found: {str(e)}")
             raise
         except Exception as e:
             self.logger.error(f"Error while deleting resource {id}: {str(e)}")
@@ -617,19 +601,19 @@ class ResourceService:
                 self._storage_bucket = self._storage_client.bucket(self.settings.GCP_BUCKET_NAME)
                 
                 if not self._storage_bucket.exists():
-                    raise StorageConnectionError(
+                    raise ValueError(
                         f"Bucket {self.settings.GCP_BUCKET_NAME} does not exist"
                     )
                     
             except Exception as e:
-                raise StorageConnectionError(f"Storage initialization failed: {str(e)}")
+                raise ValueError(f"Storage initialization failed: {str(e)}")
 
     async def _validate_file(self, file: UploadFile) -> None:
         if not self.validate_file_type(file.content_type):
-            raise ValidationError(f"Unsupported file type: {file.content_type}")
+            raise ValueError(f"Unsupported file type: {file.content_type}")
         
         if not self.validate_file_size(file.size):
-            raise ValidationError(f"File too large: {file.size} bytes")
+            raise ValueError(f"File too large: {file.size} bytes (max {FILE_SIZE_LIMIT} bytes)")
 
     async def _prepare_file_metadata(self, file: UploadFile, course_id: str) -> dict:
         file_hash = self.calculate_file_hash(file.file)
@@ -702,7 +686,7 @@ class ResourceService:
                         "error_message": None
                     }
             except Exception as e:
-                raise StorageError(f"Verification failed: {str(e)}")
+                raise ValueError(f"Verification failed: {str(e)}")
         except Exception as e:
             return {
                 "is_synced": False,
@@ -789,7 +773,7 @@ class ResourceService:
                 StorageOperation.UPLOAD,
                 e
             )
-            raise StorageOperationError("upload", str(e))
+            raise ValueError(f"Failed to upload file: {str(e)}")
 
     async def _filter_query(self, table_name, conditions, limit=None, offset=None, order_by=None, order_desc=True):
         try:
