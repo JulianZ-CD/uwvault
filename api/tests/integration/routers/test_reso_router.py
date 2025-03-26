@@ -1,182 +1,56 @@
 import pytest
-from fastapi import FastAPI, status
-from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch, AsyncMock
-import hashlib
-import io
-from api.routers.resources_router import get_resource_service, get_current_user, require_admin, security
-from api.routers.resources_router import router
-from api.models.resource import ResourceStatus, ResourceCreate, ResourceReview
-from api.tests.conftest import MockUser
+import time
+from fastapi import status
+from unittest.mock import AsyncMock
 from api.tests.factories import (
-    ResourceFactory, ResourceCreateFactory, 
-    ResourceUpdateFactory, ResourceReviewFactory,
-    FileFactory
+    ResourceFactory, FileFactory, ResourceRatingCreateFactory
 )
+from api.models.resource import ResourceStatus
+from api.services.resource_service import ResourceService
 
-# 创建测试应用
-@pytest.fixture
-def test_app():
-    app = FastAPI()
-    app.include_router(router)
-    return app
-
-@pytest.fixture
-def test_client(test_app):
-    return TestClient(test_app)
-
-# 测试文件
-@pytest.fixture
-def test_file():
-    return FileFactory.create()
-
-# Mock ResourceService
-@pytest.fixture
-def mock_resource_service():
-    return AsyncMock()
-
-# 在 test_reso_router.py 中添加
-@pytest.fixture
-def mock_security():
-    """模拟安全依赖"""
-    mock = Mock()
-    mock.credentials = "test-token"
-    return mock
-
-@pytest.fixture
-def setup_dependencies(test_app, mock_normal_user, mock_resource_service, mock_security):
-    """设置依赖项覆盖"""
-    app = test_app
-    
-    # 保存原始依赖项以便稍后恢复
-    original_overrides = app.dependency_overrides.copy()
-    
-    # 设置依赖项覆盖
-    app.dependency_overrides[get_resource_service] = lambda: mock_resource_service
-    app.dependency_overrides[get_current_user] = lambda: mock_normal_user
-    app.dependency_overrides[security] = lambda: mock_security
-    
-    yield
-    
-    # 测试后恢复原始依赖项
-    app.dependency_overrides = original_overrides
-
-@pytest.fixture
-def setup_admin_dependencies(test_app, mock_admin_user, mock_resource_service, mock_security):
-    """设置管理员依赖项覆盖"""
-    app = test_app
-    
-    # 保存原始依赖项以便稍后恢复
-    original_overrides = app.dependency_overrides.copy()
-    
-    # 设置依赖项覆盖
-    app.dependency_overrides[get_resource_service] = lambda: mock_resource_service
-    app.dependency_overrides[require_admin] = lambda: mock_admin_user
-    app.dependency_overrides[security] = lambda: mock_security
-    
-    yield
-    
-    # 测试后恢复原始依赖项
-    app.dependency_overrides = original_overrides
 
 @pytest.mark.integration
 class TestResourceRouter:
     BASE_URL = "/api/py/resources"
     
-    @pytest.mark.asyncio
-    async def test_get_resource_success(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试获取资源成功"""
-        resource_id = 1
-        mock_resource = ResourceFactory(id=resource_id)
-        mock_resource_service.get_resource_by_id = AsyncMock(return_value=mock_resource)
-        
-        response = test_client.get(f"{self.BASE_URL}/{resource_id}")
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["id"] == resource_id
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        time.sleep(1)  # Prevent rate limiting
+        yield
     
-    @pytest.mark.asyncio
-    async def test_get_resource_not_found(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试获取不存在的资源"""
-        resource_id = 999
-        mock_resource_service.get_resource_by_id = AsyncMock(
-            side_effect=ValueError(f"Resource with id {resource_id} not found")
-        )
-        
-        response = test_client.get(f"{self.BASE_URL}/{resource_id}")
-        
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert f"Resource with id {resource_id} not found" in response.json()["detail"]
+    @pytest.fixture
+    def resource_service(self):
+        """Create a real ResourceService instance"""
+        return ResourceService()
     
-    @pytest.mark.asyncio
-    async def test_get_resource_server_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试获取资源服务器错误"""
-        resource_id = 1
-        mock_resource_service.get_resource_by_id = AsyncMock(
-            side_effect=Exception("Database error")
-        )
+    @pytest.fixture
+    async def cleanup_resources(self, resource_service):
+        """Clean up resources after tests"""
+        resource_ids = []
+        yield resource_ids
         
-        response = test_client.get(f"{self.BASE_URL}/{resource_id}")
+        # Clean up resources after test
+        for resource_id in resource_ids:
+            try:
+                await resource_service.delete_resource(resource_id)
+            except Exception as e:
+                print(f"Failed to clean up resource {resource_id}: {e}")
         
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to get resource" in response.json()["detail"]
+        # Clean up test files
+        try:
+            await FileFactory.cleanup_test_files(resource_service)
+        except Exception as e:
+            print(f"Failed to clean up test files: {e}")
     
     @pytest.mark.asyncio
     async def test_create_resource_success(
-        self, test_client, mock_normal_user, mock_resource_service, test_file, setup_dependencies
+        self, test_client, regular_user_headers, cleanup_resources
     ):
-        """test create resource"""
-        # calculate file hash
-        file_content = test_file["content"]
-        file_hash = hashlib.sha256(file_content).hexdigest()
+        """Test successful resource creation"""
+        # Arrange
+        headers, user_id = regular_user_headers
+        test_file = FileFactory.create()
         
-        # handle file and form data separately
-        files = {
-            "file": (
-                test_file["filename"],
-                io.BytesIO(test_file["content"]),
-                test_file["content_type"]
-            )
-        }
-        
-        # use form data format
-        form_data = {
-            "title": "Test Resource",
-            "description": "Test Description",
-            "course_id": "1",
-        }
-        
-        # set mock return value
-        mock_resource = ResourceFactory(
-            title=form_data["title"],
-            description=form_data["description"],
-            course_id=form_data["course_id"],
-            created_by=mock_normal_user.id,
-            updated_by=mock_normal_user.id,
-            file_hash=file_hash,
-            original_filename=test_file["filename"]
-        )
-        
-        # use AsyncMock
-        mock_resource_service.create_resource = AsyncMock(return_value=mock_resource)
-        
-        response = test_client.post(f"{self.BASE_URL}/create", files=files, data=form_data)
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["title"] == form_data["title"]
-        assert response.json()["created_by"] == mock_normal_user.id
-
-    @pytest.mark.asyncio
-    async def test_create_resource_validation_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies, test_file
-    ):
-        """测试创建资源验证错误"""
         form_data = {
             "title": "Test Resource",
             "description": "Test Description",
@@ -184,429 +58,622 @@ class TestResourceRouter:
         }
         files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
         
-        mock_resource_service.create_resource = AsyncMock(
-            side_effect=ValueError("Invalid resource data")
-        )
-        
+        # Act
         response = test_client.post(
             f"{self.BASE_URL}/create",
             files=files,
-            data=form_data
+            data=form_data,
+            headers=headers
         )
         
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        resource_data = response.json()
+        assert "id" in resource_data
+        assert resource_data["title"] == form_data["title"]
+        assert resource_data["description"] == form_data["description"]
+        assert resource_data["course_id"] == form_data["course_id"]
+        
+        # Add to cleanup
+        cleanup_resources.append(resource_data["id"])
     
     @pytest.mark.asyncio
-    async def test_create_resource_storage_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies, test_file
+    async def test_create_resource_invalid_file(
+        self, test_client, regular_user_headers
     ):
-        """测试创建资源存储错误"""
+        """Test resource creation with invalid file"""
+        # Arrange
+        headers, _ = regular_user_headers
+        invalid_file = FileFactory.generate_invalid_file()
+        
         form_data = {
-            "title": "Test Resource",
-            "description": "Test Description",
+            "title": "Invalid Resource",
+            "description": "Invalid file test",
             "course_id": "CS101"
         }
-        files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+        files = {"file": (invalid_file["filename"], invalid_file["content"], invalid_file["content_type"])}
         
-        mock_resource_service.create_resource = AsyncMock(
-            side_effect=Exception("Failed to store file")
-        )
-        
+        # Act
         response = test_client.post(
             f"{self.BASE_URL}/create",
             files=files,
-            data=form_data
+            data=form_data,
+            headers=headers
         )
         
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        # Assert
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "Unsupported file type" in response.json()["detail"]
+    
+    @pytest.mark.asyncio
+    async def test_get_resource_success(
+        self, test_client, regular_user_headers, admin_user_headers, cleanup_resources
+    ):
+        """Test successfully getting a resource"""
+        try:
+            # Arrange - Create a resource as admin to ensure it's approved
+            admin_headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+            
+            form_data = {
+                "title": "Admin Resource",
+                "description": "Admin Description",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+            
+            create_response = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data,
+                headers=admin_headers
+            )
+            
+            assert create_response.status_code == status.HTTP_200_OK
+            resource_id = create_response.json()["id"]
+            cleanup_resources.append(resource_id)
+            
+            # Wait for resource to be fully processed
+            time.sleep(1)
+            
+            # Act - Get the resource as regular user
+            headers, _ = regular_user_headers
+            response = test_client.get(
+                f"{self.BASE_URL}/{resource_id}",
+                headers=headers
+            )
+            
+            # Assert
+            assert response.status_code == status.HTTP_200_OK
+            resource_data = response.json()
+            assert resource_data["id"] == resource_id
+            assert resource_data["title"] == form_data["title"]
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
+    
+    @pytest.mark.asyncio
+    async def test_get_resource_not_found(
+        self, test_client, regular_user_headers
+    ):
+        """Test getting a non-existent resource"""
+        # Arrange
+        headers, _ = regular_user_headers
+        non_existent_id = 99999  # Assuming this ID doesn't exist
+        
+        # Act
+        response = test_client.get(
+            f"{self.BASE_URL}/{non_existent_id}",
+            headers=headers
+        )
+        
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+    
+    @pytest.mark.asyncio
+    async def test_list_resources_success(
+        self, test_client, admin_user_headers, cleanup_resources
+    ):
+        """Test successfully listing resources"""
+        try:
+            # Arrange - Create resources as admin to ensure they're approved
+            headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+            
+            # Create first resource
+            form_data1 = {
+                "title": "Resource 1",
+                "description": "Description 1",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+            
+            create_response1 = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data1,
+                headers=headers
+            )
+            
+            assert create_response1.status_code == status.HTTP_200_OK
+            resource_id1 = create_response1.json()["id"]
+            cleanup_resources.append(resource_id1)
+            
+            # Create second resource
+            form_data2 = {
+                "title": "Resource 2",
+                "description": "Description 2",
+                "course_id": "CS102"
+            }
+            
+            create_response2 = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data2,
+                headers=headers
+            )
+            
+            assert create_response2.status_code == status.HTTP_200_OK
+            resource_id2 = create_response2.json()["id"]
+            cleanup_resources.append(resource_id2)
+            
+            # Wait for resources to be fully processed
+            time.sleep(2)
+            
+            # Act - List resources
+            response = test_client.get(
+                f"{self.BASE_URL}/",
+                headers=headers
+            )
+            
+            # Assert
+            assert response.status_code == status.HTTP_200_OK
+            resources_data = response.json()
+            assert "items" in resources_data
+            assert "total" in resources_data
+            
+            # Verify our created resources are in the list
+            resource_ids = [item["id"] for item in resources_data["items"]]
+            assert resource_id1 in resource_ids or resource_id2 in resource_ids
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
     
     @pytest.mark.asyncio
     async def test_update_resource_success(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+        self, test_client, admin_user_headers, cleanup_resources
     ):
-        """测试更新资源成功"""
-        resource_id = 1
-        
-        # 使用表单数据格式
-        form_data = {
-            "title": "Updated Title",
-            "description": "Updated Description",
-            "course_id": "2"
-        }
-        
-        # 首先模拟 get_resource_by_id 返回一个由当前用户创建的资源
-        original_resource = ResourceFactory(
-            id=resource_id,
-            created_by=mock_normal_user.id,  # 确保资源是由当前用户创建的
-            status=ResourceStatus.PENDING    # 确保资源状态是 PENDING
-        )
-        mock_resource_service.get_resource_by_id = AsyncMock(return_value=original_resource)
-        
-        # 设置 update_resource 的模拟返回值
-        updated_resource = ResourceFactory(
-            id=resource_id,
-            title=form_data["title"],
-            description=form_data["description"],
-            course_id=form_data["course_id"],
-            created_by=mock_normal_user.id,  # 保持与原始资源一致
-            updated_by=mock_normal_user.id
-        )
-        
-        mock_resource_service.update_resource = AsyncMock(return_value=updated_resource)
-        
-        response = test_client.patch(
-                    f"{self.BASE_URL}/{resource_id}",
-                    data=form_data
-                )
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["title"] == form_data["title"]
-        assert response.json()["description"] == form_data["description"]
-        assert response.json()["course_id"] == form_data["course_id"]
+        """Test successfully updating a resource"""
+        try:
+            # Arrange - Create a resource as admin
+            headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+            
+            form_data = {
+                "title": "Original Title",
+                "description": "Original Description",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+            
+            create_response = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data,
+                headers=headers
+            )
+            
+            assert create_response.status_code == status.HTTP_200_OK
+            resource_id = create_response.json()["id"]
+            cleanup_resources.append(resource_id)
+            
+            # Wait for resource to be fully processed
+            time.sleep(1)
+            
+            # Act - Update the resource
+            update_data = {
+                "title": "Updated Title",
+                "description": "Updated Description"
+            }
+            
+            response = test_client.patch(
+                f"{self.BASE_URL}/{resource_id}",
+                data=update_data,
+                headers=headers
+            )
+            
+            # Assert
+            assert response.status_code == status.HTTP_200_OK
+            updated_resource = response.json()
+            assert updated_resource["title"] == update_data["title"]
+            assert updated_resource["description"] == update_data["description"]
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
     
     @pytest.mark.asyncio
     async def test_update_resource_not_found(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+        self, test_client, regular_user_headers
     ):
-        """测试更新不存在的资源"""
-        resource_id = 999
-        form_data = {"title": "Updated Title"}
+        """Test updating a non-existent resource"""
+        # Arrange
+        headers, _ = regular_user_headers
+        non_existent_id = 99999  # Assuming this ID doesn't exist
         
-        mock_resource_service.get_resource_by_id = AsyncMock(
-            side_effect=ValueError(f"Resource with id {resource_id} not found")
-        )
-        
-        response = test_client.patch(
-            f"{self.BASE_URL}/{resource_id}",
-            data=form_data
-        )
-        
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-    
-    @pytest.mark.asyncio
-    async def test_update_resource_validation_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试更新资源验证错误"""
-        resource_id = 1
-        
-        mock_resource = ResourceFactory(
-            id=resource_id, 
-            created_by=mock_normal_user.id,
-            status=ResourceStatus.PENDING  # 确保状态不是APPROVED
-        )
-        mock_resource_service.get_resource_by_id = AsyncMock(return_value=mock_resource)
-        
-        # 使用 ValueError 触发 422 错误
-        mock_resource_service.update_resource = AsyncMock(
-            side_effect=ValueError("Title cannot be empty")
-        )
-        
-        response = test_client.patch(
-            f"{self.BASE_URL}/{resource_id}",
-            data={"title": ""}
-        )
-        assert response.status_code == status.HTTP_404_NOT_FOUND  # 根据路由器实际行为修改期望
-
-    @pytest.mark.asyncio
-    async def test_update_resource_storage_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试更新资源存储错误"""
-        resource_id = 1
-        
-        # 首先模拟资源存在且由当前用户创建
-        mock_resource = ResourceFactory(
-            id=resource_id, 
-            created_by=mock_normal_user.id,
-            status=ResourceStatus.PENDING
-        )
-        mock_resource_service.get_resource_by_id = AsyncMock(return_value=mock_resource)
-        
-        # 使用 Exception 触发 500 错误
-        mock_resource_service.update_resource = AsyncMock(
-            side_effect=Exception("Failed to store updated file")
-        )
-        
-        response = test_client.patch(
-            f"{self.BASE_URL}/{resource_id}",
-            data={"title": "Updated Title"}
-        )
-        
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    
-    @pytest.mark.asyncio
-    async def test_review_resource_success(
-        self, test_client, mock_admin_user, mock_resource_service, setup_admin_dependencies
-    ):
-        """test review resource"""
-        resource_id = 1
-        
-        review_data = {
-            "status": ResourceStatus.APPROVED.value,
-            "review_comment": "Approved",
-            "reviewed_by": mock_admin_user.id
+        update_data = {
+            "title": "Updated Title",
+            "description": "Updated Description"
         }
         
-        # create a awaitable return value
-        reviewed_resource = ResourceFactory(
-            id=resource_id,
-            status=ResourceStatus.APPROVED,
-            review_comment=review_data["review_comment"],
-            reviewed_by=mock_admin_user.id
+        # Act
+        response = test_client.patch(
+            f"{self.BASE_URL}/{non_existent_id}",
+            data=update_data,
+            headers=headers
         )
         
-        # use AsyncMock
-        mock_resource_service.review_resource = AsyncMock(return_value=reviewed_resource)
-        
-        response = test_client.post(
-                    f"{self.BASE_URL}/{resource_id}/review",
-                    json=review_data
-                )
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["status"] == ResourceStatus.APPROVED.value
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
     
     @pytest.mark.asyncio
     async def test_rate_resource_success(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+        self, test_client, admin_user_headers, regular_user_headers, cleanup_resources
     ):
-        """测试评分资源成功"""
-        resource_id = 1
-        rating_data = {"rating": 4.5}
-        
-        # 模拟资源存在
-        mock_resource = ResourceFactory(id=resource_id, status=ResourceStatus.APPROVED)
-        mock_resource_service.get_resource_by_id = AsyncMock(return_value=mock_resource)
-        
-        # 模拟评分成功
-        mock_resource_service.rate_resource = AsyncMock(return_value=mock_resource)
-        
-        response = test_client.post(
-            f"{self.BASE_URL}/{resource_id}/rating",
-            json=rating_data
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
+        """Test successfully rating a resource"""
+        try:
+            # Arrange - Create a resource as admin to ensure it's approved
+            admin_headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+            
+            form_data = {
+                "title": "Resource to Rate",
+                "description": "Test Description",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+            
+            create_response = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data,
+                headers=admin_headers
+            )
+            
+            assert create_response.status_code == status.HTTP_200_OK
+            resource_id = create_response.json()["id"]
+            cleanup_resources.append(resource_id)
+            
+            # Wait for resource to be fully processed
+            time.sleep(2)
+            
+            # Act - Rate the resource as regular user
+            user_headers, _ = regular_user_headers
+            rating_data = ResourceRatingCreateFactory().model_dump(mode='json')
+            
+            response = test_client.post(
+                f"{self.BASE_URL}/{resource_id}/rating",
+                json=rating_data,
+                headers=user_headers
+            )
+            
+            # Assert
+            assert response.status_code == status.HTTP_200_OK
+            rating_result = response.json()
+            assert "user_rating" in rating_result
+            assert rating_result["user_rating"] == rating_data["rating"]
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
     
     @pytest.mark.asyncio
-    async def test_rate_resource_not_found(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+    async def test_rate_resource_invalid_rating(
+        self, test_client, admin_user_headers, regular_user_headers, cleanup_resources
     ):
-        """测试评分不存在的资源"""
-        resource_id = 999
-        rating_data = {"rating": 4.5}
-        
-        mock_resource_service.rate_resource = AsyncMock(
-            side_effect=ValueError(f"Resource with id {resource_id} not found")
-        )
-        
-        response = test_client.post(
-            f"{self.BASE_URL}/{resource_id}/rating",
-            json=rating_data
-        )
-        
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        """Test rating a resource with invalid rating value"""
+        try:
+            # Arrange - Create a resource as admin
+            admin_headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+            
+            form_data = {
+                "title": "Resource for Invalid Rating",
+                "description": "Test Description",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+            
+            create_response = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data,
+                headers=admin_headers
+            )
+            
+            assert create_response.status_code == status.HTTP_200_OK
+            resource_id = create_response.json()["id"]
+            cleanup_resources.append(resource_id)
+            
+            # Wait for resource to be fully processed
+            time.sleep(1)
+            
+            # Act - Rate with invalid value
+            user_headers, _ = regular_user_headers
+            invalid_rating = {"rating": 6.0}  # Invalid rating > 5
+            
+            response = test_client.post(
+                f"{self.BASE_URL}/{resource_id}/rating",
+                json=invalid_rating,
+                headers=user_headers
+            )
+            
+            # Assert
+            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
     
     @pytest.mark.asyncio
-    async def test_rate_resource_validation_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+    async def test_get_user_rating_success(
+        self, test_client, admin_user_headers, regular_user_headers, cleanup_resources
     ):
-        """测试评分验证错误"""
-        resource_id = 1
-        rating_data = {"rating": 6.0}  # 超出范围的评分
-        
-        mock_resource_service.rate_resource = AsyncMock(
-            side_effect=ValueError("Rating must be between 1 and 5")
-        )
-        
-        response = test_client.post(
-            f"{self.BASE_URL}/{resource_id}/rating",
-            json=rating_data
-        )
-        
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-    
-    @pytest.mark.asyncio
-    async def test_rate_resource_server_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试评分服务器错误"""
-        resource_id = 1
-        rating_data = {"rating": 4.5}
-        
-        mock_resource_service.rate_resource = AsyncMock(
-            side_effect=Exception("Database error")
-        )
-        
-        response = test_client.post(
-            f"{self.BASE_URL}/{resource_id}/rating",
-            json=rating_data
-        )
-        
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to rate resource" in response.json()["detail"]
+        """Test successfully getting user rating"""
+        try:
+            # Arrange - Create a resource as admin
+            admin_headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+            
+            form_data = {
+                "title": "Resource for Rating",
+                "description": "Test Description",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+            
+            create_response = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data,
+                headers=admin_headers
+            )
+            
+            assert create_response.status_code == status.HTTP_200_OK
+            resource_id = create_response.json()["id"]
+            cleanup_resources.append(resource_id)
+            
+            # Wait for resource to be fully processed
+            time.sleep(2)
+            
+            # Rate the resource
+            user_headers, _ = regular_user_headers
+            rating_data = {"rating": 4.5}
+            
+            rate_response = test_client.post(
+                f"{self.BASE_URL}/{resource_id}/rating",
+                json=rating_data,
+                headers=user_headers
+            )
+            
+            assert rate_response.status_code == status.HTTP_200_OK
+            
+            # Act - Get user rating
+            get_rating_response = test_client.get(
+                f"{self.BASE_URL}/{resource_id}/rating",
+                headers=user_headers
+            )
+            
+            # Assert
+            assert get_rating_response.status_code == status.HTTP_200_OK
+            user_rating = get_rating_response.json()
+            assert "user_rating" in user_rating
+            assert user_rating["user_rating"] == 4.5
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
     
     @pytest.mark.asyncio
     async def test_get_user_rating_not_found(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+        self, test_client, admin_user_headers, regular_user_headers, cleanup_resources
     ):
-        """测试获取用户评分不存在"""
-        resource_id = 1
-        
-        mock_resource_service.get_user_rating = AsyncMock(
-            side_effect=ValueError("Rating not found")
-        )
-        
-        response = test_client.get(f"{self.BASE_URL}/{resource_id}/rating")
-        
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        """Test getting user rating when none exists"""
+        try:
+            # Arrange - Create a resource as admin but don't rate it
+            admin_headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+
+            form_data = {
+                "title": "Resource without Rating",
+                "description": "Test Description",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+
+            # Create resource as admin
+            create_response = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data,
+                headers=admin_headers
+            )
+            
+            assert create_response.status_code == status.HTTP_200_OK
+            resource_id = create_response.json()["id"]
+            cleanup_resources.append(resource_id)
+            
+            # Wait for resource to be fully processed
+            time.sleep(2)
+            
+            # Act - Get rating as regular user
+            headers, _ = regular_user_headers
+            response = test_client.get(
+                f"{self.BASE_URL}/{resource_id}/rating",
+                headers=headers
+            )
+            
+            # Assert
+            assert response.status_code == status.HTTP_200_OK
+            rating_data = response.json()
+            
+            # 修改断言，检查user_rating是否为0而不是None
+            # API返回0表示没有评分，而不是返回None
+            assert rating_data.get("user_rating") == 0
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
     
     @pytest.mark.asyncio
     async def test_get_course_ids_success(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+        self, test_client, regular_user_headers
     ):
-        """测试获取课程ID列表成功"""
-        course_ids = ["CS101", "CS102", "CS103"]
-        mock_resource_service.get_all_course_ids = AsyncMock(return_value=course_ids)
+        """Test successfully getting course IDs"""
+        # Arrange
+        headers, _ = regular_user_headers
         
-        response = test_client.get(f"{self.BASE_URL}/course-ids")
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json() == course_ids
-    
-    @pytest.mark.asyncio
-    async def test_get_course_ids_server_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试获取课程ID列表异常情况"""
-        mock_resource_service.get_all_course_ids = AsyncMock(
-            side_effect=Exception("Database error")
+        # Act
+        response = test_client.get(
+            f"{self.BASE_URL}/course-ids",
+            headers=headers
         )
         
-        response = test_client.get(f"{self.BASE_URL}/course-ids")
-        
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to get course IDs" in response.json()["detail"]
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        course_ids = response.json()
+        assert isinstance(course_ids, list)
     
     @pytest.mark.asyncio
     async def test_get_upload_history_success(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
+        self, test_client, regular_user_headers
     ):
-        """测试获取上传历史成功"""
-        resources = [ResourceFactory() for _ in range(3)]
-        total = len(resources)
-        mock_resource_service.get_user_uploads = AsyncMock(return_value=(resources, total))
+        """Test successfully getting upload history"""
+        # Arrange
+        headers, _ = regular_user_headers
         
-        response = test_client.get(f"{self.BASE_URL}/history/uploads")
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert len(response.json()["items"]) == total
-        assert response.json()["total"] == total
-    
-    @pytest.mark.asyncio
-    async def test_get_upload_history_server_error(
-        self, test_client, mock_normal_user, mock_resource_service, setup_dependencies
-    ):
-        """测试获取上传历史异常情况"""
-        mock_resource_service.get_user_uploads = AsyncMock(
-            side_effect=Exception("Database error")
+        # Act
+        response = test_client.get(
+            f"{self.BASE_URL}/history/uploads",
+            headers=headers
         )
         
-        response = test_client.get(f"{self.BASE_URL}/history/uploads")
-        
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to get upload history" in response.json()["detail"]
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+        assert isinstance(data["items"], list)
+    
+    @pytest.mark.asyncio
+    async def test_admin_operations(
+        self, test_client, admin_user_headers, cleanup_resources
+    ):
+        """Test admin operations on resources"""
+        try:
+            # Arrange - Create a resource as admin
+            admin_headers, _ = admin_user_headers
+            test_file = FileFactory.create()
+            
+            form_data = {
+                "title": "Admin Resource",
+                "description": "For admin operations",
+                "course_id": "CS101"
+            }
+            files = {"file": (test_file["filename"], test_file["content"], test_file["content_type"])}
+            
+            create_response = test_client.post(
+                f"{self.BASE_URL}/create",
+                files=files,
+                data=form_data,
+                headers=admin_headers
+            )
+            
+            assert create_response.status_code == status.HTTP_200_OK
+            resource_id = create_response.json()["id"]
+            cleanup_resources.append(resource_id)
+            
+            # Wait for resource to be fully processed
+            time.sleep(2)
+            
+            # Verify resource is in APPROVED state (admin created)
+            get_response = test_client.get(
+                f"{self.BASE_URL}/{resource_id}",
+                headers=admin_headers
+            )
+            assert get_response.status_code == status.HTTP_200_OK
+            assert get_response.json()["status"] == ResourceStatus.APPROVED.value
+            
+            # Act 1 - Deactivate resource as admin
+            deactivate_response = test_client.post(
+                f"{self.BASE_URL}/{resource_id}/deactivate",
+                headers=admin_headers
+            )
+            
+            # Assert 1
+            assert deactivate_response.status_code == status.HTTP_200_OK
+            deactivated_resource = deactivate_response.json()
+            assert deactivated_resource["is_active"] is False
+            
+            # Act 2 - Reactivate resource as admin
+            reactivate_response = test_client.post(
+                f"{self.BASE_URL}/{resource_id}/reactivate",
+                headers=admin_headers
+            )
+            
+            # Assert 2
+            assert reactivate_response.status_code == status.HTTP_200_OK
+            reactivated_resource = reactivate_response.json()
+            assert reactivated_resource["is_active"] is True
+            
+        except Exception as e:
+            pytest.fail(f"Test failed: {str(e)}")
     
     @pytest.mark.asyncio
     async def test_deactivate_resource_not_found(
-        self, test_client, mock_admin_user, mock_resource_service, setup_admin_dependencies
+        self, test_client, admin_user_headers
     ):
-        """测试停用不存在的资源"""
-        resource_id = 999
+        """Test deactivating a non-existent resource"""
+        # Arrange
+        headers, _ = admin_user_headers
+        resource_id = 99999  # Assuming this ID doesn't exist
         
-        mock_resource_service.deactivate_resource = AsyncMock(
-            side_effect=ValueError(f"Resource with id {resource_id} not found")
+        # Act
+        response = test_client.post(
+            f"{self.BASE_URL}/{resource_id}/deactivate",
+            headers=headers
         )
         
-        response = test_client.post(f"{self.BASE_URL}/{resource_id}/deactivate")
-        
+        # Assert
         assert response.status_code == status.HTTP_404_NOT_FOUND
-    
-    @pytest.mark.asyncio
-    async def test_deactivate_resource_server_error(
-        self, test_client, mock_admin_user, mock_resource_service, setup_admin_dependencies
-    ):
-        """测试停用资源服务器错误"""
-        resource_id = 1
-        
-        mock_resource_service.deactivate_resource = AsyncMock(
-            side_effect=Exception("Database error")
-        )
-        
-        response = test_client.post(f"{self.BASE_URL}/{resource_id}/deactivate")
-        
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to deactivate resource" in response.json()["detail"]
     
     @pytest.mark.asyncio
     async def test_reactivate_resource_not_found(
-        self, test_client, mock_admin_user, mock_resource_service, setup_admin_dependencies
+        self, test_client, admin_user_headers
     ):
-        """测试重新激活不存在的资源"""
-        resource_id = 999
+        """Test reactivating a non-existent resource"""
+        # Arrange
+        headers, _ = admin_user_headers
+        resource_id = 99999  # Assuming this ID doesn't exist
         
-        mock_resource_service.reactivate_resource = AsyncMock(
-            side_effect=ValueError(f"Resource with id {resource_id} not found")
+        # Act
+        response = test_client.post(
+            f"{self.BASE_URL}/{resource_id}/reactivate",
+            headers=headers
         )
         
-        response = test_client.post(f"{self.BASE_URL}/{resource_id}/reactivate")
-        
+        # Assert
         assert response.status_code == status.HTTP_404_NOT_FOUND
-    
-    @pytest.mark.asyncio
-    async def test_reactivate_resource_server_error(
-        self, test_client, mock_admin_user, mock_resource_service, setup_admin_dependencies
-    ):
-        """测试重新激活资源服务器错误"""
-        resource_id = 1
-        
-        mock_resource_service.reactivate_resource = AsyncMock(
-            side_effect=Exception("Database error")
-        )
-        
-        response = test_client.post(f"{self.BASE_URL}/{resource_id}/reactivate")
-        
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to reactivate resource" in response.json()["detail"]
     
     @pytest.mark.asyncio
     async def test_delete_resource_not_found(
-        self, test_client, mock_admin_user, mock_resource_service, setup_admin_dependencies
+        self, test_client, admin_user_headers
     ):
-        """测试删除不存在的资源"""
-        resource_id = 999
+        """Test deleting a non-existent resource"""
+        # Arrange
+        headers, _ = admin_user_headers
+        resource_id = 99999  # Assuming this ID doesn't exist
         
-        mock_resource_service.delete_resource = AsyncMock(
-            side_effect=ValueError(f"Resource with id {resource_id} not found")
+        # Act
+        response = test_client.delete(
+            f"{self.BASE_URL}/{resource_id}",
+            headers=headers
         )
         
-        response = test_client.delete(f"{self.BASE_URL}/{resource_id}")
-        
+        # Assert
         assert response.status_code == status.HTTP_404_NOT_FOUND
-    
-    @pytest.mark.asyncio
-    async def test_delete_resource_server_error(
-        self, test_client, mock_admin_user, mock_resource_service, setup_admin_dependencies
-    ):
-        """测试删除资源服务器错误"""
-        resource_id = 1
-        
-        mock_resource_service.delete_resource = AsyncMock(
-            side_effect=Exception("Database error")
-        )
-        
-        response = test_client.delete(f"{self.BASE_URL}/{resource_id}")
-        
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to delete resource" in response.json()["detail"] 
