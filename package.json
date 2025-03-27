@@ -6,6 +6,8 @@
     "fastapi-dev": "pip3 install -r requirements.txt && python3 -m uvicorn api.index:app --reload || python -m uvicorn api.index:app --reload",
     "next-dev": "next dev",
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
+    "fastapi-prod": "python3 -m uvicorn api.index:app --host 0.0.0.0 --port 8000 --reload",
+    "prod": "concurrently \"npm run start\" \"npm run fastapi-prod\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
