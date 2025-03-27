@@ -188,7 +188,26 @@ npm run test:watch
 # run with coverage
 npm run test:coverage
 ```
+## Docker
 
+```bash
+# Remove the old container (if it exists)
+docker rm -f uwvault
+
+# Rebuild the image
+docker build -t uwvault .
+
+# Run the container
+docker run -d \
+  --name uwvault \
+  -p 3000:3000 \
+  -p 8000:8000 \
+  --env-file .env.dev \
+  uwvault
+
+# View logs immediately
+docker logs -f uwvault
+```
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
