@@ -31,7 +31,7 @@ jobs:
 
       # Install Node.js dependencies
       - name: Install Node.js dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       # Authenticate to Google Cloud
       - name: Authenticate to Google Cloud
