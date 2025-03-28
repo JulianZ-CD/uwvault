@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
+    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建并激活虚拟环境
@@ -31,9 +32,10 @@ COPY . .
 ENV NODE_ENV=development
 ENV PORT=3000
 ENV DOCKER_ENV=true
+ENV DEPLOYMENT_MODE=single
 
 # 暴露端口
 EXPOSE 3000 8000
 
 # 使用开发模式启动
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "prod"]
