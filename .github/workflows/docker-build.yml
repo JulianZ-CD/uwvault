@@ -1,0 +1,33 @@
+name: Docker Build and Push
+
+on:
+  workflow_dispatch:  # 手动触发
+  push:
+    branches: [ "main" ]  # 推送到main分支时触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # 需要这个权限来推送到 GHCR
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository_owner }}/uwvault:latest
+          ghcr.io/${{ github.repository_owner }}/uwvault:${{ github.sha }}
