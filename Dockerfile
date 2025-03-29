@@ -19,7 +19,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # 复制依赖文件
 COPY package*.json ./
 COPY requirements.txt ./
-COPY node_modules ./node_modules
+# COPY node_modules ./node_modules
 
 # 安装依赖
 RUN npm install --legacy-peer-deps
