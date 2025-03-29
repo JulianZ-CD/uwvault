@@ -18,35 +18,26 @@ import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
 
 const resources = [
   {
-    title: 'Course Materials',
-    href: '/resources/courses',
-    description: 'Access and share course-specific study materials and notes',
+    title: 'Resource Management',
+    href: '/resources',
+    description: 'Manage and browse all resources in one place',
   },
+];
+
+const adminResources = [
   {
-    title: 'Study Guides',
-    href: '/resources/guides',
-    description: 'Comprehensive study guides and exam preparation resources',
-  },
-  {
-    title: 'Practice Problems',
-    href: '/resources/practice',
-    description:
-      'Collection of practice problems and solutions across subjects',
-  },
-  {
-    title: 'Learning Tools',
-    href: '/resources/tools',
-    description:
-      'Useful tools and resources to enhance your learning experience',
+    title: 'Resource Management',
+    href: '/resources/admin',
+    description: 'Review and manage all resources',
   },
 ];
 
 export function MainNav() {
   const { user, logout, isLoading } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="container flex h-16 items-center">
-      {/* left side navigation */}
       <div className="flex-1">
         <NavigationMenu>
           <NavigationMenuList>
@@ -67,20 +58,19 @@ export function MainNav() {
             </NavigationMenuItem>
 
             <NavigationMenuItem>
-              <NavigationMenuTrigger>Resources</NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                  {resources.map((resource) => (
-                    <ListItem
-                      key={resource.title}
-                      title={resource.title}
-                      href={resource.href}
-                    >
-                      {resource.description}
-                    </ListItem>
-                  ))}
-                </ul>
-              </NavigationMenuContent>
+              {isAdmin ? (
+                <Link href="/resources/admin" legacyBehavior passHref>
+                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                    Resources
+                  </NavigationMenuLink>
+                </Link>
+              ) : (
+                <Link href="/resources" legacyBehavior passHref>
+                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                    Resources
+                  </NavigationMenuLink>
+                </Link>
+              )}
             </NavigationMenuItem>
 
             <NavigationMenuItem>
