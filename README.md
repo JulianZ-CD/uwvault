@@ -197,6 +197,9 @@ docker rm -f uwvault
 # Rebuild the image
 docker build -t uwvault .
 
+# Multi-platform build
+docker buildx build --platform linux/amd64,linux/arm64 -t uwvault --load .
+
 # Run the container
 docker run -d \
   --name uwvault \
