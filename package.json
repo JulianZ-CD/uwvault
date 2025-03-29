@@ -6,6 +6,8 @@
     "fastapi-dev": "pip3 install -r requirements.txt && python3 -m uvicorn api.index:app --reload || python -m uvicorn api.index:app --reload",
     "next-dev": "next dev",
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
+    "fastapi-prod": "python3 -m uvicorn api.index:app --host 0.0.0.0 --reload || python -m uvicorn api.index:app --host 0.0.0.0 --reload",
+    "prod": "concurrently \"npm run next-dev\" \"npm run fastapi-prod\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -42,7 +44,7 @@
     "next-themes": "^0.4.4",
     "postcss": "^8.4.47",
     "react": "^19.0.0",
-    "react-day-picker": "^9.5.0",
+    "react-day-picker": "^8.10.1",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
     "tailwind-merge": "^2.6.0",
@@ -52,6 +54,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^14.6.1",
