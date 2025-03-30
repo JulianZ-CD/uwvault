@@ -31,6 +31,7 @@ COPY . .
 # 设置环境变量
 ENV NODE_ENV=development
 ENV PORT=3000
+ENV HOST=0.0.0.0
 ENV DOCKER_ENV=true
 ENV DEPLOYMENT_MODE=single
 
