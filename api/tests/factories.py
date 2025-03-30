@@ -2,6 +2,8 @@ import factory
 from datetime import datetime
 from api.models.todo import Todo, TodoCreate, TodoUpdate
 from api.models.user import UserCreate, UserLogin, UserUpdate, PasswordUpdateRequest
+from api.models.course import  CourseSearch
+
 from factory import Factory, Faker, LazyAttribute, LazyFunction
 from api.models.resource import (
     ResourceBase, ResourceCreate, ResourceUpdate, ResourceInDB, ResourceType,
@@ -104,6 +106,14 @@ class PasswordUpdateRequestFactory(factory.Factory):
 class AdminUserCreateFactory(UserCreateFactory):
     email = factory.Sequence(lambda n: f'admin{n}@example.com')
 
+
+class CourseSearchFactory(factory.Factory):
+    class Meta:
+        model = CourseSearch
+    
+    Task=factory.Sequence(lambda n: f'Task{n}')
+    Term=factory.Sequence(lambda n: f'Term{n}')
+    Title=factory.Sequence(lambda n: f'Title{n}')
 # Resource factories
 class ResourceFactory(Factory):
     """Factory for ResourceInDB model"""

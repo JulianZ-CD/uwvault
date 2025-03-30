@@ -74,7 +74,7 @@ export default function ResourceEditPage() {
     
     setTimeout(() => {
       setShowSuccessAlert(false);
-    }, 2000);
+    }, 5000);
     
     setFormKey(prev => prev + 1);
   };

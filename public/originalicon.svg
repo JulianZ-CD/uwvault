@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景圆形 -->
+  <circle cx="16" cy="16" r="16" fill="#4B2E83"/>
+  
+  <!-- UW 文字 -->
+  <path d="M8 8h4v16h-4V8zm6 0h4v16h-4V8zm6 0h4v16h-4V8z" fill="#E8E3D3"/>
+  
+  <!-- 锁的图案 -->
+  <path d="M16 20c-2.2 0-4-1.8-4-4v-2c0-2.2 1.8-4 4-4s4 1.8 4 4v2c0 2.2-1.8 4-4 4zm-2-6v2c0 1.1.9 2 2 2s2-.9 2-2v-2c0-1.1-.9-2-2-2s-2 .9-2 2z" fill="#E8E3D3"/>
+</svg> 

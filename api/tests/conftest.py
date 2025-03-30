@@ -4,6 +4,17 @@ from api.index import app
 from api.core.config import get_settings, Settings
 from api.services.todo_service import TodoService
 from api.services.auth_service import AuthService
+from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT, ResourceType
+import os
+from dotenv import load_dotenv
+from supabase import create_client
+from fastapi import UploadFile
+from unittest.mock import Mock
+from io import BytesIO
+import uuid
+import json
+import jwt
+from datetime import datetime, timedelta
 import os
 from supabase import create_client
 from api.models.resource import ResourceType, ResourceStatus, StorageStatus

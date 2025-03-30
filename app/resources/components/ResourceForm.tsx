@@ -95,22 +95,18 @@ export function ResourceForm({
       
       setFile(selectedFile);
       setFileChanged(true);
-      console.log("[ResourceForm] File selected:", {
+
+      console.log("File selected:", {
         name: selectedFile.name,
         type: selectedFile.type,
-        size: selectedFile.size,
-        fileChanged: true
-      });
-    } else {
-      console.log("[ResourceForm] File selection canceled");
+        size: selectedFile.size
+      }); 
     }
   };
 
   const clearFile = () => {
     setFile(null);
     setFileChanged(true);
-    console.log("[ResourceForm] File cleared, fileChanged set to true");
-    
     const fileInput = document.getElementById("file") as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
@@ -120,25 +116,15 @@ export function ResourceForm({
   const handleSubmit = async (data: Omit<ResourceCreateData, "file">) => {
     try {
       if (isEditMode && resourceId) {
-        console.log("[ResourceForm] Updating resource:", {
-          resourceId,
-          fileChanged,
-          hasFile: !!file,
-          fileName: file?.name,
-          fileSize: file?.size,
-          formData: data
-        });
-        
+        // 更新模式
         const updateData: ResourceUpdateData = {
           ...data,
           updated_by: user?.id || ""
         };
         
+        // 只有当文件被更改时才添加文件
         if (fileChanged && file) {
-          console.log("[ResourceForm] Including file in update:", file.name);
           updateData.file = file;
-        } else {
-          console.log("[ResourceForm] No file included in update. fileChanged:", fileChanged);
         }
         
         const updatedResource = await updateResource(resourceId, updateData);
@@ -177,6 +163,10 @@ export function ResourceForm({
         };
         
         await createResource(createData);
+        toast({
+          title: "Success",
+          description: "Resource uploaded successfully",
+        });
         
         form.reset();
         clearFile();

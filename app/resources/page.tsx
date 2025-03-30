@@ -27,7 +27,7 @@ export default function ResourceListPage() {
   useEffect(() => {
     setActiveTab(tabParam === 'myUploads' ? 'myUploads' : 'all');
   }, [tabParam]);
-
+const courseId = searchParams.get('course_id');
   useEffect(() => {
     const init = async () => {
       if (authLoading) {
@@ -100,7 +100,7 @@ export default function ResourceListPage() {
           <ResourceTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
           {activeTab === 'all' ? (
-            <ResourceList />
+            <ResourceList courseId={courseId} />
           ) : (
             <MyUploadsList />
           )}
@@ -131,7 +131,7 @@ export default function ResourceListPage() {
         )}
 
         {activeTab === 'all' ? (
-          <ResourceList />
+          <ResourceList courseId={courseId} />
         ) : (
           <MyUploadsList />
         )}
