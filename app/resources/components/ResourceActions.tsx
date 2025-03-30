@@ -38,7 +38,7 @@ export function ResourceActions({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
 
-  // 判断是否为Word文档
+  // check if it is a Word document
   const isWordDocument = (fileType?: string): boolean => {
     const wordTypes = [
       'application/msword',                                                  // .doc
@@ -76,11 +76,9 @@ export function ResourceActions({
       const url = await getResourceUrl(resourceId);
       if (url) {
         if (isWordDocument(fileType)) {
-          // 使用Google Docs预览Word文档
           const previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
           window.open(previewUrl, '_blank');
         } else {
-          // PDF和其他文件类型直接打开
           window.open(url, '_blank');
         }
       }
@@ -96,7 +94,7 @@ export function ResourceActions({
     }
   };
 
-  // 管理员操作相关函数
+  // admin operation related functions
   const handleInfoView = () => {
     if (!resource) return;
     router.push(`/resources/${resource.id}`);
@@ -123,7 +121,7 @@ export function ResourceActions({
           description: `Resource "${resource.title}" has been deleted.`,
         });
         
-        // 调用父组件的更新函数
+        // call parent component's update function
         if (onUpdate) {
           onUpdate();
         }
@@ -150,13 +148,10 @@ export function ResourceActions({
     if (!resource) return;
     
     if (action === 'approve') {
-      // 直接处理 approve，不显示对话框
       handleDirectApprove();
     } else if (action === 'activate') {
-      // 直接处理 activate，不显示对话框
       handleDirectActivate();
     } else {
-      // 其他操作显示对话框
       setReviewAction(action);
       setIsReviewDialogOpen(true);
     }
@@ -175,7 +170,7 @@ export function ResourceActions({
     
     const updatedResource = await reviewResource(resource.id, reviewData);
     if (updatedResource) {
-      // 更新本地资源状态
+      // update local resource status
       if (resource) {
         resource.status = ResourceStatus.APPROVED;
       }
@@ -185,7 +180,6 @@ export function ResourceActions({
         description: `Resource "${resource.title}" has been approved.`,
       });
       
-      // 调用父组件的更新函数
       if (onUpdate) {
         onUpdate();
       }
@@ -202,7 +196,7 @@ export function ResourceActions({
     if (!resource) return;
     
     const reviewData: ResourceReviewData = {
-      status: ResourceStatus.APPROVED, // 激活时将状态设为已批准
+      status: ResourceStatus.APPROVED,
       review_comment: "",
       reviewed_by: user?.id || ""
     };
@@ -211,7 +205,6 @@ export function ResourceActions({
     
     const updatedResource = await reviewResource(resource.id, reviewData);
     if (updatedResource) {
-      // 更新本地资源状态
       if (resource) {
         resource.status = ResourceStatus.APPROVED;
       }
@@ -221,7 +214,6 @@ export function ResourceActions({
         description: `Resource "${resource.title}" has been activated.`,
       });
       
-      // 调用父组件的更新函数
       if (onUpdate) {
         onUpdate();
       }
@@ -237,7 +229,6 @@ export function ResourceActions({
   const handleReview = async (comment: string) => {
     if (!resource) return;
     
-    // 构建完整的 ResourceReviewData 对象
     const reviewData: ResourceReviewData = {
       status: reviewAction === 'approve' 
         ? ResourceStatus.APPROVED 
@@ -254,7 +245,6 @@ export function ResourceActions({
     
     const updatedResource = await reviewResource(resource.id, reviewData);
     if (updatedResource) {
-      // 更新本地资源状态
       if (resource) {
         resource.status = reviewData.status;
       }
@@ -269,7 +259,6 @@ export function ResourceActions({
         }.`,
       });
       
-      // 调用父组件的更新函数
       if (onUpdate) {
         onUpdate();
       }
@@ -284,7 +273,7 @@ export function ResourceActions({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 第一行：Preview、Download 和 审核按钮 */}
+      {/* first row: Preview, Download and review buttons */}
       <div className="flex items-center justify-end gap-2">
         {!hideViewDownload && (
           <>
@@ -321,7 +310,7 @@ export function ResourceActions({
           </>
         )}
         
-        {/* 审核按钮放在第一行最右侧 */}
+        {/* review button placed at the rightmost side of the first row */}
         {showAdminActions && resource && resource.status === ResourceStatus.PENDING && (
           <>
             <Button 
@@ -370,7 +359,7 @@ export function ResourceActions({
         )}
       </div>
       
-      {/* 第二行：Info、Edit 和 Delete 按钮 */}
+      {/* second row: Info, Edit and Delete buttons */}
       {showAdminActions && resource && (
         <div className="flex items-center justify-end gap-2">
           <Button 
@@ -402,7 +391,7 @@ export function ResourceActions({
         </div>
       )}
       
-      {/* 审核对话框 */}
+      {/* review dialog */}
       {showAdminActions && resource && (
         <ResourceReviewDialog
           isOpen={isReviewDialogOpen}
@@ -412,7 +401,7 @@ export function ResourceActions({
         />
       )}
       
-      {/* 删除确认对话框 */}
+      {/* delete confirmation dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

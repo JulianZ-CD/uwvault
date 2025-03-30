@@ -79,11 +79,9 @@ export default function ResourceDetailPage() {
       const url = await getResourceUrl(resource.id);
       if (url) {
         if (isWordDocument(resource.mime_type)) {
-          // 使用Google Docs预览Word文档
           const previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
           window.open(previewUrl, '_blank');
         } else {
-          // PDF和其他文件类型直接打开
           window.open(url, '_blank');
         }
       }
@@ -99,7 +97,6 @@ export default function ResourceDetailPage() {
     }
   };
   
-  // 判断是否为Word文档的辅助函数
   const isWordDocument = (fileType?: string): boolean => {
     const wordTypes = [
       'application/msword',                                                  // .doc
@@ -108,7 +105,7 @@ export default function ResourceDetailPage() {
     return fileType ? wordTypes.includes(fileType) : false;
   };
   
-  // 获取状态对应的样式
+  // get status badge style
   const getStatusBadgeStyle = (status: ResourceStatus) => {
     switch (status) {
       case ResourceStatus.APPROVED:
@@ -126,7 +123,7 @@ export default function ResourceDetailPage() {
     }
   };
   
-  // 获取存储状态对应的样式
+  // get storage status badge style
   const getStorageStatusBadgeStyle = (status: StorageStatus) => {
     switch (status) {
       case StorageStatus.SYNCED:
@@ -142,13 +139,13 @@ export default function ResourceDetailPage() {
     }
   };
   
-  // 格式化日期
+  // format date
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString();
   };
   
-  // 格式化文件大小
+  // format file size
   const formatFileSize = (bytes: number | undefined) => {
     if (bytes === undefined) return "N/A";
     if (bytes === 0) return "0 Bytes";
@@ -208,7 +205,7 @@ export default function ResourceDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {/* 基本信息 */}
+              {/* basic information */}
               <div className="space-y-4">
                 <div>
                   <h3 className="text-lg font-medium">Description</h3>
@@ -228,7 +225,7 @@ export default function ResourceDetailPage() {
                 </div>
               </div>
               
-              {/* 文件信息 */}
+              {/* file information */}
               <div>
                 <h3 className="text-lg font-medium mb-2">File Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -271,7 +268,7 @@ export default function ResourceDetailPage() {
                 </div>
               </div>
               
-              {/* 评分信息 */}
+              {/* rating information */}
               <div>
                 <h3 className="text-lg font-medium mb-2">Rating Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -287,7 +284,7 @@ export default function ResourceDetailPage() {
                 </div>
               </div>
               
-              {/* 审核信息 */}
+              {/* review information */}
               <div>
                 <h3 className="text-lg font-medium mb-2">Review Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -308,7 +305,7 @@ export default function ResourceDetailPage() {
                 </div>
               </div>
               
-              {/* 时间信息 */}
+              {/* time information */}
               <div>
                 <h3 className="text-lg font-medium mb-2">Timestamps</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -349,7 +346,7 @@ export default function ResourceDetailPage() {
                 </div>
               </div>
               
-              {/* 下载和预览按钮 */}
+              {/* download and preview buttons */}
               {actions?.can_download && (
                 <div className="pt-4 flex gap-2">
                   <Button 

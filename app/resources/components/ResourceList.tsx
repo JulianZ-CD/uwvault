@@ -35,18 +35,18 @@ export function ResourceList({ courseId }: ResourceListProps) {
     setPage(newPage);
   };
 
-  // 处理过滤 - 只接收课程ID
+  // handle filter - only receive course ID
   const handleFilter = (course_id?: string) => {
     console.log(`ResourceList - Filtering resources with course_id: ${course_id ? `"${course_id}"` : 'undefined (all courses)'}`);
     setCurrentCourseId(course_id); // 现在可以接受 undefined
     setPage(1); // 重置到第一页
     
-    // 重新获取资源
+    // re-fetch resources
     if (user) {
       fetchResources({ 
         limit: pageSize, 
         offset: 0,
-        course_id: course_id // 直接传递 course_id，可能是 undefined
+        course_id: course_id
       }).then(() => {
         console.log("Resources fetched successfully after filter");
       }).catch(error => {
@@ -64,14 +64,11 @@ export function ResourceList({ courseId }: ResourceListProps) {
     }
   }, [user, authLoading]);
 
-  // 分离资源获取逻辑
   useEffect(() => {
-    // 仅在认证完成且用户已登录的情况下获取资源
     if (authLoading || !user) {
       return;
     }
 
-    // 避免重复获取资源
     if (resourcesFetched) {
       return;
     }
@@ -92,7 +89,7 @@ export function ResourceList({ courseId }: ResourceListProps) {
       });
   }, [user, authLoading, fetchResources, pageSize, page, resourcesFetched, currentCourseId]);
 
-  // 当页码变化时获取新资源
+  // when page changes, get new resources
   useEffect(() => {
     if (!user || authLoading || !resourcesFetched) return;
 
@@ -107,9 +104,8 @@ export function ResourceList({ courseId }: ResourceListProps) {
       });
   }, [page, user, authLoading, resourcesFetched, fetchResources, pageSize, currentCourseId]);
 
-  // 处理评分更新
+  // handle rating update
   const handleRatingUpdate = (resourceId: number, averageRating: number, ratingCount: number) => {
-    // 更新资源列表中的评分信息
     const updatedResources = resources.map(resource => 
       resource.id === resourceId 
         ? { 
@@ -120,8 +116,6 @@ export function ResourceList({ courseId }: ResourceListProps) {
         : resource
     );
     
-    // 这里我们不直接更新resources状态，因为它由useResource管理
-    // 但在实际应用中，您可能需要更新本地状态或触发重新获取
     console.log(`Rating updated for resource ${resourceId}: ${averageRating} (${ratingCount} ratings)`);
   };
 
@@ -194,7 +188,6 @@ export function ResourceList({ courseId }: ResourceListProps) {
               {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
                 let pageNum = i + 1;
                 
-                // 调整页码显示逻辑，确保当前页在中间
                 if (totalPages > 5) {
                   if (page <= 3) {
                     pageNum = i + 1;

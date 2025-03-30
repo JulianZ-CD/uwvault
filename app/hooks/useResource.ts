@@ -63,7 +63,6 @@ export function useResource() {
   }, [user]);
 
   const fetchActions = useCallback(async () => {
-    // 如果actions已经加载过且用户存在，则直接返回
     if (actionsLoaded.current && user) {
       console.log("Using cached actions data");
       return actions;
@@ -71,7 +70,6 @@ export function useResource() {
 
     if (!user) {
       console.warn("User not authenticated, using default permissions");
-      // 设置默认权限
       const defaultActions = {
         can_upload: false,
         can_download: false,
@@ -93,7 +91,6 @@ export function useResource() {
       return actionsData;
     } catch (err) {
       console.error("Error fetching actions:", err);
-      // 根据用户角色提供默认权限
       const defaultActions = {
         can_upload: true,
         can_download: true,
@@ -119,7 +116,6 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
   setError(null);
   
   try {
-    // 添加更智能的重试逻辑
     let retries = 0;
     const maxRetries = 2;
     let lastError: any = null;
@@ -133,7 +129,6 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
       } catch (err: any) {
         lastError = err;
         
-        // 对401/403错误不重试，直接抛出
         if (err.status === 401 || err.status === 403) {
           console.error("Authentication error, not retrying:", err);
           break;
@@ -146,7 +141,6 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
           break;
         }
         
-        // 增加指数退避重试延迟
         const delay = Math.min(1000 * Math.pow(2, retries - 1), 5000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -162,7 +156,7 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
   }
 }, [user]);
 
-  // 初始化时获取权限
+  // get actions when initialized
   useEffect(() => {
     if (user && !authLoading && !actionsLoaded.current) {
       fetchActions();
@@ -311,10 +305,7 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
     }
     
     try {
-      // 直接使用 resourceService.downloadResource 进行下载
       const response = await resourceService.downloadResource(id);
-      
-      // 处理文件下载
       const contentDisposition = response.headers.get('content-disposition');
       let filename = `resource-${id}`;
       
@@ -351,7 +342,6 @@ const fetchResources = useCallback(async (params?: ResourceListParams): Promise<
       return false;
     }
     
-    // 确保 reviewed_by 字段存在且只使用用户 ID
     if (!data.reviewed_by && user) {
       data.reviewed_by = user.id || "";
     }

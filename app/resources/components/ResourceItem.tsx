@@ -20,24 +20,24 @@ export function ResourceItem({ resource, onRatingUpdate }: ResourceItemProps) {
   const [localAvgRating, setLocalAvgRating] = useState<number>(resource.average_rating);
   const [localRatingCount, setLocalRatingCount] = useState<number>(resource.rating_count);
 
-  // 处理评分
+  // handle rating
   const handleRate = async (rating: number) => {
     setRatingLoading(true);
     
     try {
       const result = await rateResource(resource.id, rating);
       if (result) {
-        // 设置用户评分
+        // set user rating
         setUserRating(rating);
         
-        // 更新本地评分数据
+        // update local rating data
         setLocalAvgRating(result.average_rating);
         setLocalRatingCount(result.rating_count);
         
-        // 通知父组件更新评分信息
+        // notify parent component to update rating information
         onRatingUpdate(resource.id, result.average_rating, result.rating_count);
         
-        // 隐藏评分弹出框
+        // hide rating popup
         setShowRatingPopup(false);
       }
     } catch (error) {

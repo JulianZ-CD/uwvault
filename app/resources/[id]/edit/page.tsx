@@ -19,7 +19,7 @@ export default function ResourceEditPage() {
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [formKey, setFormKey] = useState(0);
   
-  // 获取资源详情
+  // get resource details
   useEffect(() => {
     const fetchResource = async () => {
       try {
@@ -52,7 +52,7 @@ export default function ResourceEditPage() {
     fetchResource();
   }, [params.id, getResource, toast, router]);
   
-  // 准备表单初始数据
+  // prepare form initial data
   const getInitialData = (): ResourceUpdateData => {
     if (!resource) return {};
     
@@ -63,16 +63,19 @@ export default function ResourceEditPage() {
     };
   };
   
-  // 处理更新成功
-  const handleUpdateSuccess = () => {
+  // handle update success
+  const handleUpdateSuccess = (updatedResource?: Resource) => {
     setShowSuccessAlert(true);
     
-    // 5秒后隐藏成功提示
+    if (updatedResource) {
+      setResource(updatedResource);
+      console.log("[ResourceEditPage] Resource updated:", updatedResource);
+    }
+    
     setTimeout(() => {
       setShowSuccessAlert(false);
     }, 5000);
     
-    // 重置表单
     setFormKey(prev => prev + 1);
   };
   

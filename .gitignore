@@ -54,7 +54,7 @@ venv/
 .env.dev
 credentials/
 api/tests/**/*.txt
-# app/**/*.txt
+app/*.txt
 !requirements.txt
 sql/
 scripts/

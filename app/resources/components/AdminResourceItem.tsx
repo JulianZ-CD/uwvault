@@ -19,7 +19,7 @@ interface AdminResourceItemProps {
 export function AdminResourceItem({ resource, showRating = true, onUpdate }: AdminResourceItemProps) {
   const router = useRouter();
   
-  // 内部日期格式化函数
+  // internal date formatting function
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     
@@ -37,7 +37,7 @@ export function AdminResourceItem({ resource, showRating = true, onUpdate }: Adm
     }
   };
   
-  // 获取状态徽章
+  // get status badge
   const getStatusBadge = (status: ResourceStatus) => {
     switch (status) {
       case ResourceStatus.PENDING:
@@ -57,7 +57,7 @@ export function AdminResourceItem({ resource, showRating = true, onUpdate }: Adm
     <Card className="mb-4 hover:bg-accent/5 transition-colors">
       <CardContent className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* 左侧: 资源信息 */}
+          {/* left: resource information */}
           <div className="md:col-span-5">
             <div className="flex items-start space-x-3">
               <div className="bg-muted rounded-md p-2 flex-shrink-0">
@@ -80,7 +80,7 @@ export function AdminResourceItem({ resource, showRating = true, onUpdate }: Adm
                   {getStatusBadge(resource.status)}
                 </div>
                 
-                {/* 审核评论 (如果有) */}
+                {/* review comment (if exists) */}
                 {resource.review_comment && (
                   <div className="mt-2 p-2 bg-muted/50 rounded-md text-sm">
                     <span className="font-medium">Review comment:</span> {resource.review_comment}
@@ -90,7 +90,7 @@ export function AdminResourceItem({ resource, showRating = true, onUpdate }: Adm
             </div>
           </div>
           
-          {/* 中间: 评分星星 */}
+          {/* middle: rating stars */}
           <div className="md:col-span-2 flex items-center justify-center">
             {showRating && (
               <StarRating 
@@ -102,7 +102,7 @@ export function AdminResourceItem({ resource, showRating = true, onUpdate }: Adm
             )}
           </div>
           
-          {/* 右侧: 操作按钮 */}
+          {/* right: action buttons */}
           <div className="md:col-span-5">
             <ResourceActions 
               resourceId={resource.id}

@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { Label } from "@/app/components/ui/label";
 import { useAuth } from "@/app/hooks/useAuth";
 
-// 定义API错误类型
+// define API error type
 interface ApiError {
   status?: number;
   message?: string;
@@ -49,7 +49,7 @@ export function ResourceForm({
   const [authError, setAuthError] = useState(false);
   const [fileChanged, setFileChanged] = useState(false);
   
-  // 判断是否为编辑模式
+  // check if it is edit mode
   const isEditMode = !!initialData && !!resourceId;
   
   useEffect(() => {
@@ -69,7 +69,7 @@ export function ResourceForm({
     checkAuth();
   }, [user, authLoading]);
   
-  // 设置表单默认值
+  // set form default values
   const form = useForm<ResourceCreateData>({
     defaultValues: {
       title: initialData?.title || "",
@@ -127,13 +127,27 @@ export function ResourceForm({
           updateData.file = file;
         }
         
-        await updateResource(resourceId, updateData);
-        toast({
-          title: "Success",
-          description: "Resource updated successfully",
-        });
+        const updatedResource = await updateResource(resourceId, updateData);
+        console.log("[ResourceForm] Resource updated successfully:", updatedResource);
+        
+        if (updatedResource && fileChanged && file) {
+          console.log("[ResourceForm] File updated to:", updatedResource.original_filename);
+        }
+        
+        if (onSuccess) {
+          onSuccess();
+        }
+        
+        setTimeout(() => {
+          if (user?.role === 'admin') {
+            router.push("/resources/admin");
+          } else {
+            router.push("/resources?tab=myUploads");
+          }
+        }, 2000); 
+        
       } else {
-        // 创建模式
+        // create mode
         if (!file) {
           toast({
             variant: "destructive",
@@ -154,17 +168,15 @@ export function ResourceForm({
           description: "Resource uploaded successfully",
         });
         
-        // 重置表单
         form.reset();
         clearFile();
-      }
-      
-      if (onSuccess) {
-        onSuccess();
+        
+        if (onSuccess) {
+          onSuccess();
+        }
       }
     } catch (error) {
-      console.error(`Error ${isEditMode ? 'updating' : 'uploading'} resource:`, error);
-      // 使用类型断言
+      console.error("[ResourceForm] Error submitting form:", error);
       const apiError = error as ApiError;
       toast({
         variant: "destructive",
@@ -256,7 +268,7 @@ export function ResourceForm({
             <div className="space-y-2">
               <Label htmlFor="file">File</Label>
               
-              {/* 显示当前文件（编辑模式） */}
+              {/* show current file (edit mode and not changed) */}
               {isEditMode && currentFileName && !fileChanged && (
                 <div className="flex items-center justify-between p-2 border rounded-md mb-2">
                   <div className="flex items-center">
@@ -274,7 +286,25 @@ export function ResourceForm({
                 </div>
               )}
               
-              {/* 显示已选择的文件（上传模式） */}
+              {/* show new selected file (edit mode and changed) */}
+              {isEditMode && fileChanged && file && (
+                <div className="flex items-center justify-between p-2 border rounded-md mb-2">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span className="text-sm">{file.name} (New)</span>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={clearFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              
+              {/* show selected file (upload mode) */}
               {!isEditMode && file && (
                 <div className="flex items-center justify-between p-2 border rounded-md mb-2">
                   <div className="flex items-center">
@@ -292,7 +322,7 @@ export function ResourceForm({
                 </div>
               )}
               
-              {/* 文件选择器 */}
+              {/* file selector */}
               <div className="relative">
                 <Input
                   id="file"

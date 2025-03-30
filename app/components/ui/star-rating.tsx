@@ -20,7 +20,7 @@ interface StarRatingProps {
   showOnHover?: boolean;
 }
 
-// 自定义星级计算函数
+// define custom star rating calculation function
 const calculateStarFill = (rating: number, position: number): "full" | "half" | "empty" => {
   const difference = rating - position + 1;
   
@@ -48,7 +48,7 @@ export function StarRating({
   const [hoverRating, setHoverRating] = useState(0);
   const [showStars, setShowStars] = useState(!showOnHover);
 
-  // 渲染星星
+  // render stars
   const renderStars = () => (
     <div className="flex">
       {Array.from({ length: maxRating }).map((_, i) => {
@@ -110,7 +110,7 @@ export function StarRating({
     </div>
   );
 
-  // 按钮模式
+  // button mode
   if (buttonMode && !readOnly && !showStars) {
     return (
       <Button 
