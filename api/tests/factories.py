@@ -222,8 +222,6 @@ class FileFactory:
     def create(cls):
         """Create a test file (compatibility method for TestFileFactory)"""
         return cls.generate_test_file()
-<<<<<<< HEAD
-=======
 
 class ResourceRatingCreateFactory(Factory):
     """Factory for ResourceRatingCreate model"""
@@ -231,4 +229,3 @@ class ResourceRatingCreateFactory(Factory):
         model = ResourceRatingCreate
     
     rating = Faker('pyfloat', min_value=1.0, max_value=5.0)
->>>>>>> uwvault/main
