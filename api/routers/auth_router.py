@@ -31,8 +31,7 @@ async def register(
     """
     settings = get_settings()
     if not user_data.redirect_url:
-        origin = request.headers.get('origin', settings.DEFAULT_ORIGIN)
-        user_data.redirect_url = f"{origin}{settings.VERIFY_EMAIL_URL}"
+        user_data.redirect_url = f"{settings.DEFAULT_ORIGIN.rstrip('/')}/{settings.VERIFY_EMAIL_URL.lstrip('/')}"
 
     return await auth_service.sign_up(user_data)
 
@@ -73,8 +72,7 @@ async def reset_password(
     """
     settings = get_settings()
     if not redirect_url:
-        origin = request.headers.get('origin', settings.DEFAULT_ORIGIN)
-        redirect_url = f"{origin}{settings.RESET_PASSWORD_URL}"
+        redirect_url = f"{settings.DEFAULT_ORIGIN.rstrip('/')}/{settings.RESET_PASSWORD_URL.lstrip('/')}"
 
     return await auth_service.reset_password(email, redirect_url)
 
