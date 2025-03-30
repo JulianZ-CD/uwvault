@@ -48,21 +48,6 @@ def todo_service(mocker):
     mocker.patch.object(service, 'supabase')
     return service
 
-@pytest.fixture()
-def env_setup():
-    """自动设置环境变量"""
-    load_dotenv()
-    # 确保必要的环境变量存在
-    assert os.getenv("SUPABASE_URL")
-    assert os.getenv("SUPABASE_KEY")
-
-# 定义 MockUser 类
-class MockUser(BaseModel):
-    """Mock user model for testing"""
-    id: int
-    username: str
-    is_admin: bool = False
-
 @pytest.fixture
 async def admin_token(test_client):
     """obtain admin token for cleanup operations"""
@@ -202,95 +187,6 @@ def mock_gcp_storage(mocker):
     }
 
 @pytest.fixture
-def mock_normal_user():
-    """Mock normal user for testing"""
-    return MockUser(
-        id=1,
-        username="test_user",
-        is_admin=False
-    )
-
-@pytest.fixture
-def mock_admin_user():
-    """Mock admin user for testing"""
-    return MockUser(
-        id=999,
-        username="admin",
-        is_admin=True
-    )
-
-@pytest.fixture
-def get_current_user():
-    """Mock current user function for testing"""
-    async def _get_current_user():
-        return MockUser(
-            id=1,
-            username="test_user",
-            is_admin=False
-        )
-    return _get_current_user
-
-@pytest.fixture
-def require_admin():
-    """Mock require admin function for testing"""
-    async def _require_admin():
-        return MockUser(
-            id=999,
-            username="admin",
-            is_admin=True
-        )
-    return _require_admin
-
-@pytest.fixture
-async def admin_token(test_client):
-    """obtain admin token for cleanup operations"""
-    auth_service = AuthService()
-    admin_credentials = {
-        "email": os.getenv("ADMIN_EMAIL"),
-        "password": os.getenv("ADMIN_PASSWORD")
-    }
-    response = await auth_service.sign_in(admin_credentials)
-    return response["session"]["access_token"]
-
-@pytest.fixture(scope="function")
-async def cleanup_users(admin_token):
-    test_emails = []
-    test_emails.append(admin_token["email"])  # add admin user to cleanup list
-    yield test_emails
-
-    auth_service = AuthService()
-    # use admin token for cleanup
-    users = await auth_service.list_users()
-    for user in users:
-        if user["email"].endswith("@example.com"):
-            try:
-                await auth_service.delete_user(user["id"])
-                print(f"Successfully deleted user: {user['email']}")
-            except Exception as e:
-                print(f"Failed to delete test user {user['email']}: {e}")
-
-@pytest.fixture
-def mock_resource_rating_response():
-    """创建模拟的资源评分响应"""
-    return {
-        "resource_id": 1,
-        "user_id": "test-user",
-        "rating": 4.5,
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat()
-    }
-
-@pytest.fixture
-def mock_resource_with_ratings():
-    """创建带有评分的模拟资源"""
-    return {
-        "id": 1,
-        "title": "Test Resource",
-        "description": "Test Description",
-        "status": "approved",
-        "average_rating": 4.2,
-        "rating_count": 5
-    }
 def mock_resources():
     """create mock resource data list"""
     return [
