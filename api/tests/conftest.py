@@ -4,7 +4,6 @@ from api.index import app
 from api.core.config import get_settings, Settings
 from api.services.todo_service import TodoService
 from api.services.auth_service import AuthService
-<<<<<<< HEAD
 from api.services.resource_service import ResourceService, FILE_SIZE_LIMIT, ResourceType
 import os
 from dotenv import load_dotenv
@@ -16,7 +15,6 @@ import uuid
 import json
 import jwt
 from datetime import datetime, timedelta
-=======
 import os
 from supabase import create_client
 from api.models.resource import ResourceType, ResourceStatus, StorageStatus
@@ -27,7 +25,6 @@ from unittest.mock import Mock
 from io import BytesIO
 from api.services.auth_service import AuthService
 from datetime import datetime
->>>>>>> uwvault/main
 from fastapi import status
 
 @pytest.fixture
@@ -51,7 +48,6 @@ def todo_service(mocker):
     mocker.patch.object(service, 'supabase')
     return service
 
-<<<<<<< HEAD
 @pytest.fixture()
 def env_setup():
     """自动设置环境变量"""
@@ -67,8 +63,6 @@ class MockUser(BaseModel):
     username: str
     is_admin: bool = False
 
-=======
->>>>>>> uwvault/main
 @pytest.fixture
 async def admin_token(test_client):
     """obtain admin token for cleanup operations"""
@@ -208,7 +202,6 @@ def mock_gcp_storage(mocker):
     }
 
 @pytest.fixture
-<<<<<<< HEAD
 def mock_normal_user():
     """Mock normal user for testing"""
     return MockUser(
@@ -298,7 +291,6 @@ def mock_resource_with_ratings():
         "average_rating": 4.2,
         "rating_count": 5
     }
-=======
 def mock_resources():
     """create mock resource data list"""
     return [
@@ -333,4 +325,3 @@ def mock_resources():
             "updated_by": "user-id"
         }
     ]
->>>>>>> uwvault/main
