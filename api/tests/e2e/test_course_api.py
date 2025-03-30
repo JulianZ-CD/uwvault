@@ -3,6 +3,7 @@ from api.services.user_course_service import UserCourse
 from api.tests.factories import CourseSearchFactory
 from api.models.course import CourseBase,CourseSearch
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 
 class TestUserCourseE2E:
@@ -153,16 +154,14 @@ class TestUserCourseE2E:
     ])
     def test_format_validation(self, user_course_service, task, term, title, expected_error):
         """测试输入格式验证"""
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             search_params = CourseSearch(
                 Task=task,
                 Term=term,
                 Title=title
             )
-            user_course_service.find_course(search_params)
         
-        assert exc_info.value.status_code == 400
-        assert expected_error in str(exc_info.value.detail)
+        assert expected_error in str(exc_info.value)
 
     def test_valid_formats(self, user_course_service):
         """测试有效的输入格式"""

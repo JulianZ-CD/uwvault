@@ -65,11 +65,17 @@ class UserCourse:
 
             except Exception as db_error:
                 self.logger.error(f"Database error: {str(db_error)}")
-                return []  # 返回空列表而不是抛出错误
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Database error: {str(db_error)}"
+                )
 
         except Exception as e:
             self.logger.error(f"Error in find_course: {str(e)}")
-            return []  # 返回空列表而不是抛出错误
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error in find_course: {str(e)}"
+            )
         
     def all_tasks(self):
         try:

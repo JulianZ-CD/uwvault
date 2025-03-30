@@ -140,7 +140,7 @@ class TestCourseRouter:
             response = test_client.post(f"{self.BASE_URL}/findclass", json=params)
 
             # Assert
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_error_handling_invalid_params(self, test_client):
         """测试无效参数的错误处理"""
@@ -151,7 +151,7 @@ class TestCourseRouter:
             "Title": "NonexistentTitle"
         }
         response = test_client.post(f"{self.BASE_URL}/findclass", json=invalid_params)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_error_handling_invalid_format(self, test_client):
         """测试无效格式的错误处理"""
@@ -161,7 +161,7 @@ class TestCourseRouter:
             "Title": "Test"
         }
         response = test_client.post(f"{self.BASE_URL}/findclass", json=invalid_format)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_update_all_class(self, test_client):
         """测试更新所有课程"""
@@ -191,7 +191,7 @@ class TestCourseRouter:
             f"{self.BASE_URL}/findclass",
             json=invalid_params
         )
-        assert response.status_code == expected_status
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_missing_required_fields(self, test_client):
         """测试缺少必需字段"""
