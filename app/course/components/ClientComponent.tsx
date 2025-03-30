@@ -101,9 +101,9 @@ export default function ClientComponent({title,task,term,data:initialData}:Clien
     <div className="mt-10">
       <div className="container mx-auto max-w-screen-lg px-4">
         <div className="flex items-center gap-4 mb-6">
-          <Combobox frameworks={term} selectedValue={handleTermChange} placeholder="Term"/>
-          <Combobox frameworks={task} selectedValue={handleTaskChange} placeholder="Task"/>
-          <Combobox frameworks={title} selectedValue={handleTitleChange} placeholder="Title"/>
+          <Combobox frameworks={term} selectedValue={handleTermChange} placeholder="Term" value={selectedTerm}/>
+          <Combobox frameworks={task} selectedValue={handleTaskChange} placeholder="Task" value={selectedTask}/>
+          <Combobox frameworks={title} selectedValue={handleTitleChange} placeholder="Title" value={selectedTitle}/>
           <Button 
             variant="outline" 
             onClick={handleReset}

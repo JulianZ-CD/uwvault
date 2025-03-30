@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
 
@@ -27,15 +26,11 @@ interface ComboboxProps{
   frameworks:SelectIndex[];
   selectedValue:(value:string)=>void;
   placeholder:string;
+  value: string;
 }
 
-export default function ComboboxDemo({frameworks,selectedValue,placeholder}:ComboboxProps) {
-
-
+export default function ComboboxDemo({frameworks, selectedValue, placeholder, value: externalValue}: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [value, setValue] = React.useState("")
-
-
 
   return (
     <div>
@@ -47,8 +42,8 @@ export default function ComboboxDemo({frameworks,selectedValue,placeholder}:Comb
           aria-expanded={open}
           className="w-[200px] justify-between"
         >
-          {value
-            ? frameworks.find((framework) => framework.value === value)?.label
+          {externalValue
+            ? frameworks.find((framework) => framework.value === externalValue)?.label
             : `Select ${placeholder}`}
           <ChevronsUpDown className="opacity-50" />
         </Button>
@@ -64,8 +59,7 @@ export default function ComboboxDemo({frameworks,selectedValue,placeholder}:Comb
                   key={framework.value}
                   value={framework.value}
                   onSelect={(currentValue) => {
-                    setValue(currentValue === value ? "" : currentValue)
-                    selectedValue(currentValue===value?"":currentValue)
+                    selectedValue(currentValue === externalValue ? "" : currentValue)
                     setOpen(false)
                   }}
                 >
@@ -73,7 +67,7 @@ export default function ComboboxDemo({frameworks,selectedValue,placeholder}:Comb
                   <Check
                     className={cn(
                       "ml-auto",
-                      value === framework.value ? "opacity-100" : "opacity-0"
+                      externalValue === framework.value ? "opacity-100" : "opacity-0"
                     )}
                   />
                 </CommandItem>
@@ -83,6 +77,6 @@ export default function ComboboxDemo({frameworks,selectedValue,placeholder}:Comb
         </Command>
       </PopoverContent>
     </Popover>
-</div>
+    </div>
   )
 }

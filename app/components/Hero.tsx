@@ -1,8 +1,11 @@
+'use client'
 import { Button } from "@/app/components/ui/button"
 import { ArrowRight } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function Hero() {
+  const { user } = useAuth();
   return (
     <section className="container flex min-h-[calc(100vh-3.5rem)] max-w-screen-2xl flex-col items-center justify-center space-y-8 py-24 text-center md:py-32">
       <div className="space-y-4">
@@ -16,12 +19,21 @@ export default function Hero() {
         </p>
       </div>
       <div className="flex gap-4">
-        <Link href="/login" className="flex items-center">
-          <Button size="lg">
-            Sign In
-           <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </Link>
+        {user ? (
+          <Link href="/resources" className="flex items-center">
+            <Button size="lg">
+              Start Searching
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        ) : (
+          <Link href="/login" className="flex items-center">
+            <Button size="lg">
+              Sign In
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        )}
       </div>
     </section>
   )
