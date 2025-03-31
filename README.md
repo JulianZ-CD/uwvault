@@ -79,10 +79,10 @@ graph TD
 
 - Python: 3.11.11
 - Next.js: 15.1.6
-- React: 19.0.0
+- React: 19
 - FastAPI: 0.115.0
-- PostgreSQL:
-- ElasticSearch:
+- PostgreSQL
+- ElasticSearch
 - GCP Cloud Storage
 - Docker
 
@@ -107,25 +107,10 @@ To visit the auto-generated OpenAPI docs, go to `http://localhost:3000/api/py/do
 ## Environment Variables File
 
 1.  Create an `env.dev` file.
-2.  Configure the following content in `env.dev`:
-
-```
-GCP_PROJECT_ID="Your PROJECT ID"
-GCP_BUCKET_NAME="Your Bucket name"
-GCP_CREDENTIALS_PATH="Your GCP_CREDENTIALS_PATH"
-
-SUPABASE_URL="Your SUPABASE_URL"
-SUPABASE_KEY="Your SUPABASE_KEY"
-SUPABASE_SERVICE_KEY="Your SUPABASE_SERVICE_KEY"
-
-USER_EMAIL="Your USER_EMAIL"
-USER_PASSWORD="Your USER_PASSWORD"
-
-```
-
+2.  Configure the following content in `.env.dev` based on `.env.example`
 3. `GCP_PROJECT_ID`, `GCP_BUCKET_NAME`, and `GCP_CREDENTIALS_PATH` can be found in the GCP Console.
 `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard. 
-`USER_EMAIL`, and `USER_PASSWORD`can be found in the users table of Authentication on Supabase.
+`USER_EMAIL`, and `USER_PASSWORD` can be found in the users table of Authentication on Supabase.
 
 First, create and activate a virtual environment:
 
