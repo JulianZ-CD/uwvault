@@ -1,0 +1,74 @@
+name: Docker Build and Deploy to GCE
+
+on:
+  push:
+    branches: [ main ]  # 当代码推送到main分支时触发
+  workflow_dispatch:    # 允许手动触发
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCE_INSTANCE: ${{ secrets.GCE_INSTANCE_NAME }}
+  GCE_INSTANCE_ZONE: ${{ secrets.GCE_INSTANCE_ZONE }}
+  IMAGE_NAME: uwvault
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Login to Google Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: gcr.io
+        username: _json_key
+        password: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: |
+          gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest
+          gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        cache-from: type=registry,ref=gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:buildcache
+        cache-to: type=registry,ref=gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+    
+    - name: Setup Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+        
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker gcr.io --quiet
+      
+    - name: Deploy to GCE instance
+      run: |
+        # 使用SSH连接到GCE实例更新容器
+        gcloud compute ssh ${{ env.GCE_INSTANCE }} \
+          --zone=${{ env.GCE_INSTANCE_ZONE }} \
+          --command="docker pull gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} && \
+                    docker stop container_name || true && \
+                    docker rm container_name || true && \
+                    docker run -d --name container_name \
+                    -p 80:8080 \
+                    --restart unless-stopped \
+                    gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+        
+    - name: Verify Deployment
+      run: |
+        # 等待应用启动
+        sleep 20
+        # 获取实例外部IP
+        EXTERNAL_IP=$(gcloud compute instances describe ${{ env.GCE_INSTANCE }} \
+          --zone=${{ env.GCE_INSTANCE_ZONE }} \
+          --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+        # 检查应用是否成功响应
+        curl -s --retry 5 --retry-delay 10 http://$EXTERNAL_IP/ || echo "Deployment verification failed"

@@ -1,6 +1,8 @@
 ## Introduction
 
-Our objective is to develop a specialized platform that streamlines access to high-quality academic resources while building a collaborative student community. The solution will be implemented as a cloud-based web application that allows students to upload, categorize, and access course materials. The platform will feature a sophisticated rating system that, combined with user preferences and relevance metrics, will intelligently recommend the most suitable resources to students.
+UWvault is a specialized platform that streamlines access to high-quality academic resources while building a collaborative student community. 
+
+The solution will be implemented as a cloud-based web application that allows students to upload, categorize, and access course materials.
 
 ## Architecture
 
@@ -79,18 +81,18 @@ graph TD
 
 - Python: 3.11.11
 - Next.js: 15.1.6
-- React: 19.0.0
+- React: 19
 - FastAPI: 0.115.0
-- PostgreSQL:
-- ElasticSearch:
+- PostgreSQL
+- ElasticSearch
 - GCP Cloud Storage
 - Docker
 
-### File Structure
+<!-- ### File Structure
 
 ```
 
-```
+``` -->
 
 ## How It Works
 
@@ -104,28 +106,17 @@ On localhost, the rewrite will be made to the `127.0.0.1:8000` port, which is wh
 
 To visit the auto-generated OpenAPI docs, go to `http://localhost:3000/api/py/docs`
 
-## Environment Variables File
+## How to build
+
+### Configure env
 
 1.  Create an `env.dev` file.
-2.  Configure the following content in `env.dev`:
-
-```
-GCP_PROJECT_ID="Your PROJECT ID"
-GCP_BUCKET_NAME="Your Bucket name"
-GCP_CREDENTIALS_PATH="Your GCP_CREDENTIALS_PATH"
-
-SUPABASE_URL="Your SUPABASE_URL"
-SUPABASE_KEY="Your SUPABASE_KEY"
-SUPABASE_SERVICE_KEY="Your SUPABASE_SERVICE_KEY"
-
-USER_EMAIL="Your USER_EMAIL"
-USER_PASSWORD="Your USER_PASSWORD"
-
-```
-
+2.  Configure the following content in `.env.dev` based on `.env.example`
 3. `GCP_PROJECT_ID`, `GCP_BUCKET_NAME`, and `GCP_CREDENTIALS_PATH` can be found in the GCP Console.
 `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_KEY` can be found in the API section of the Project Settings on the Supabase dashboard. 
-`USER_EMAIL`, and `USER_PASSWORD`can be found in the users table of Authentication on Supabase.
+`USER_EMAIL`, and `USER_PASSWORD` can be found in the users table of Authentication on Supabase.
+
+### Run locally
 
 First, create and activate a virtual environment:
 
@@ -188,7 +179,29 @@ npm run test:watch
 # run with coverage
 npm run test:coverage
 ```
+## Docker
 
+```bash
+# Remove the old container (if it exists)
+docker rm -f uwvault
+
+# Rebuild the image
+docker build -t uwvault .
+
+# Multi-platform build
+docker buildx build --platform linux/amd64,linux/arm64 -t uwvault --load .
+
+# Run the container
+docker run -d \
+  --name uwvault \
+  -p 3000:3000 \
+  -p 8000:8000 \
+  --env-file .env.dev \
+  uwvault
+
+# View logs immediately
+docker logs -f uwvault
+```
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -1,0 +1,67 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Dependencies (will be installed in container)
+node_modules
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Build outputs
+.next
+build
+dist
+out
+
+# Development files
+.env*
+!.env.example
+.coverage
+coverage
+htmlcov
+pytest_cache
+.swc
+
+# IDE files
+.vscode
+.idea
+*.sublime-*
+.editorconfig
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Temp files
+.tmp
+.temp
+tmp/
+temp/
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+README.md
+CHANGELOG.md
+docs/
+*.md
+
+# Misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+credentials/
+sql/
+scripts/
+test_file/
