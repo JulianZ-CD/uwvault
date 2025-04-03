@@ -68,21 +68,15 @@ export default function ClientComponent({title,task,term,data:initialData}:Clien
     getAllCourse(jsonbody);
   }
 
-  async function getAllCourse(jsonbody:string){
+  async function getAllCourse(jsonbody: string) {
     setIsLoading(true);
-    try{
-      const response = await fetch("http://localhost:3000/api/py/course/findclass",{
-        method:'Post',
-        headers:{
-          'Content-Type':"application/json"
-        },
-        body:jsonbody
-      });
-      const newData=await response.json();
+    try {
+      const params = JSON.parse(jsonbody);
+      const newData = await courseService.findCourses(params);
       setData(newData);
-    }catch(error){
-      console.error("Error fetching data:",error);
-    }finally{
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
       setIsLoading(false);
     }
   }

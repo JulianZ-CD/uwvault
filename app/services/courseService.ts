@@ -25,4 +25,9 @@ export const courseService = {
     async deleteCourse(id: string): Promise<void> {
         await api.delete(`/course/${id}`);
     },
+
+    async findCourses(queryParams: object): Promise<Course[]> {
+        const response = await api.post("/py/course/findclass", queryParams);
+        return response.data;
+    },
 };
